@@ -1,0 +1,25 @@
+# Ignore compiled Python files
+*.pyc
+__pycache__/
+
+# Ignore the Django database file
+db.sqlite3
+
+# Ignore media and static files
+media/
+static/
+
+# Ignore the environment file that might contain sensitive information
+.env
+
+# Ignore any migrations (uncomment if needed)
+*/migrations/
+API/users/migrations/*
+
+# Ignore pytest cache
+.pytest_cache/
+
+# Ignore generated HTML documentation
+docs/_build/
+
+
