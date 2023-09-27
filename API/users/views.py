@@ -1,5 +1,4 @@
 import json
-from users import models
 from django.http import HttpRequest, HttpResponse
 from rest_framework import generics
 from .models import User

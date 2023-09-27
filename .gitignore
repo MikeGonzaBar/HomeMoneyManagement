@@ -15,6 +15,7 @@ static/
 # Ignore any migrations (uncomment if needed)
 */migrations/
 API/users/migrations/*
+API/account/migrations/*
 
 # Ignore pytest cache
 .pytest_cache/
