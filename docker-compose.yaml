@@ -1,0 +1,13 @@
+services:
+  money-management-api:
+    hostname: money-management-api
+    container_name: money-management-api
+    build: ./API
+
+    command: bash -c "python /HomeMoneyManagement/manage.py makemigrations && python /HomeMoneyManagement/manage.py migrate && python /HomeMoneyManagement/manage.py runserver 0.0.0.0:8000"
+
+    ports:
+      - 8000:8000
+        # python /HomeMoneyManagement/manage.py collectstatic --noinput &&
+        # cd HomeMoneyManagement/ &&
+        # gunicorn --bind 0.0.0.0:8000 --workers=4 --log-level "debug" HomeMoneyManagement.wsgi"
