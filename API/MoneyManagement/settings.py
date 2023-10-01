@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     # endpoints
     "users",
     "account",
+    "transaction",
 ]
 
 MIDDLEWARE = [

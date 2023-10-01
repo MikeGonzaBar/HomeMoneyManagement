@@ -61,7 +61,7 @@ class User(models.Model):
         array_users = User.queryset_to_array_of_dicts(query)
         user = array_users[0]
         logged = user["password"] == data["password"]
-        return {"valid": logged}
+        return {"valid": logged, "id": user["id"]}
 
     @staticmethod
     def delete_user(user, data):

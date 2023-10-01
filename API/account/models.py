@@ -78,7 +78,7 @@ class Account(models.Model):
                 bank=bank,
                 account_type=account_type,
             )
-        except ObjectDoesNotExist:
+        except Account.DoesNotExist:
             return {"error": "Account not found"}
 
         account.total = new_total

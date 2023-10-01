@@ -38,6 +38,7 @@ class UserDetail(generics.GenericAPIView):
         return HttpResponse(
             response,
             status=new_status,
+            content_type="application/json",
         )
 
     def delete(self, request: HttpRequest, user: str) -> HttpResponse:
