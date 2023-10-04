@@ -1,13 +1,21 @@
 <template>
-  <v-app-bar flat>
+  <v-app-bar flat class="appbar">
+    <v-icon icon="mdi-account-credit-card" />
     <v-app-bar-title>
-      <v-icon icon="mdi-circle-slice-4" />
-
-      Base Preset
+      Home Money Management
     </v-app-bar-title>
   </v-app-bar>
 </template>
 
 <script lang="ts" setup>
-  //
+//
 </script>
+
+<style scoped>
+.appbar {
+  padding-left: 50px;
+  background-color: #36457e !important;
+  color: #ffffff !important;
+
+}
+</style>

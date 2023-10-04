@@ -160,8 +160,15 @@ class User(models.Model):
             ```
         """
         user = User.objects.get(username=user)
+        user_info = {
+            'password': user.password,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'id': user.id,
+            'username': user.username
+        }
         logged = user.password == data.get("password")
-        return {"valid": logged, "id": user["id"]}
+        return {"valid": logged, "user": user_info}
 
     @staticmethod
     def delete_user(user: str, data: dict) -> dict:
