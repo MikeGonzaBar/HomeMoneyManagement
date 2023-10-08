@@ -27,11 +27,11 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
-CORS_ORIGIN_ALLOW_ALL = False
+CORS_ORIGIN_ALLOW_ALL = True
 
 CORS_ORIGIN_WHITELIST = [
-    "http://127.0.0.1:3000",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
 # Application definition
 
@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     "users",
     "account",
     "transaction",
+    # requirements
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
@@ -57,6 +59,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # requirements
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
 ]
 
 ROOT_URLCONF = "MoneyManagement.urls"
