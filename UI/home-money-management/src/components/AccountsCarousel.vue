@@ -99,9 +99,33 @@
 
 <script lang="ts">
 import axios from 'axios';
+import { defineComponent } from 'vue';
+interface Account {
+    id: number;
+    account_type: string;
+    bank: string;
+    total: number;
+    account_name: string;
+}
 
+interface Data {
+    model: number;
+    accounts: Account[];
+    newAccountModalVisible: boolean;
+    editAccountModalVisible: boolean;
+    editAccountId: number;
+    editAccountIndex: number;
+    editAccountType: string;
+    editBankName: string;
+    editTotal: number;
+    editNickname: string;
+    newAccountType: string;
+    newBankName: string;
+    newTotal: number;
+    newNickname: string;
+}
 
-export default {
+export default defineComponent({
     name: 'AccountsCarousel',
     props: {
         userData: {
@@ -110,21 +134,21 @@ export default {
         }
 
     },
-    data: () => ({
-        model: 0 as number,
-        accounts: [] as any[],
+    data: (): Data => ({
+        model: 0,
+        accounts: [],
         newAccountModalVisible: false,
         editAccountModalVisible: false,
-        editAccountId: 0 as number,
-        editAccountIndex: 0 as number,
-        editAccountType: '' as string,
-        editBankName: '' as string,
-        editTotal: 0.0 as number,
-        editNickname: '' as string,
-        newAccountType: '' as string,
-        newBankName: '' as string,
-        newTotal: 0.0 as number,
-        newNickname: '' as string
+        editAccountId: 0,
+        editAccountIndex: 0,
+        editAccountType: '',
+        editBankName: '',
+        editTotal: 0.0,
+        editNickname: '',
+        newAccountType: '',
+        newBankName: '',
+        newTotal: 0.0,
+        newNickname: ''
 
     }),
     mounted() {
@@ -146,6 +170,7 @@ export default {
         sendUpdateAccount() {
             console.log("SENDING UPDATE ACCOUNT");
             const editedAccount = {
+                id: this.editAccountId,
                 account_type: this.editAccountType,
                 bank: this.editBankName,
                 total: this.editTotal,
@@ -207,26 +232,22 @@ export default {
             return this.accounts.reduce((acc, item) => acc + item.total, 0);
         }
     },
+    emits: ['accountSelected', 'allAccountSelected'],
     watch: {
         model: {
             handler(val) {
-                console.log(val);
-
                 if (val === 0) {
-                    console.log("Todas tus cuentas");
+                    this.$emit('allAccountSelected')
                 }
                 else if (val === this.accounts.length + 1) {
-                    console.log("NEW ACCOUNT +");
                     this.newAccountModalVisible = !this.newAccountModalVisible;
                 }
                 else {
-                    console.log('Account selected', this.accounts[val - 1]);
                     this.$emit('accountSelected', this.accounts[val - 1])
                 }
             },
             deep: true
         }
     },
-
-}
+});
 </script>
