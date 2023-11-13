@@ -6,7 +6,7 @@
         <div class="account-carousel">
             <p>
                 <AccountsCarousel :userData="userData" @accountSelected="handleAccountSelected"
-                    @allAccountSelected="handleAllAccountSelected" />
+                    @allAccountSelected="handleAllAccountSelected" @accountsModified="handleAccountsModified" />
             </p>
         </div>
         <v-row class="month-income-expense">
@@ -24,7 +24,7 @@
         <v-row class="data-pie-chart">
             <v-col cols="6" md="6">
                 <div class="data-table">
-                    <TableData :transactions="transactions" />
+                    <TableData :transactions="transactions" :userData="userData" :accounts="accounts" />
                 </div>
             </v-col>
             <v-col cols="12" md="6">
@@ -71,6 +71,7 @@ interface Data {
     month: number;
     year: number;
     transactions: Transaction[];
+    accounts: Account[];
 }
 export default defineComponent({
     name: 'MainPage',
@@ -84,40 +85,51 @@ export default defineComponent({
         accountSelected: null,
         month: 0,
         year: 0,
-        transactions: []
+        transactions: [],
+        accounts: []
 
     }),
     mounted() {
         const currentDate = new Date();
         this.month = currentDate.getMonth();
         this.year = currentDate.getFullYear();
-        console.log('ON MAIN PAGE MOUNTED');
         this.getTransactions();
     },
     components: { AccountsCarousel, DatePicker, IncomeExpense, TableData, PieChart },
     methods: {
         handleDatePicked(date: DateObject) {
-            console.log('Recieved date from date picker');
             this.month = date.month;
             this.year = date.year;
             this.getTransactions();
         },
         handleAllAccountSelected(acc: Object) {
-            console.log('RECIEVED ACCOUNT SELECTED: ALL');
+            this.accountSelected = null;
         },
         handleAccountSelected(acc: Account) {
-            console.log('RECIEVED ACCOUNT SELECTED');
             this.accountSelected = acc;
+            this.getTransactions();
+        },
+        handleAccountsModified(accs: Array<Account>) {
+            this.accounts = accs;
         },
         getTransactions() {
-            console.log("GETTING TRANSACTIONS");
-            console.log('MONTH', this.month);
-            console.log('YEAR', this.year);
+            console.log('GET TRANSACTIONS');
+            console.log(this.userData.user.id);
+            console.log(this.accountSelected?.id);
+            console.log(this.month + 1);
+            console.log(this.year);
             if (this.accountSelected === null) {
-                console.log('NO ACCOUNT SELECTED');
                 axios.get(`http://localhost:8000/transactions/retrieve/${this.userData.user.id}/0/${this.month + 1}/${this.year}`)
                     .then((response) => {
-                        console.log('RESPONSE', response.data);
+                        this.transactions = response.data;
+                    })
+                    .catch((error) => {
+                        console.log('ERROR', error);
+                    })
+            }
+            else {
+                axios.get(`http://localhost:8000/transactions/retrieve/${this.userData.user.id}/${this.accountSelected.id}/${this.month + 1}/${this.year}`)
+                    .then((response) => {
                         this.transactions = response.data;
                     })
                     .catch((error) => {

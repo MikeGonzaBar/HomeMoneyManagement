@@ -159,16 +159,13 @@ export default defineComponent({
     },
     methods: {
         deleteAccount() {
-            console.log("DELETING ACCOUNT");
             axios.delete(`http://localhost:8000/accounts/delete/${this.userData.user.username}/${this.editAccountId}/`).then(response => {
-                console.log("DELETE ACCOUNT RESPONSE", response.data);
                 this.editAccountModalVisible = false;
                 this.accounts.splice(this.editAccountIndex, 1);
             });
         },
 
         sendUpdateAccount() {
-            console.log("SENDING UPDATE ACCOUNT");
             const editedAccount = {
                 id: this.editAccountId,
                 account_type: this.editAccountType,
@@ -178,13 +175,11 @@ export default defineComponent({
                 owner: this.userData.user.username
             }
             axios.patch(`http://localhost:8000/accounts/details/${this.userData.user.username}/${this.editAccountId}/`, editedAccount).then(response => {
-                console.log("EDIT ACCOUNT RESPONSE", response.data);
                 this.editAccountModalVisible = false;
                 this.accounts[this.editAccountIndex] = editedAccount;
             });
         },
         editAccount(acc: any, index: number) {
-            console.log("EDIT ACCOUNT", acc, index);
             this.editAccountModalVisible = true;
             this.editAccountType = acc.account_type;
             this.editBankName = acc.bank;
@@ -208,7 +203,6 @@ export default defineComponent({
             if (this.newAccountType === 'Crédito') {
                 this.newTotal = 0.0;
             }
-            console.log(this.newAccountType, this.newBankName, this.newTotal, this.newNickname);
             axios.post(`http://localhost:8000/accounts/`, {
                 account_type: this.newAccountType,
                 bank: this.newBankName,
@@ -216,7 +210,6 @@ export default defineComponent({
                 account_name: this.newNickname,
                 owner: this.userData.user.username
             }).then(response => {
-                console.log("NEW ACCOUNT RESPONSE", response.data);
                 this.accounts.push(response.data);
                 this.newAccountModalVisible = false;
                 this.model = 0;
@@ -232,8 +225,14 @@ export default defineComponent({
             return this.accounts.reduce((acc, item) => acc + item.total, 0);
         }
     },
-    emits: ['accountSelected', 'allAccountSelected'],
+    emits: ['accountSelected', 'allAccountSelected', 'accountsModified'],
     watch: {
+        accounts: {
+            handler() {
+                this.$emit('accountsModified', this.accounts);
+            },
+            deep: true
+        },
         model: {
             handler(val) {
                 if (val === 0) {
