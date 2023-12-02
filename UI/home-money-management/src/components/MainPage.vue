@@ -5,7 +5,7 @@
         </div>
         <div class="account-carousel">
             <p>
-                <AccountsCarousel :userData="userData" @accountSelected="handleAccountSelected"
+                <AccountsCarousel ref="accountsCarousel" :userData="userData" @accountSelected="handleAccountSelected"
                     @allAccountSelected="handleAllAccountSelected" @accountsModified="handleAccountsModified" />
             </p>
         </div>
@@ -24,7 +24,8 @@
         <v-row class="data-pie-chart">
             <v-col cols="6" md="6">
                 <div class="data-table">
-                    <TableData :transactions="transactions" :userData="userData" :accounts="accounts" />
+                    <TableData :transactions="transactions" :userData="userData" :accounts="accounts"
+                        @updateAccounts="handleUpdateAccountsMethod" @updateIncomeExpense="handleUpdateIncomeExpense" />
                 </div>
             </v-col>
             <v-col cols="12" md="6">
@@ -45,6 +46,9 @@ import TableData from '@/components/TableData.vue';
 import PieChart from '@/components/PieChart.vue';
 import axios from 'axios';
 import { defineComponent } from 'vue';
+interface AccountsCarousel {
+    accountTotalUpdated: () => void;
+}
 interface DateObject {
     month: number;
     year: number;
@@ -97,6 +101,12 @@ export default defineComponent({
     },
     components: { AccountsCarousel, DatePicker, IncomeExpense, TableData, PieChart },
     methods: {
+        handleUpdateIncomeExpense() {
+            this.getTransactions();
+        },
+        handleUpdateAccountsMethod() {
+            (this.$refs.accountsCarousel as AccountsCarousel).accountTotalUpdated();
+        },
         handleDatePicked(date: DateObject) {
             this.month = date.month;
             this.year = date.year;

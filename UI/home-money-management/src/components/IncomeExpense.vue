@@ -81,6 +81,7 @@ export default defineComponent({
         calculateIncomeAndExpense() {
             this.income = this.transactions.filter((transaction) => transaction.transaction_type === 'Income').reduce((acc, transaction) => acc + transaction.total, 0);
             this.expense = this.transactions.filter((transaction) => transaction.transaction_type === 'Expense').reduce((acc, transaction) => acc + transaction.total, 0);
+            console.log('INPUT TRANSACTIONS', this.transactions);
         },
     },
 

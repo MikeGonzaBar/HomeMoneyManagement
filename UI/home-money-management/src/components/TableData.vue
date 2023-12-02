@@ -87,11 +87,7 @@
                 mdi-delete
             </v-icon>
         </template>
-        <template v-slot:no-data>
-            <v-btn color="primary">
-                Reset
-            </v-btn>
-        </template>
+
     </v-data-table>
 </template>
 
@@ -240,10 +236,14 @@ export default defineComponent({
     mounted() {
         this.categories.sort()
     },
+    emits: ['updateAccounts', 'updateIncomeExpense'],
     methods: {
         editItem(item: Transaction) {
             this.editedIndex = this.internalTransactions.indexOf(item)
             this.editedItem = Object.assign({}, item)
+            if (this.editedItem.total < 0) {
+                this.editedItem.total *= -1;
+            }
             this.dialog = true
         },
         deleteItem(item: Transaction) {
@@ -253,8 +253,29 @@ export default defineComponent({
         },
 
         deleteItemConfirm() {
-            this.internalTransactions.splice(this.editedIndex, 1)
-            this.closeDelete()
+            let idToDelete = this.editedItem.id;
+            let account_id = this.editedItem.account_id;
+            let account = this.accounts.find(account => account.id === Number(account_id));
+            let new_total = account!.total + (-1 * (this.editedItem.total));
+            axios.delete(`http://localhost:8000/transactions/delete/${idToDelete}/`)
+                .then(response => {
+                    this.internalTransactions.splice(this.editedIndex, 1);
+                    axios.patch(`http://localhost:8000/accounts/details/${this.userData.user.username}/${account_id}/`, {
+                        "total": new_total,
+                    })
+                        .then(patchResponse => {
+                            this.$emit('updateAccounts');
+                            this.$emit('updateIncomeExpense');
+
+                            this.closeDelete();
+                        })
+                        .catch(patchError => {
+                            console.log(patchError);
+                        });
+                })
+                .catch(error => {
+                    console.log(error);
+                });
         },
         close() {
             this.dialog = false
@@ -270,9 +291,56 @@ export default defineComponent({
                 this.editedIndex = -1
             })
         },
+
+        getDiff(oldTransaction: Transaction) {
+            let diff = 0;
+            if (oldTransaction.transaction_type === 'Expense' && this.editedItem.transaction_type === 'Expense') {
+                diff = Math.abs(oldTransaction.total) - this.editedItem.total;
+            }
+            else if (oldTransaction.transaction_type === 'Income' && this.editedItem.transaction_type === 'Income') {
+                diff = -(oldTransaction.total) + Number(this.editedItem.total);
+            }
+            else {
+                diff = Math.abs(oldTransaction.total) + Number(this.editedItem.total);
+                if (oldTransaction.transaction_type === 'Income' && this.editedItem.transaction_type === 'Expense') {
+                    diff *= -1;
+                }
+            }
+            return diff;
+
+        },
         saveTransaction() {
             if (this.editedIndex > -1) {
+                let oldTransaction = this.internalTransactions[this.editedIndex];
+                if (this.editedItem === oldTransaction) {
+                    this.close();
+                    return;
+                }
+                let diff = this.getDiff(oldTransaction);
+
+                let account_id = this.editedItem.account_id;
+                let account = this.accounts.find(account => account.id === Number(account_id));
+                let new_total = account!.total + diff;
+
                 Object.assign(this.internalTransactions[this.editedIndex], this.editedItem)
+                axios.patch(`http://localhost:8000/transactions/update/${this.editedItem.id}/`, this.editedItem)
+                    .then(response => {
+                        console.log(response);
+                        axios.patch(`http://localhost:8000/accounts/details/${this.userData.user.username}/${account_id}/`, {
+                            "total": new_total,
+                        })
+                            .then(patchResponse => {
+                                console.log(patchResponse);
+                                this.$emit('updateAccounts');
+                                this.$emit('updateIncomeExpense');
+                            })
+                            .catch(patchError => {
+                                console.log(patchError);
+                            });
+                    })
+                    .catch(error => {
+                        console.log(error);
+                    });
             } else {
                 // this.internalTransactions.push(this.editedItem)
                 this.editedItem.owner_id = this.userData.user.id
@@ -280,15 +348,12 @@ export default defineComponent({
                 let account = this.accounts.find(account => account.account_name === account_name);
                 let account_id = account ? account.id : null;
                 this.editedItem.account_id = String(account_id)
-                let new_total = account?.total
-                console.log(new_total);
-                console.log(Number(this.editedItem.total));
+                let new_total = account!.total
                 if (this.editedItem.transaction_type === 'Expense') {
                     new_total -= Number(this.editedItem.total)
                 } else {
                     new_total += Number(this.editedItem.total)
                 }
-                console.log(new_total);
 
                 axios.post('http://localhost:8000/transactions/create/', this.editedItem)
                     .then(response => {
@@ -300,6 +365,8 @@ export default defineComponent({
                         })
                             .then(patchResponse => {
                                 console.log(patchResponse);
+                                this.$emit('updateAccounts');
+                                this.$emit('updateIncomeExpense');
                             })
                             .catch(patchError => {
                                 console.log(patchError);
@@ -309,7 +376,7 @@ export default defineComponent({
                         console.log(error)
                     })
             }
-            // this.close()
+            this.close()
         },
     },
 });

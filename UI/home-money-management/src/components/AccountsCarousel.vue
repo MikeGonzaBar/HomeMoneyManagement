@@ -165,6 +165,12 @@ export default defineComponent({
             });
         },
 
+        accountTotalUpdated() {
+            axios.get(`http://localhost:8000/accounts/details/${this.userData.user.username}/0`).then(response => {
+                this.accounts = response.data;
+            });
+        },
+
         sendUpdateAccount() {
             const editedAccount = {
                 id: this.editAccountId,
