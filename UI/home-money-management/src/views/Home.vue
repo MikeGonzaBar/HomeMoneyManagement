@@ -42,9 +42,6 @@ export default {
     // Get the value of the money_management_user key from localStorage
     const userDataString = localStorage.getItem('money_management_user');
     if (userDataString !== null) {
-      console.log('THIS IS MY USER DATA');
-      console.log(userDataString);
-      console.log(JSON.parse(userDataString));
       this.userData.user = JSON.parse(userDataString);
     } else {
       console.log("money_management_user key not found in local storage");

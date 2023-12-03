@@ -98,9 +98,6 @@ export default defineComponent({
 
     }),
     mounted() {
-        console.log('this is my user data from main page');
-        console.log(this.userData);
-        console.log(this.userData.user.first_name);
         const currentDate = new Date();
         this.month = currentDate.getMonth();
         this.year = currentDate.getFullYear();

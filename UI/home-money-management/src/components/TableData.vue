@@ -194,7 +194,6 @@ export default defineComponent({
         },
         isFormValid(): boolean {
             let isValid = true;
-            console.log(this.editedItem);
             this.editedItem.owner_id = this.userData.user.id
             Object.values(this.editedItem).forEach((value) => {
                 if (value === '') {
