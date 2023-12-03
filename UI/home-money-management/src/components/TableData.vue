@@ -142,6 +142,7 @@ export default defineComponent({
                 sortable: false,
                 key: 'title',
             },
+            { title: 'Type', key: 'transaction_type' },
             { title: 'Category', key: 'category' },
             { title: 'Date', key: 'date' },
             { title: 'Total', key: 'total' },

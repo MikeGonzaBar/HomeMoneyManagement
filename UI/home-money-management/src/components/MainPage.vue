@@ -161,35 +161,38 @@ export default defineComponent({
 
 .user-info {
     flex: 0 0 auto;
-    background-color: #F44336;
+    color: lightgray;
+    background-color: #1d1d2893;
+    /* light gray */
+    box-shadow: 0px 4px 8px 0px rgba(0, 0, 0, 0.0);
+
+    /* shadow effect */
 }
 
 .account-carousel {
     flex: 0 0 auto;
-    background-color: #E91E63;
+    background-color: #363542ac;
+    /* almost white gray */
+    box-shadow: 0px 4px 8px 0px rgba(0, 0, 0, 0.0);
+    /* shadow effect */
 }
 
 .month-income-expense {
     flex: 1 0 auto;
+
 }
 
-.month-year {
-    background-color: #9C27B0;
-}
 
-.income-expense {
-    background-color: #673AB7;
-}
 
 .data-pie-chart {
     flex: 1 0 auto;
+
 }
 
-.data-table {
-    background-color: #2196F3;
-}
 
 .pie-chart {
-    background-color: #009688;
+    background-color: #3635420e;
+    border-radius: 4px;
+    padding: 10px;
 }
 </style>

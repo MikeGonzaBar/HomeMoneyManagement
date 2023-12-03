@@ -1,9 +1,10 @@
 <template>
-    <div>
+    <div style="display: flex;  justify-content: space-around;">
         <div class="income-square">
             <p class="square-text">Income</p>
             <p class="square-value">{{ income }}</p>
         </div>
+
         <div class="expense-square">
             <p class="square-text">Expense</p>
             <p class="square-value">{{ expense }}</p>
@@ -16,7 +17,6 @@
     background-color: green;
     border-radius: 10px;
     padding: 10px;
-    display: inline-block;
     margin-right: 10px;
 }
 
@@ -24,7 +24,7 @@
     background-color: red;
     border-radius: 10px;
     padding: 10px;
-    display: inline-block;
+
 }
 
 .square-text {
