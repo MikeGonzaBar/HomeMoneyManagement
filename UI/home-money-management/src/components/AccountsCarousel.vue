@@ -162,7 +162,9 @@ export default defineComponent({
             axios.delete(`http://localhost:8000/accounts/delete/${this.userData.user.username}/${this.editAccountId}/`).then(response => {
                 this.editAccountModalVisible = false;
                 this.accounts.splice(this.editAccountIndex, 1);
+                location.reload();
             });
+
         },
 
         accountTotalUpdated() {
@@ -183,7 +185,9 @@ export default defineComponent({
             axios.patch(`http://localhost:8000/accounts/details/${this.userData.user.username}/${this.editAccountId}/`, editedAccount).then(response => {
                 this.editAccountModalVisible = false;
                 this.accounts[this.editAccountIndex] = editedAccount;
+                location.reload();
             });
+
         },
         editAccount(acc: any, index: number) {
             this.editAccountModalVisible = true;
@@ -223,6 +227,7 @@ export default defineComponent({
                 this.newBankName = ''
                 this.newTotal = 0.0
                 this.newNickname = ''
+                location.reload();
             });
         }
     },

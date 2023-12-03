@@ -34,8 +34,8 @@ interface Transaction {
     date: string,
     title: string,
     total: number,
-    owner_id: number,
-    account_id: number,
+    owner_id: string,
+    account_id: string,
 }
 
 export default defineComponent({

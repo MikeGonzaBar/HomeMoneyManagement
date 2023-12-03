@@ -2,7 +2,7 @@
   <div class="component-container">
 
     <div v-if="Object.keys(userData).length == 0" class="centered-container">
-      <LoginRegister @userDataSent="handleUserData" />
+      <LoginRegister @userDataSent="handleUserData" @forceRemount="forceRemount" />
     </div>
 
 
@@ -14,6 +14,17 @@
 <script lang="ts">
 import LoginRegister from '@/components/LoginRegister.vue'
 import MainPage from '@/components/MainPage.vue'
+interface UserData {
+  first_name: string,
+  id: number,
+  last_name: string,
+  password: string,
+  status: string,
+  username: string,
+}
+interface User {
+  user: UserData
+}
 
 export default {
   name: 'App',
@@ -23,25 +34,28 @@ export default {
   },
   data() {
     return {
-      userData: {}
+      userData: {} as User,
+      componentKey: 0,
     };
   },
   mounted() {
     // Get the value of the money_management_user key from localStorage
     const userDataString = localStorage.getItem('money_management_user');
     if (userDataString !== null) {
-      console.log("userData keys: ", Object.keys(this.userData).length);
-      this.userData = JSON.parse(userDataString);
-      console.log("userData on load: ", this.userData);
+      console.log('THIS IS MY USER DATA');
+      console.log(userDataString);
+      console.log(JSON.parse(userDataString));
+      this.userData.user = JSON.parse(userDataString);
     } else {
       console.log("money_management_user key not found in local storage");
     }
-    console.log("userData keys: ", Object.keys(this.userData).length);
   },
   methods: {
-    handleUserData(variable: object) {
-      console.log('Received variable from child:', variable);
-      this.userData = variable;
+    forceRemount() {
+      this.componentKey++;
+    },
+    handleUserData(variable: UserData) {
+      this.userData.user = variable;
     }
   }
 

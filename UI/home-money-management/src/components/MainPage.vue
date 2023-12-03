@@ -2,6 +2,10 @@
     <div class="main-page">
         <div class="user-info">
             <h1>Bienvenido {{ userData.user.first_name }} </h1>
+            <v-btn @click="triggerLogOut" class="logout-button">
+                <v-icon left>mdi-logout</v-icon>
+                Logout
+            </v-btn>
         </div>
         <div class="account-carousel">
             <p>
@@ -67,8 +71,8 @@ interface Transaction {
     date: string,
     title: string,
     total: number,
-    owner_id: number,
-    account_id: number,
+    owner_id: string,
+    account_id: string,
 }
 interface Data {
     accountSelected: null | Account;
@@ -94,6 +98,9 @@ export default defineComponent({
 
     }),
     mounted() {
+        console.log('this is my user data from main page');
+        console.log(this.userData);
+        console.log(this.userData.user.first_name);
         const currentDate = new Date();
         this.month = currentDate.getMonth();
         this.year = currentDate.getFullYear();
@@ -101,6 +108,10 @@ export default defineComponent({
     },
     components: { AccountsCarousel, DatePicker, IncomeExpense, TableData, PieChart },
     methods: {
+        triggerLogOut() {
+            localStorage.removeItem('money_management_user');
+            location.reload();
+        },
         handleUpdateIncomeExpense() {
             this.getTransactions();
         },
@@ -123,11 +134,6 @@ export default defineComponent({
             this.accounts = accs;
         },
         getTransactions() {
-            console.log('GET TRANSACTIONS');
-            console.log(this.userData.user.id);
-            console.log(this.accountSelected?.id);
-            console.log(this.month + 1);
-            console.log(this.year);
             if (this.accountSelected === null) {
                 axios.get(`http://localhost:8000/transactions/retrieve/${this.userData.user.id}/0/${this.month + 1}/${this.year}`)
                     .then((response) => {
@@ -165,8 +171,17 @@ export default defineComponent({
     background-color: #1d1d2893;
     /* light gray */
     box-shadow: 0px 4px 8px 0px rgba(0, 0, 0, 0.0);
-
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     /* shadow effect */
+}
+
+.logout-button {
+    padding: 10px;
+    background-color: #f8f9fa;
+    border: none;
+    cursor: pointer;
 }
 
 .account-carousel {

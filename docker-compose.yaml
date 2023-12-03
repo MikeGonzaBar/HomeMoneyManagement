@@ -11,3 +11,11 @@ services:
         # python /HomeMoneyManagement/manage.py collectstatic --noinput &&
         # cd HomeMoneyManagement/ &&
         # gunicorn --bind 0.0.0.0:8000 --workers=4 --log-level "debug" HomeMoneyManagement.wsgi"
+  money-management-ui:
+    hostname: money-management-ui
+    container_name: money-management-ui
+    build: ./UI/home-money-management
+    ports:
+      - 8080:80
+    depends_on:
+      - money-management-api

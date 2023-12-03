@@ -68,6 +68,7 @@ export default {
             }).then(response => {
                 this.$emit('userDataSent', response.data.user)
                 localStorage.setItem('money_management_user', JSON.stringify(response.data));
+                location.reload();
             });
         },
         register(): void {
@@ -79,6 +80,7 @@ export default {
             }).then(response => {
                 this.$emit('userDataSent', response.data)
                 localStorage.setItem('money_management_user', JSON.stringify(response.data));
+                this.$emit('forceRemount');
 
             });
         },

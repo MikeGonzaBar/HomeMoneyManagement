@@ -47,11 +47,9 @@ class UserDetail(generics.GenericAPIView):
         return self.add_CORS_data(response)
 
     def post(self, request: HttpRequest, user: str) -> HttpResponse:
-        print("user", user)
         data = json.loads(request.body)
-        print("pwd", data)
         response = User.login(user, data)
-        new_status = 400 if response["valid"] == False else 200
+        new_status = 400 if response["id"] == False else 200
         response = HttpResponse(
             json.dumps(response, default=str),
             status=new_status,

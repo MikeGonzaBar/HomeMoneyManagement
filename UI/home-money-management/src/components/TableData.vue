@@ -147,7 +147,7 @@ export default defineComponent({
             { title: 'Date', key: 'date' },
             { title: 'Total', key: 'total' },
             { title: 'Actions', key: 'actions', sortable: false },
-        ],
+        ] as const,
 
         editedIndex: -1,
         editedItem: {
@@ -194,6 +194,8 @@ export default defineComponent({
         },
         isFormValid(): boolean {
             let isValid = true;
+            console.log(this.editedItem);
+            this.editedItem.owner_id = this.userData.user.id
             Object.values(this.editedItem).forEach((value) => {
                 if (value === '') {
                     isValid = false;
@@ -326,7 +328,6 @@ export default defineComponent({
                 Object.assign(this.internalTransactions[this.editedIndex], this.editedItem)
                 axios.patch(`http://localhost:8000/transactions/update/${this.editedItem.id}/`, this.editedItem)
                     .then(response => {
-                        console.log(response);
                         axios.patch(`http://localhost:8000/accounts/details/${this.userData.user.username}/${account_id}/`, {
                             "total": new_total,
                         })
@@ -358,14 +359,12 @@ export default defineComponent({
 
                 axios.post('http://localhost:8000/transactions/create/', this.editedItem)
                     .then(response => {
-                        console.log(response)
                         this.internalTransactions.push(response.data)
                         // Make the PATCH request here
                         axios.patch(`http://localhost:8000/accounts/details/${this.userData.user.username}/${account_id}/`, {
                             "total": new_total,
                         })
                             .then(patchResponse => {
-                                console.log(patchResponse);
                                 this.$emit('updateAccounts');
                                 this.$emit('updateIncomeExpense');
                             })
