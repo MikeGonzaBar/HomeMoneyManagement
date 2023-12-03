@@ -25,7 +25,7 @@ class AccountOps(generics.RetrieveUpdateAPIView):
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
 
-    def get(self, request: HttpRequest, user: str) -> HttpResponse:
+    def get(self, request: HttpRequest, user: str, id: str) -> HttpResponse:
         response = Account.get_accounts(user)
         return HttpResponse(
             json.dumps(response, default=str),
@@ -33,20 +33,21 @@ class AccountOps(generics.RetrieveUpdateAPIView):
             content_type="application/json",
         )
 
-    def patch(self, request: HttpRequest, user: str) -> HttpResponse:
+    def patch(self, request: HttpRequest, user: str, id: str) -> HttpResponse:
         data = json.loads(request.body)
-        response = Account.update_account(user, data)
+        response = Account.update_account(user, id, data)
         return HttpResponse(
             json.dumps(response, default=str),
             status=200,
             content_type="application/json",
         )
 
+
 class AccountDelete(generics.DestroyAPIView):
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
-    def delete(
-        self, request: HttpRequest, user: str, id:str) -> HttpResponse:
+
+    def delete(self, request: HttpRequest, user: str, id: str) -> HttpResponse:
         response = Account.delete_account(user, id)
         status = 400 if "error" in response else 200
         return HttpResponse(
@@ -54,4 +55,3 @@ class AccountDelete(generics.DestroyAPIView):
             status=status,
             content_type="application/json",
         )
-        

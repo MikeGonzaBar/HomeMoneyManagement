@@ -23,6 +23,7 @@ class Account(models.Model):
         update_account(user: str, data: dict) -> dict: Updates an account with the provided data for the specified user.
         delete_account(user: str, id: int) -> dict: Deletes an account with the specified ID for the given user.
     """
+
     id = models.AutoField(primary_key=True)
     account_type = models.CharField(max_length=30)
     bank = models.CharField(max_length=30)
@@ -59,7 +60,9 @@ class Account(models.Model):
         """
         keys_to_check = ["account_type", "bank", "total", "owner", "account_name"]
         return [
-            key for key in keys_to_check if key not in data_dict or not data_dict[key]
+            key
+            for key in keys_to_check
+            if key not in data_dict or data_dict[key] is None
         ]
 
     @staticmethod
@@ -180,12 +183,13 @@ class Account(models.Model):
         return Account.queryset_to_array_of_dicts(query)
 
     @staticmethod
-    def update_account(user: str, data: dict) -> dict:
+    def update_account(user: str, id: str, data: dict) -> dict:
         """
         Updates an account with the provided data for the specified user.
 
         Args:
             user (str): The username of the user.
+            id (str): The ID of the account to update.
             data (dict): A dictionary containing the updated data for the account.
 
         Returns:
@@ -197,6 +201,7 @@ class Account(models.Model):
         Example:
             ```python
             user = "JohnDoe"
+            id = "123"
             data = {
                 "account_name": "My Savings Account",
                 "bank": "ABC Bank",
@@ -204,28 +209,24 @@ class Account(models.Model):
                 "total": 1500.0
             }
 
-            updated_account = Account.update_account(user, data)
+            updated_account = Account.update_account(user, id, data)
             print(updated_account)
             ```
         """
 
         owner = user
-        account_name = data.get("account_name")
-        bank = data.get("bank")
-        account_type = data.get("account_type")
-        new_total = data.get("total")
 
         try:
             account = Account.objects.get(
                 owner=owner,
-                account_name=account_name,
-                bank=bank,
-                account_type=account_type,
+                id=id,
             )
         except Account.DoesNotExist:
             return {"error": "Account not found"}
 
-        account.total = new_total
+        for key, value in data.items():
+            setattr(account, key, value)
+
         account.save()
 
         return {"success": "Account updated successfully", "updated_account": account}

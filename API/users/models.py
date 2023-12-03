@@ -133,7 +133,7 @@ class User(models.Model):
         query = User.objects.filter(username=data["username"])
 
         response = User.queryset_to_array_of_dicts(query)
-        response[0]["status"] = "User saved"
+        response[0]
         return response[0]
 
     @staticmethod
@@ -160,8 +160,15 @@ class User(models.Model):
             ```
         """
         user = User.objects.get(username=user)
+        user_info = {
+            "password": user.password,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "id": user.id,
+            "username": user.username,
+        }
         logged = user.password == data.get("password")
-        return {"valid": logged, "id": user["id"]}
+        return user_info if logged else {"valid": False}
 
     @staticmethod
     def delete_user(user: str, data: dict) -> dict:
