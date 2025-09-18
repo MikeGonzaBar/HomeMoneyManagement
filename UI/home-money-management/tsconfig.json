@@ -1,4 +1,5 @@
 {
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
   "compilerOptions": {
     "baseUrl": ".",
     "target": "ESNext",
@@ -10,16 +11,25 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "esModuleInterop": true,
-    "lib": ["ESNext", "DOM"],
+    "allowSyntheticDefaultImports": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["vite/client", "node", "vue"],
     "paths": {
       "@/*": [
        "src/*"
       ]
-     }
+    }
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "vueCompilerOptions": {
+    "target": 3,
+    "strictTemplates": false,
+    "globalTypesPath": "./src/types/global.d.ts"
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "src/types/**/*.d.ts", "src/shims-vue.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }],
   "exclude": ["node_modules"]
 }

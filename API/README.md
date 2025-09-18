@@ -6,10 +6,11 @@ This Django project serves as the backend for the MoneyManagement application, h
 
 In the `requirements.txt` file, specify the required Django and Django REST framework versions:
 
-```plaintext
+```text
 Django == 4.2.5
 djangorestframework == 3.14.0
 ```
+
 ## Settings
 
 The project's settings are configured in the `settings.py` file. Key settings include:
@@ -46,7 +47,7 @@ Each endpoint offers specific functionalities related to the respective domain, 
 
 The Users endpoint provides functionalities related to user management, including user creation, login, and deletion.
 
-#### Models
+#### Users Models
 
 In the `models.py` file, the `User` model is defined with the following fields:
 
@@ -58,7 +59,7 @@ In the `models.py` file, the `User` model is defined with the following fields:
 
 The `User` model also includes various methods for handling user data, such as checking for missing data, creating a new user, login authentication, and deleting a user.
 
-#### Views
+#### Users Views
 
 In the `views.py` file, the following views are defined for handling user-related requests:
 
@@ -68,6 +69,7 @@ In the `views.py` file, the following views are defined for handling user-relate
   - Method: `POST`
   - Response:
     - Status 201 (Created)
+
       ```json
       {
         "id": 1,
@@ -78,7 +80,9 @@ In the `views.py` file, the following views are defined for handling user-relate
         "status": "User saved"
       }
       ```
+
     - Status 400 (Bad Request)
+
       ```json
       {
         "error": "data incomplete",
@@ -92,26 +96,31 @@ In the `views.py` file, the following views are defined for handling user-relate
   - Methods: `GET`, `POST`, `DELETE`
   - Response:
     - Status 200 (OK) - Login Successful
+
       ```json
       {
         "valid": true,
         "id": 1
       }
       ```
+
     - Status 400 (Bad Request) - Invalid Password
+
       ```json
       {
         "error": "Password incorrect"
       }
       ```
+
     - Status 403 (Forbidden) - Invalid Method (for `GET`)
+
       ```json
       {
         "error": "GET method not valid"
       }
       ```
 
-#### URLs
+#### Users URLs
 
 In the `urls.py` file, the URLs for the Users endpoint are configured:
 
@@ -124,7 +133,7 @@ In the `urls.py` file, the URLs for the Users endpoint are configured:
 
 The Accounts endpoint provides functionalities related to account management, including account creation, retrieval, updating, and deletion.
 
-#### Models
+#### Accounts Models
 
 In the `models.py` file, the `Account` model is defined with the following fields:
 
@@ -137,7 +146,7 @@ In the `models.py` file, the `Account` model is defined with the following field
 
 The `Account` model also includes various methods for handling account data, such as checking for missing data, creating a new account, retrieving user accounts, updating account details, and deleting an account.
 
-#### Views
+#### Accounts Views
 
 In the `views.py` file, the following views are defined for handling account-related requests:
 
@@ -147,6 +156,7 @@ In the `views.py` file, the following views are defined for handling account-rel
   - Method: `POST`
   - Response:
     - Status 201 (Created)
+
       ```json
       {
         "id": 1,
@@ -158,7 +168,9 @@ In the `views.py` file, the following views are defined for handling account-rel
         "status": "Account saved"
       }
       ```
+
     - Status 400 (Bad Request)
+
       ```json
       {
         "error": "data incomplete",
@@ -172,6 +184,7 @@ In the `views.py` file, the following views are defined for handling account-rel
   - Methods: `GET`, `PATCH`
   - Response:
     - Status 200 (OK) - Request successful
+
       ```json
       [
         {
@@ -192,7 +205,9 @@ In the `views.py` file, the following views are defined for handling account-rel
         }
       ]
       ```
+
     - Status 400 (Bad Request) - Invalid request or missing data
+
       ```json
       {
         "error": "Account not found"
@@ -205,19 +220,22 @@ In the `views.py` file, the following views are defined for handling account-rel
   - Method: `DELETE`
   - Response:
     - Status 200 (OK) - Account deleted successfully
+
       ```json
       {
         "success": "Account deleted successfully"
       }
       ```
+
     - Status 400 (Bad Request) - Invalid request or account not found
+
       ```json
       {
         "error": "Account not found"
       }
       ```
 
-#### URLs
+#### Accounts URLs
 
 In the `urls.py` file, the URLs for the Accounts endpoint are configured:
 
@@ -230,7 +248,7 @@ In the `urls.py` file, the URLs for the Accounts endpoint are configured:
 
 The Transactions endpoint provides functionalities related to managing financial transactions, including creating, retrieving, updating, and deleting transactions.
 
-#### Models
+#### Transactions Models
 
 In the `models.py` file, the `Transaction` model is defined with the following fields:
 
@@ -245,7 +263,7 @@ In the `models.py` file, the `Transaction` model is defined with the following f
 
 The `Transaction` model also includes various methods for handling transaction data, such as creating a new transaction, retrieving transactions, updating transaction details, and deleting a transaction.
 
-#### Views
+#### Transactions Views
 
 In the `views.py` file, the following views are defined for handling transaction-related requests:
 
@@ -255,6 +273,7 @@ In the `views.py` file, the following views are defined for handling transaction
   - Method: `POST`
   - Response:
     - Status 201 (Created)
+
       ```json
       {
         "id": 1,
@@ -268,7 +287,9 @@ In the `views.py` file, the following views are defined for handling transaction
         "status": "transaction saved"
       }
       ```
+
     - Status 400 (Bad Request)
+
       ```json
       {
         "error": "data incomplete",
@@ -282,6 +303,7 @@ In the `views.py` file, the following views are defined for handling transaction
   - Method: `GET`
   - Response:
     - Status 200 (OK) - Request successful
+
       ```json
       [
         {
@@ -306,7 +328,9 @@ In the `views.py` file, the following views are defined for handling transaction
         }
       ]
       ```
+
     - Status 400 (Bad Request) - Invalid request or missing data
+
       ```json
       {
         "error": "Account not found"
@@ -319,6 +343,7 @@ In the `views.py` file, the following views are defined for handling transaction
   - Method: `PATCH`
   - Response:
     - Status 200 (OK) - Transaction updated successfully
+
       ```json
       {
         "success": "Transaction updated successfully",
@@ -334,7 +359,9 @@ In the `views.py` file, the following views are defined for handling transaction
         }
       }
       ```
+
     - Status 400 (Bad Request) - Invalid request or transaction not found
+
       ```json
       {
         "error": "Transaction not found"
@@ -347,19 +374,22 @@ In the `views.py` file, the following views are defined for handling transaction
   - Method: `DELETE`
   - Response:
     - Status 200 (OK) - Transaction deleted successfully
+
       ```json
       {
         "success": "Transaction deleted successfully"
       }
       ```
+
     - Status 400 (Bad Request) - Invalid request or transaction not found
+
       ```json
       {
         "error": "Transaction not found"
       }
       ```
 
-#### URLs
+#### Transactions URLs
 
 In the `urls.py` file, the URLs for the Transactions endpoint are configured:
 
@@ -367,4 +397,3 @@ In the `urls.py` file, the URLs for the Transactions endpoint are configured:
 - `GET /transactions/retrieve/<username>/<account_id>/<month>/<year>/`: Retrieves transactions based on provided parameters.
 - `PATCH /transactions/update/<transaction_id>/`: Updates an existing transaction.
 - `DELETE /transactions/delete/<transaction_id>/`: Deletes a transaction.
-

@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # Use a smaller, secure base image for the runtime
-FROM nginx:stable-alpine3.17
+FROM nginx:stable-alpine3.19
 
 # Copy the pre-built app from the previous stage
 COPY --from=0 /app/dist /usr/share/nginx/html

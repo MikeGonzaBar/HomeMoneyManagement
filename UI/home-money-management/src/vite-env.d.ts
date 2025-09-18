@@ -5,3 +5,16 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
+
+declare module '@vue/runtime-core' {
+  interface ComponentCustomProperties {
+    $vuetify: any
+  }
+}
+
+// Global type declarations
+declare global {
+  interface Window {
+    // Add any global window properties here if needed
+  }
+}

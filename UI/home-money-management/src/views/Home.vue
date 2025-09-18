@@ -1,12 +1,12 @@
 <template>
   <div class="component-container">
 
-    <div v-if="Object.keys(userData).length == 0" class="centered-container">
-      <LoginRegister @userDataSent="handleUserData" @forceRemount="forceRemount" />
+    <div v-if="Object.keys((this as any).userData).length == 0" class="centered-container">
+      <LoginRegister @userDataSent="(this as any).handleUserData" @forceRemount="(this as any).forceRemount" />
     </div>
 
 
-    <MainPage v-else :userData="userData" />
+    <MainPage v-else :userData="(this as any).userData" />
 
   </div>
 </template>
@@ -42,17 +42,17 @@ export default {
     // Get the value of the money_management_user key from localStorage
     const userDataString = localStorage.getItem('money_management_user');
     if (userDataString !== null) {
-      this.userData.user = JSON.parse(userDataString);
+      (this as any).userData.user = JSON.parse(userDataString);
     } else {
       console.log("money_management_user key not found in local storage");
     }
   },
   methods: {
     forceRemount() {
-      this.componentKey++;
+      (this as any).componentKey++;
     },
     handleUserData(variable: UserData) {
-      this.userData.user = variable;
+      (this as any).userData.user = variable;
     }
   }
 
@@ -61,12 +61,9 @@ export default {
 
 <style scoped>
 .component-container {
-  background-color: #5870cb;
   width: 100%;
-  /* Ensure the component spans the full width */
   min-height: 100vh;
-  /* Ensure the component spans the full height of the viewport */
-
+  background: transparent;
 }
 
 .centered-container {
@@ -74,6 +71,7 @@ export default {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  min-height: 70vh;
+  min-height: 100vh;
+  background: transparent;
 }
 </style>

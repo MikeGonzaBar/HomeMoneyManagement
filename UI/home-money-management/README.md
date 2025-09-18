@@ -2,7 +2,7 @@
 
 ## Project setup
 
-```
+```bash
 # yarn
 yarn
 
@@ -18,7 +18,7 @@ bun install
 
 ### Compiles and hot-reloads for development
 
-```
+```bash
 # yarn
 yarn dev
 
@@ -34,7 +34,7 @@ pnpm run dev
 
 ### Compiles and minifies for production
 
-```
+```bash
 # yarn
 yarn build
 
@@ -50,7 +50,7 @@ pnpm run build
 
 ### Lints and fixes files
 
-```
+```bash
 # yarn
 yarn lint
 

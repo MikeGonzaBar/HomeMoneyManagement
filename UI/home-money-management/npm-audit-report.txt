@@ -1,0 +1,110 @@
+# npm audit report
+
+brace-expansion  1.0.0 - 1.1.11
+brace-expansion Regular Expression Denial of Service vulnerability - https://github.com/advisories/GHSA-v6h2-p8h4-qcjw
+fix available via `npm audit fix`
+node_modules/brace-expansion
+
+braces  <3.0.3
+Severity: high
+Uncontrolled resource consumption in braces - https://github.com/advisories/GHSA-grv7-fg5c-xmjg
+fix available via `npm audit fix`
+node_modules/braces
+
+cross-spawn  <6.0.6 || >=7.0.0 <7.0.5
+Severity: high
+Regular Expression Denial of Service (ReDoS) in cross-spawn - https://github.com/advisories/GHSA-3xgq-45jj-v275
+Regular Expression Denial of Service (ReDoS) in cross-spawn - https://github.com/advisories/GHSA-3xgq-45jj-v275
+fix available via `npm audit fix`
+node_modules/cross-spawn
+node_modules/execa/node_modules/cross-spawn
+
+esbuild  <=0.24.2
+Severity: moderate
+esbuild enables any website to send any requests to the development server and read the response - https://github.com/advisories/GHSA-67mh-4wv8-2f99
+fix available via `npm audit fix`
+node_modules/esbuild
+  vite  <=6.1.6
+  Depends on vulnerable versions of esbuild
+  node_modules/vite
+
+form-data  <2.5.4
+Severity: critical
+form-data uses unsafe random function in form-data for choosing boundary - https://github.com/advisories/GHSA-fjxv-7rqg-78g4
+fix available via `npm audit fix --force`
+Will install vue-cli-plugin-component@1.4.2, which is a breaking change
+node_modules/form-data
+  request  *
+  Depends on vulnerable versions of form-data
+  Depends on vulnerable versions of tough-cookie
+  node_modules/request
+    @vue/cli-shared-utils  <=4.5.19
+    Depends on vulnerable versions of request
+    Depends on vulnerable versions of request-promise-native
+    node_modules/@vue/cli-shared-utils
+      vue-cli-plugin-component  *
+      Depends on vulnerable versions of @vue/cli-shared-utils
+      Depends on vulnerable versions of git-user-name
+      node_modules/vue-cli-plugin-component
+    request-promise-core  *
+    Depends on vulnerable versions of request
+    node_modules/request-promise-core
+      request-promise-native  >=1.0.0
+      Depends on vulnerable versions of request
+      Depends on vulnerable versions of request-promise-core
+      Depends on vulnerable versions of tough-cookie
+      node_modules/request-promise-native
+
+micromatch  <4.0.8
+Severity: moderate
+Regular Expression Denial of Service (ReDoS) in micromatch - https://github.com/advisories/GHSA-952p-6rrq-rcjv
+fix available via `npm audit fix`
+node_modules/micromatch
+
+parse-git-config  *
+Severity: high
+Prototype Pollution Vulnerability in parse-git-config - https://github.com/advisories/GHSA-8g77-54rh-46hx
+fix available via `npm audit fix --force`
+Will install vue-cli-plugin-component@1.4.2, which is a breaking change
+node_modules/parse-git-config
+  git-user-name  >=1.1.0
+  Depends on vulnerable versions of parse-git-config
+  node_modules/git-user-name
+
+
+rollup  3.0.0 - 3.29.4
+Severity: high
+DOM Clobbering Gadget found in rollup bundled scripts that leads to XSS - https://github.com/advisories/GHSA-gcx4-mw62-g8wm
+fix available via `npm audit fix`
+node_modules/rollup
+
+tough-cookie  <4.1.3
+Severity: moderate
+tough-cookie Prototype Pollution vulnerability - https://github.com/advisories/GHSA-72xf-g2v4-qvf3
+fix available via `npm audit fix --force`
+Will install vue-cli-plugin-component@1.4.2, which is a breaking change
+node_modules/tough-cookie
+
+
+vue-template-compiler  >=2.0.0
+Severity: moderate
+vue-template-compiler vulnerable to client-side Cross-Site Scripting (XSS) - https://github.com/advisories/GHSA-g3ch-rx76-35fx
+No fix available
+node_modules/vue-template-compiler
+  @vue/language-core  <=2.0.28
+  Depends on vulnerable versions of vue-template-compiler
+  node_modules/@vue/typescript/node_modules/@vue/language-core
+    @vue/typescript  *
+    Depends on vulnerable versions of @vue/language-core
+    node_modules/@vue/typescript
+
+19 vulnerabilities (1 low, 9 moderate, 7 high, 2 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
