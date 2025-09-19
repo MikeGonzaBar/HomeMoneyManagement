@@ -5,13 +5,17 @@
             <v-card :class="['ma-2 account-card', selectedClass, { 'selected': isSelected }]" height="140" width="180"
                 @click="toggle" class="smooth-transition hover-lift">
                 <v-card-text class="pa-4 d-flex flex-column justify-center align-center text-center h-100">
-                    <v-avatar size="40" class="mb-1 budget-gradient">
-                        <v-icon color="white" size="24">mdi-credit-card-multiple-outline</v-icon>
+                    <v-avatar :size="$vuetify.display.mobile ? 32 : ($vuetify.display.mdAndDown ? 36 : 40)"
+                        class="mb-1 budget-gradient">
+                        <v-icon color="white"
+                            :size="$vuetify.display.mobile ? 20 : ($vuetify.display.mdAndDown ? 22 : 24)">mdi-credit-card-multiple-outline</v-icon>
                     </v-avatar>
-                    <h5 class="text-h6 font-weight-bold mb-0 budget-text-gradient">All Accounts</h5>
+                    <h5 :class="$vuetify.display.mobile ? 'text-subtitle-2' : ($vuetify.display.mdAndDown ? 'text-subtitle-1' : 'text-h6')"
+                        class="font-weight-bold mb-0 budget-text-gradient">All Accounts</h5>
                     <p class="text-caption text-grey-darken-1 mb-0">Total Balance</p>
-                    <h6 class="text-h5 font-weight-bold budget-text-gradient mb-0">${{ total.toLocaleString()
-                    }}</h6>
+                    <h6 :class="$vuetify.display.mobile ? 'text-h6' : ($vuetify.display.mdAndDown ? 'text-h6' : 'text-h5')"
+                        class="font-weight-bold budget-text-gradient mb-0">${{ total.toLocaleString()
+                        }}</h6>
                 </v-card-text>
             </v-card>
         </v-slide-group-item>
@@ -29,23 +33,30 @@
 
                 <v-card-text class="pa-4 d-flex flex-column justify-center align-center text-center h-100">
                     <!-- Account Type Icon -->
-                    <v-avatar size="40" class="mb-3" :class="getAccountTypeClass(acc.account_type)">
-                        <v-icon color="white" size="24" :icon="getAccountTypeIcon(acc.account_type)"
-                            class="account-type-icon"></v-icon>
+                    <v-avatar :size="$vuetify.display.mobile ? 32 : ($vuetify.display.mdAndDown ? 36 : 40)" class="mb-3"
+                        :class="getAccountTypeClass(acc.account_type)">
+                        <v-icon color="white"
+                            :size="$vuetify.display.mobile ? 20 : ($vuetify.display.mdAndDown ? 22 : 24)"
+                            :icon="getAccountTypeIcon(acc.account_type)" class="account-type-icon"></v-icon>
                     </v-avatar>
 
                     <!-- Account Name -->
-                    <h4 class="text-subtitle-1 font-weight-bold mb-1 text-truncate" style="max-width: 140px;">
+                    <h5 :class="[
+                        $vuetify.display.mobile ? 'text-caption' : ($vuetify.display.mdAndDown ? 'text-caption' : 'text-h7'),
+                        $vuetify.display.mobile ? 'text-truncate' : '',
+                        'font-weight-bold'
+                    ]" :style="$vuetify.display.mobile ? 'max-width: 140px;' : ''">
                         {{ acc.account_name }}
-                    </h4>
+                    </h5>
 
                     <!-- Account Type -->
                     <p class="text-caption text-grey-darken-1 mb-2">{{ acc.account_type }}</p>
 
                     <!-- Balance -->
-                    <h3 class="text-h6 font-weight-bold mb-0" :class="getBalanceClass(acc.total)">
+                    <h4
+                        :class="[$vuetify.display.mobile ? 'text-subtitle-2' : ($vuetify.display.mdAndDown ? 'text-subtitle-2' : 'text-h7'), 'font-weight-bold mb-0', getBalanceClass(acc.total)]">
                         ${{ acc.total.toLocaleString() }}
-                    </h3>
+                    </h4>
                 </v-card-text>
             </v-card>
         </v-slide-group-item>
@@ -55,10 +66,13 @@
             <v-card :class="['ma-2 account-card add-account-card', selectedClass]" height="140" width="180"
                 @click="toggle" class="smooth-transition hover-lift" variant="outlined">
                 <v-card-text class="pa-4 d-flex flex-column justify-center align-center text-center h-100">
-                    <v-avatar size="40" class="mb-3" color="grey-lighten-3">
-                        <v-icon color="grey-darken-1" size="24">mdi-plus</v-icon>
+                    <v-avatar :size="$vuetify.display.mobile ? 32 : ($vuetify.display.mdAndDown ? 36 : 40)" class="mb-3"
+                        color="grey-lighten-3">
+                        <v-icon color="grey-darken-1"
+                            :size="$vuetify.display.mobile ? 20 : ($vuetify.display.mdAndDown ? 22 : 24)">mdi-plus</v-icon>
                     </v-avatar>
-                    <h4 class="text-subtitle-1 font-weight-bold mb-1 text-grey-darken-1">Add Account</h4>
+                    <h4 :class="$vuetify.display.mobile ? 'text-caption' : ($vuetify.display.mdAndDown ? 'text-caption' : 'text-h6')"
+                        class="font-weight-bold text-grey-darken-1">Add Account</h4>
                     <p class="text-caption text-grey-darken-1 mb-0">Create new account</p>
                 </v-card-text>
             </v-card>
@@ -534,6 +548,105 @@ export default {
 
     .edit-btn {
         opacity: 1;
+    }
+}
+
+/* Medium screens (tablets, half-monitor) */
+@media (max-width: 1280px) and (min-width: 601px) {
+    .account-card {
+        width: 160px !important;
+        height: 130px !important;
+    }
+
+    .account-card .v-card-text {
+        padding: 14px !important;
+    }
+
+    .account-card .v-avatar {
+        margin-bottom: 10px !important;
+    }
+
+    .account-card h4,
+    .account-card h5,
+    .account-card h6 {
+        line-height: 1.3 !important;
+    }
+
+    .account-card p {
+        font-size: 0.75rem !important;
+        line-height: 1.2 !important;
+    }
+
+    .edit-btn {
+        top: 6px !important;
+        right: 6px !important;
+    }
+
+    .edit-btn .v-icon {
+        font-size: 18px !important;
+    }
+}
+
+/* Mobile-specific font size adjustments */
+@media (max-width: 600px) {
+    .account-card {
+        width: 150px !important;
+        height: 110px !important;
+    }
+
+    .account-card .v-card-text {
+        padding: 12px !important;
+    }
+
+    .account-card .v-avatar {
+        margin-bottom: 8px !important;
+    }
+
+    .account-card h4,
+    .account-card h5,
+    .account-card h6 {
+        line-height: 1.2 !important;
+    }
+
+    .account-card p {
+        font-size: 0.7rem !important;
+        line-height: 1.1 !important;
+    }
+
+    .edit-btn {
+        top: 4px !important;
+        right: 4px !important;
+    }
+
+    .edit-btn .v-icon {
+        font-size: 16px !important;
+    }
+}
+
+/* Extra small screens (iPhone SE) */
+@media (max-width: 375px) {
+    .account-card {
+        width: 140px !important;
+        height: 100px !important;
+    }
+
+    .account-card .v-card-text {
+        padding: 8px !important;
+    }
+
+    .account-card .v-avatar {
+        margin-bottom: 6px !important;
+    }
+
+    .account-card h4,
+    .account-card h5,
+    .account-card h6 {
+        line-height: 1.1 !important;
+    }
+
+    .account-card p {
+        font-size: 0.65rem !important;
+        line-height: 1.0 !important;
     }
 }
 

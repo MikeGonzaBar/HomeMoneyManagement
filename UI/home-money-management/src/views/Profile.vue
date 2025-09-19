@@ -18,9 +18,12 @@
                                 </div>
                             </div>
                             <v-btn color="primary" variant="outlined" rounded="lg" @click="goToHome"
+                                :size="$vuetify.display.mobile ? 'default' : 'default'"
                                 class="smooth-transition hover-lift">
-                                <v-icon left>mdi-home</v-icon>
-                                Back to Home
+                                <v-icon :left="$vuetify.display.smAndUp"
+                                    :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-home</v-icon>
+                                <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Back to Home</span>
+                                <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Home</span>
                             </v-btn>
                         </div>
                     </v-card-title>
@@ -76,11 +79,13 @@
                                 :rules="nameRules" class="mb-4" prepend-inner-icon="mdi-account-outline"></v-text-field>
 
                             <!-- Save Personal Info Button -->
-                            <v-btn color="primary" size="large" rounded="lg" :loading="savingPersonalInfo"
-                                :disabled="!personalFormValid" @click="savePersonalInfo"
+                            <v-btn color="primary" :size="$vuetify.display.mobile ? 'default' : 'large'" rounded="lg"
+                                :loading="savingPersonalInfo" :disabled="!personalFormValid" @click="savePersonalInfo"
                                 class="smooth-transition hover-lift">
-                                <v-icon left>mdi-content-save</v-icon>
-                                Save Changes
+                                <v-icon :left="$vuetify.display.smAndUp"
+                                    :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-content-save</v-icon>
+                                <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Save Changes</span>
+                                <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Save</span>
                             </v-btn>
                         </v-form>
 
@@ -105,11 +110,14 @@
                                 class="mb-4" prepend-inner-icon="mdi-lock-check"></v-text-field>
 
                             <!-- Change Password Button -->
-                            <v-btn color="primary" size="large" rounded="lg" :loading="changingPassword"
-                                :disabled="!passwordFormValid" @click="changePassword"
+                            <v-btn color="primary" :size="$vuetify.display.mobile ? 'default' : 'large'" rounded="lg"
+                                :loading="changingPassword" :disabled="!passwordFormValid" @click="changePassword"
                                 class="smooth-transition hover-lift">
-                                <v-icon left>mdi-key</v-icon>
-                                Change Password
+                                <v-icon :left="$vuetify.display.smAndUp"
+                                    :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-key</v-icon>
+                                <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Change
+                                    Password</span>
+                                <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Change</span>
                             </v-btn>
                         </v-form>
                     </v-card-text>
@@ -140,9 +148,13 @@
                                 You haven't uploaded any bank statement PDFs yet.
                             </p>
                             <v-btn color="primary" variant="outlined" rounded="lg" @click="goToUpload"
+                                :size="$vuetify.display.mobile ? 'default' : 'default'"
                                 class="smooth-transition hover-lift">
-                                <v-icon left>mdi-upload</v-icon>
-                                Upload Bank Statement
+                                <v-icon :left="$vuetify.display.smAndUp"
+                                    :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-upload</v-icon>
+                                <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Upload Bank
+                                    Statement</span>
+                                <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Upload</span>
                             </v-btn>
                         </div>
 
@@ -543,5 +555,113 @@ export default {
 .hover-lift:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 600px) {
+    .profile-container {
+        padding: 12px;
+    }
+
+    .glass-card {
+        margin-bottom: 16px;
+    }
+
+    .v-card-title {
+        padding: 16px !important;
+    }
+
+    .v-card-text {
+        padding: 16px !important;
+    }
+
+    /* Header adjustments */
+    .v-card-title .d-flex {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch !important;
+    }
+
+    .v-card-title .d-flex>div:first-child {
+        text-align: center;
+    }
+
+    .v-card-title .d-flex>div:last-child {
+        display: flex;
+        justify-content: center;
+    }
+
+    /* Button adjustments */
+    .v-btn {
+        font-size: 0.9rem;
+        min-width: auto;
+    }
+
+    /* Form adjustments */
+    .v-text-field {
+        margin-bottom: 12px;
+    }
+
+    /* Sidebar adjustments */
+    .v-list {
+        padding: 8px !important;
+    }
+
+    .sidebar-item {
+        margin: 2px 0;
+    }
+
+    /* File list adjustments */
+    .file-item {
+        margin-bottom: 8px;
+    }
+
+    .v-list-item-title {
+        font-size: 0.9rem;
+    }
+
+    .v-list-item-subtitle {
+        font-size: 0.8rem;
+    }
+}
+
+/* Extra small screens (iPhone SE) */
+@media (max-width: 375px) {
+    .profile-container {
+        padding: 8px;
+    }
+
+    .v-card-title {
+        padding: 12px !important;
+    }
+
+    .v-card-text {
+        padding: 12px !important;
+    }
+
+    .v-btn {
+        font-size: 0.8rem;
+        padding: 8px 12px;
+    }
+
+    .v-text-field {
+        margin-bottom: 10px;
+    }
+
+    .v-list {
+        padding: 6px !important;
+    }
+
+    .file-item {
+        margin-bottom: 6px;
+    }
+
+    .v-list-item-title {
+        font-size: 0.85rem;
+    }
+
+    .v-list-item-subtitle {
+        font-size: 0.75rem;
+    }
 }
 </style>

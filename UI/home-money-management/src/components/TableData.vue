@@ -1,6 +1,6 @@
 <template>
     <div class="transactions-container">
-        <v-data-table :headers="(this as any).headers" :items="(this as any).internalTransactions"
+        <v-data-table :headers="(this as any).currentHeaders" :items="(this as any).internalTransactions"
             :sort-by="[{ key: 'date', order: 'desc' }]" class="modern-data-table elevation-0" :items-per-page="10"
             :loading="false">
             <template v-slot:top>
@@ -11,11 +11,16 @@
                             }}
                                 transactions found</p>
                         </div>
-                        <v-dialog v-model="(this as any).dialog" max-width="600px" persistent>
+                        <v-dialog v-model="(this as any).dialog" :max-width="$vuetify.display.mobile ? '95%' : '600px'"
+                            persistent>
                             <template v-slot:activator="{ props }">
                                 <v-btn color="primary" class="smooth-transition hover-lift" v-bind="props"
-                                    prepend-icon="mdi-plus" rounded="lg">
-                                    New Transaction
+                                    :prepend-icon="$vuetify.display.smAndUp ? 'mdi-plus' : undefined"
+                                    :size="$vuetify.display.mobile ? 'default' : 'default'" rounded="lg">
+                                    <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">New
+                                        Transaction</span>
+                                    <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">+
+                                        New</span>
                                 </v-btn>
                             </template>
                             <v-card class="modern-dialog" rounded="xl">
@@ -225,6 +230,17 @@ export default {
                 { title: 'Total', key: 'total' },
                 { title: 'Actions', key: 'actions', sortable: false },
             ] as const,
+            mobileHeaders: [
+                {
+                    title: 'Transaction',
+                    align: 'start',
+                    sortable: false,
+                    key: 'title',
+                },
+                { title: 'Type', key: 'transaction_type' },
+                { title: 'Total', key: 'total' },
+                { title: 'Actions', key: 'actions', sortable: false },
+            ] as const,
 
             editedIndex: -1,
             editedItem: {
@@ -279,6 +295,9 @@ export default {
                 }
             });
             return isValid;
+        },
+        currentHeaders(): any[] {
+            return (this as any).$vuetify.display.mobile ? (this as any).mobileHeaders : (this as any).headers;
         },
     },
     watch: {
@@ -621,6 +640,136 @@ export default {
     :deep(.v-data-table-header th) {
         font-size: 0.7rem;
         padding: 12px 8px;
+    }
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 600px) {
+    .transactions-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+
+    .table-header {
+        padding: 12px;
+    }
+
+    .table-header .d-flex {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch !important;
+    }
+
+    .table-header .d-flex>div:first-child {
+        text-align: center;
+    }
+
+    .table-header .d-flex>div:last-child {
+        display: flex;
+        justify-content: center;
+    }
+
+    :deep(.v-data-table__td) {
+        padding: 8px 4px;
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    :deep(.v-data-table-header th) {
+        font-size: 0.65rem;
+        padding: 8px 4px;
+        white-space: nowrap;
+    }
+
+    .transactions-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    :deep(.v-data-table__wrapper) {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        min-width: 400px;
+    }
+
+    :deep(.v-data-table) {
+        min-width: 400px;
+    }
+
+    /* Make transaction title column wider on mobile */
+    :deep(.v-data-table__td:first-child) {
+        max-width: 120px;
+        min-width: 100px;
+    }
+
+    /* Make actions column narrower */
+    :deep(.v-data-table__td:last-child) {
+        width: 80px;
+        min-width: 80px;
+    }
+
+    /* Adjust button sizes in actions */
+    :deep(.v-data-table__td:last-child .v-btn) {
+        min-width: 32px;
+        width: 32px;
+        height: 32px;
+    }
+
+    :deep(.v-data-table__td:last-child .v-btn .v-icon) {
+        font-size: 16px;
+    }
+}
+
+/* Extra small screens (iPhone SE) */
+@media (max-width: 375px) {
+    .transactions-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
+    }
+
+    .table-header {
+        padding: 8px;
+    }
+
+    .table-header .d-flex {
+        gap: 8px;
+    }
+
+    :deep(.v-data-table__td) {
+        padding: 6px 2px;
+        font-size: 0.75rem;
+    }
+
+    :deep(.v-data-table-header th) {
+        font-size: 0.6rem;
+        padding: 6px 2px;
+    }
+
+    /* Make transaction title column even wider on very small screens */
+    :deep(.v-data-table__td:first-child) {
+        max-width: 100px;
+        min-width: 80px;
+    }
+
+    /* Make actions column even narrower */
+    :deep(.v-data-table__td:last-child) {
+        width: 60px;
+        min-width: 60px;
+    }
+
+    /* Adjust button sizes in actions for very small screens */
+    :deep(.v-data-table__td:last-child .v-btn) {
+        min-width: 28px;
+        width: 28px;
+        height: 28px;
+    }
+
+    :deep(.v-data-table__td:last-child .v-btn .v-icon) {
+        font-size: 14px;
     }
 }
 

@@ -11,43 +11,46 @@
         <!-- Main Content Container -->
         <div class="main-content-wrapper">
             <!-- Left Side - Hero & Features -->
-            <div class="hero-features-section">
+            <div class="hero-features-section" :class="$vuetify.display.mobile ? 'mobile-hero' : ''">
                 <!-- Hero Section -->
                 <div class="hero-content">
-                    <div class="hero-badge">
-                        <v-icon color="primary" size="16" class="me-2">mdi-star</v-icon>
+                    <div class="hero-badge" :class="$vuetify.display.mobile ? 'mobile-badge' : ''">
+                        <v-icon color="primary" :size="$vuetify.display.mobile ? 14 : 16" class="me-2">mdi-star</v-icon>
                         <span>Trusted by 10,000+ users</span>
                     </div>
 
-                    <h1 class="hero-title">
+                    <h1 class="hero-title" :class="$vuetify.display.mobile ? 'mobile-title' : ''">
                         Take Control of Your
                         <span class="gradient-text">Finances</span>
                     </h1>
 
-                    <p class="hero-description">
+                    <p class="hero-description" :class="$vuetify.display.mobile ? 'mobile-description' : ''">
                         Budget Buddy helps you track expenses, manage multiple accounts, and achieve your financial
                         goals with smart budgeting tools and secure, private data management.
                     </p>
 
                     <!-- Key Benefits -->
-                    <div class="key-benefits">
+                    <div class="key-benefits" :class="$vuetify.display.mobile ? 'mobile-benefits' : ''">
                         <div class="benefit-item">
-                            <v-icon color="success" size="20" class="me-2">mdi-check-circle</v-icon>
+                            <v-icon color="success" :size="$vuetify.display.mobile ? 18 : 20"
+                                class="me-2">mdi-check-circle</v-icon>
                             <span>Free to use forever</span>
                         </div>
                         <div class="benefit-item">
-                            <v-icon color="success" size="20" class="me-2">mdi-check-circle</v-icon>
+                            <v-icon color="success" :size="$vuetify.display.mobile ? 18 : 20"
+                                class="me-2">mdi-check-circle</v-icon>
                             <span>Bank-level security</span>
                         </div>
                         <div class="benefit-item">
-                            <v-icon color="success" size="20" class="me-2">mdi-check-circle</v-icon>
+                            <v-icon color="success" :size="$vuetify.display.mobile ? 18 : 20"
+                                class="me-2">mdi-check-circle</v-icon>
                             <span>Works on all devices</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Features Grid -->
-                <div class="features-grid">
+                <!-- Features Grid - Hidden on mobile to save space -->
+                <div class="features-grid" :class="$vuetify.display.mobile ? 'd-none' : ''">
                     <div class="feature-card">
                         <div class="feature-icon">
                             <v-icon color="primary" size="28">mdi-chart-line</v-icon>
@@ -88,39 +91,46 @@
 
             <!-- Right Side - Login Form -->
             <div class="auth-section">
-                <v-card class="modern-auth-card glass-card shadow-strong" rounded="xl" max-width="500">
+                <v-card class="modern-auth-card glass-card shadow-strong" rounded="xl"
+                    :max-width="$vuetify.display.mobile ? '100%' : '500'">
                     <!-- Header with Budget Buddy Logo -->
-                    <v-card-title class="pa-8 pb-4 text-center">
+                    <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2 text-center' : 'pa-8 pb-4 text-center'">
                         <div class="d-flex flex-column align-center">
-                            <v-avatar size="80" class="mb-4 budget-gradient">
+                            <v-avatar :size="$vuetify.display.mobile ? 60 : 80" class="mb-4 budget-gradient">
                                 <v-img src="@/assets/logo.png" alt="Budget Buddy" />
                             </v-avatar>
-                            <h1 class="text-h4 font-weight-bold budget-text-gradient mb-2">Get Started</h1>
-                            <p class="text-body-1 text-grey-darken-1 mb-0">Join thousands of users managing their
+                            <h1 :class="$vuetify.display.mobile ? 'text-h5' : 'text-h4'"
+                                class="font-weight-bold budget-text-gradient mb-2">Get Started</h1>
+                            <p :class="$vuetify.display.mobile ? 'text-caption' : 'text-body-1'"
+                                class="text-grey-darken-1 mb-0">Join thousands of users managing their
                                 finances</p>
                         </div>
                     </v-card-title>
 
-                    <v-card-text class="pa-8 pt-2">
+                    <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-8 pt-2'">
                         <!-- Login Form -->
                         <v-form v-if="(this as any).loginFormVisible" @submit.prevent="(this as any).login">
                             <v-text-field v-model="(this as any).loginUsername" label="Username" variant="outlined"
-                                rounded="lg" prepend-inner-icon="mdi-account" class="mb-4" required></v-text-field>
+                                rounded="lg" prepend-inner-icon="mdi-account"
+                                :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'" required></v-text-field>
 
                             <v-text-field v-model="(this as any).loginPassword" label="Password" type="password"
-                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock" class="mb-4"
-                                @keyup.enter="(this as any).login" required></v-text-field>
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock"
+                                :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'" @keyup.enter="(this as any).login"
+                                required></v-text-field>
 
                             <!-- Login Error Message -->
-                            <v-alert v-if="(this as any).loginError" type="error" variant="tonal" class="mb-4" closable
+                            <v-alert v-if="(this as any).loginError" type="error" variant="tonal"
+                                :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'" closable
                                 @click:close="(this as any).loginError = ''">
                                 <v-icon left>mdi-alert-circle</v-icon>
                                 {{ (this as any).loginError }}
                             </v-alert>
 
-                            <v-btn @click="(this as any).login" color="primary" size="large" block rounded="lg"
-                                class="smooth-transition hover-lift mb-4" :loading="(this as any).isLoading"
-                                :disabled="(this as any).isLoading">
+                            <v-btn @click="(this as any).login" color="primary"
+                                :size="$vuetify.display.mobile ? 'default' : 'large'" block rounded="lg"
+                                class="smooth-transition hover-lift" :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'"
+                                :loading="(this as any).isLoading" :disabled="(this as any).isLoading">
                                 <v-icon left v-if="!(this as any).isLoading">mdi-login</v-icon>
                                 {{ (this as any).isLoading ? 'Signing In...' : 'Sign In to Dashboard' }}
                             </v-btn>
@@ -129,37 +139,43 @@
                         <!-- Register Form -->
                         <v-form v-else @submit.prevent="(this as any).register">
                             <v-text-field v-model="(this as any).registerUsername" label="Username" variant="outlined"
-                                rounded="lg" prepend-inner-icon="mdi-account" class="mb-3" required></v-text-field>
+                                rounded="lg" prepend-inner-icon="mdi-account"
+                                :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
 
                             <v-row>
-                                <v-col cols="6">
+                                <v-col :cols="$vuetify.display.mobile ? 12 : 6">
                                     <v-text-field v-model="(this as any).registerFirstname" label="First Name"
-                                        variant="outlined" rounded="lg" class="mb-3" required></v-text-field>
+                                        variant="outlined" rounded="lg"
+                                        :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
                                 </v-col>
-                                <v-col cols="6">
+                                <v-col :cols="$vuetify.display.mobile ? 12 : 6">
                                     <v-text-field v-model="(this as any).registerLastname" label="Last Name"
-                                        variant="outlined" rounded="lg" class="mb-3" required></v-text-field>
+                                        variant="outlined" rounded="lg"
+                                        :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
                                 </v-col>
                             </v-row>
 
                             <v-text-field v-model="(this as any).registerPassword" label="Password" type="password"
-                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock" class="mb-3"
-                                required></v-text-field>
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock"
+                                :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
 
                             <v-text-field v-model="(this as any).registerConfirmPassword" label="Confirm Password"
                                 type="password" variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock-check"
-                                @keyup.enter="(this as any).register" class="mb-4" required></v-text-field>
+                                @keyup.enter="(this as any).register" :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'"
+                                required></v-text-field>
 
                             <!-- Registration Error Message -->
-                            <v-alert v-if="(this as any).registerError" type="error" variant="tonal" class="mb-4"
-                                closable @click:close="(this as any).registerError = ''">
+                            <v-alert v-if="(this as any).registerError" type="error" variant="tonal"
+                                :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'" closable
+                                @click:close="(this as any).registerError = ''">
                                 <v-icon left>mdi-alert-circle</v-icon>
                                 {{ (this as any).registerError }}
                             </v-alert>
 
-                            <v-btn @click="(this as any).register" color="primary" size="large" block rounded="lg"
-                                class="smooth-transition hover-lift mb-4" :loading="(this as any).isLoading"
-                                :disabled="(this as any).isLoading">
+                            <v-btn @click="(this as any).register" color="primary"
+                                :size="$vuetify.display.mobile ? 'default' : 'large'" block rounded="lg"
+                                class="smooth-transition hover-lift" :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'"
+                                :loading="(this as any).isLoading" :disabled="(this as any).isLoading">
                                 <v-icon left v-if="!(this as any).isLoading">mdi-account-plus</v-icon>
                                 {{ (this as any).isLoading ? 'Creating Account...' : 'Start Free Account' }}
                             </v-btn>
@@ -771,5 +787,133 @@ export default {
 
 .modern-auth-card::-webkit-scrollbar-thumb:hover {
     background: #2E7D32;
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 600px) {
+    .login-register-container {
+        padding: 12px;
+    }
+
+    .main-content-wrapper {
+        gap: 20px;
+        padding: 10px;
+    }
+
+    .hero-features-section {
+        padding: 10px;
+        margin-bottom: 20px;
+    }
+
+    .hero-content {
+        margin-bottom: 24px;
+    }
+
+    .hero-badge {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+        margin-bottom: 16px;
+    }
+
+    .hero-title {
+        font-size: 1.6rem;
+        line-height: 1.2;
+        margin-bottom: 16px;
+    }
+
+    .hero-description {
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin-bottom: 20px;
+    }
+
+    .key-benefits {
+        gap: 8px;
+    }
+
+    .benefit-item {
+        font-size: 0.9rem;
+    }
+
+    .auth-section {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .modern-auth-card {
+        width: 100%;
+        margin: 0;
+    }
+
+    .trust-indicators {
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .trust-item {
+        font-size: 0.8rem;
+        justify-content: center;
+    }
+
+    /* Form improvements for mobile */
+    .v-text-field {
+        margin-bottom: 12px;
+    }
+
+    .v-btn {
+        margin-bottom: 12px;
+    }
+
+    .v-alert {
+        margin-bottom: 12px;
+    }
+
+    /* Reduce spacing in toggle section */
+    .text-center p {
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+    }
+
+    .text-center .v-btn {
+        font-size: 0.9rem;
+    }
+}
+
+/* Extra small screens (iPhone SE) */
+@media (max-width: 375px) {
+    .login-register-container {
+        padding: 8px;
+    }
+
+    .hero-title {
+        font-size: 1.4rem;
+    }
+
+    .hero-description {
+        font-size: 0.9rem;
+    }
+
+    .hero-badge {
+        font-size: 0.75rem;
+        padding: 4px 8px;
+    }
+
+    .benefit-item {
+        font-size: 0.85rem;
+    }
+
+    .v-card-title {
+        padding: 16px 12px 8px 12px !important;
+    }
+
+    .v-card-text {
+        padding: 12px !important;
+    }
+
+    .v-avatar {
+        width: 50px !important;
+        height: 50px !important;
+    }
 }
 </style>

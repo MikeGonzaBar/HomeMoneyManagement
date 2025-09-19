@@ -21,17 +21,26 @@
 
             <!-- Quick Action Buttons -->
             <div class="quick-actions">
-                <v-btn variant="outlined" size="small" @click="(this as any).setCurrentMonth" class="quick-btn">
-                    <v-icon left size="small">mdi-calendar-today</v-icon>
-                    This Month
+                <v-btn variant="outlined" :size="$vuetify.display.mobile ? 'default' : 'small'"
+                    @click="(this as any).setCurrentMonth" class="quick-btn">
+                    <v-icon :left="$vuetify.display.smAndUp" :class="$vuetify.display.mobile ? '' : 'me-1'"
+                        :size="$vuetify.display.mobile ? 'default' : 'small'">mdi-calendar-today</v-icon>
+                    <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">This Month</span>
+                    <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Today</span>
                 </v-btn>
-                <v-btn variant="outlined" size="small" @click="(this as any).setPreviousMonth" class="quick-btn">
-                    <v-icon left size="small">mdi-chevron-left</v-icon>
-                    Previous
+                <v-btn variant="outlined" :size="$vuetify.display.mobile ? 'default' : 'small'"
+                    @click="(this as any).setPreviousMonth" class="quick-btn">
+                    <v-icon :left="$vuetify.display.smAndUp" :class="$vuetify.display.mobile ? '' : 'me-1'"
+                        :size="$vuetify.display.mobile ? 'default' : 'small'">mdi-chevron-left</v-icon>
+                    <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Previous</span>
+                    <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Prev</span>
                 </v-btn>
-                <v-btn variant="outlined" size="small" @click="(this as any).setNextMonth" class="quick-btn">
-                    <v-icon right size="small">mdi-chevron-right</v-icon>
-                    Next
+                <v-btn variant="outlined" :size="$vuetify.display.mobile ? 'default' : 'small'"
+                    @click="(this as any).setNextMonth" class="quick-btn">
+                    <v-icon :right="$vuetify.display.smAndUp" :class="$vuetify.display.mobile ? '' : 'ms-1'"
+                        :size="$vuetify.display.mobile ? 'default' : 'small'">mdi-chevron-right</v-icon>
+                    <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Next</span>
+                    <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Next</span>
                 </v-btn>
             </div>
         </div>
@@ -149,6 +158,7 @@ export default {
     font-size: 0.8rem;
     min-width: auto;
     padding: 0 12px;
+    transition: all 0.2s ease;
 }
 
 .quick-btn:hover {
@@ -206,6 +216,86 @@ export default {
     .quick-btn {
         flex: 1;
         min-width: 0;
+    }
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 600px) {
+    .date-selector-card {
+        padding: 16px;
+    }
+
+    .selector-header {
+        margin-bottom: 12px;
+    }
+
+    .selector-header .text-subtitle-1 {
+        font-size: 1rem;
+    }
+
+    .selectors-row {
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .quick-actions {
+        gap: 6px;
+        flex-direction: row;
+        justify-content: space-between;
+    }
+
+    .quick-btn {
+        flex: 1;
+        min-width: 0;
+        padding: 8px 4px;
+        font-size: 0.75rem;
+        height: 40px;
+    }
+
+    .quick-btn .v-icon {
+        font-size: 16px !important;
+    }
+
+    .quick-btn .v-btn__content {
+        gap: 4px;
+    }
+}
+
+/* Extra small screens (iPhone SE) */
+@media (max-width: 375px) {
+    .date-selector-card {
+        padding: 12px;
+    }
+
+    .selector-header {
+        margin-bottom: 10px;
+    }
+
+    .selector-header .text-subtitle-1 {
+        font-size: 0.9rem;
+    }
+
+    .selectors-row {
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .quick-actions {
+        gap: 4px;
+    }
+
+    .quick-btn {
+        padding: 6px 2px;
+        font-size: 0.7rem;
+        height: 36px;
+    }
+
+    .quick-btn .v-icon {
+        font-size: 14px !important;
+    }
+
+    .quick-btn .v-btn__content {
+        gap: 2px;
     }
 }
 </style>

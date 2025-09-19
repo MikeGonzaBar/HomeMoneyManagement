@@ -5,19 +5,23 @@
             <v-container class="d-flex align-center">
                 <!-- Budget Buddy Logo and Brand -->
                 <div class="d-flex align-center">
-                    <v-avatar size="48" class="me-3">
+                    <v-avatar :size="$vuetify.display.mobile ? 36 : 48" class="me-3">
                         <v-img src="@/assets/logo.png" alt="Budget Buddy" />
                     </v-avatar>
-                    <div>
+                    <div class="d-none d-sm-block">
                         <h2 class="header-title font-weight-bold mb-0">Budget Buddy</h2>
                         <p class="header-subtitle text-caption mb-0 opacity-90">Smart Money Management</p>
+                    </div>
+                    <!-- Mobile: Just show "BB" -->
+                    <div class="d-block d-sm-none">
+                        <h2 class="header-title font-weight-bold mb-0">BB</h2>
                     </div>
                 </div>
 
                 <v-spacer></v-spacer>
 
-                <!-- Welcome Message -->
-                <div class="text-center me-8 d-none d-md-block">
+                <!-- Welcome Message - Hidden on mobile -->
+                <div class="text-center me-8 d-none d-lg-block">
                     <h3 class="welcome-title font-weight-medium mb-0">Welcome back, {{ (this as
                         any).userData.user.first_name }}!</h3>
                     <p class="welcome-subtitle text-caption mb-0 opacity-90">Ready to manage your finances?</p>
@@ -27,10 +31,12 @@
                 <v-menu>
                     <template v-slot:activator="{ props }">
                         <v-btn v-bind="props" variant="outlined" class="user-menu-btn smooth-transition hover-lift"
-                            size="large">
-                            <v-icon left class="me-2">mdi-account-circle</v-icon>
-                            {{ (this as any).userData.user.first_name }}
-                            <v-icon right class="ms-2">mdi-chevron-down</v-icon>
+                            :size="$vuetify.display.mobile ? 'small' : 'large'">
+                            <v-icon :left="$vuetify.display.smAndUp"
+                                :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-account-circle</v-icon>
+                            <span class="d-none d-sm-inline">{{ (this as any).userData.user.first_name }}</span>
+                            <v-icon :right="$vuetify.display.smAndUp"
+                                :class="$vuetify.display.mobile ? '' : 'ms-2'">mdi-chevron-down</v-icon>
                         </v-btn>
                     </template>
                     <v-list class="modern-menu" rounded="lg">
@@ -44,7 +50,7 @@
                                 {{ (this as any).userData.user.first_name }} {{ (this as any).userData.user.last_name }}
                             </v-list-item-title>
                             <v-list-item-subtitle class="text-grey-darken-1">{{ (this as any).userData.user.username
-                                }}</v-list-item-subtitle>
+                            }}</v-list-item-subtitle>
                         </v-list-item>
                         <v-divider class="my-2 bg-grey-lighten-2"></v-divider>
                         <v-list-item @click="(this as any).goToProfile" class="profile-item">
@@ -71,14 +77,17 @@
 
         <!-- Main Content with proper spacing for fixed header -->
         <div class="main-content" style="margin-top: 80px;">
-            <v-container fluid class="pa-6">
+            <v-container fluid :class="$vuetify.display.mobile ? 'pa-3' : 'pa-6'">
                 <!-- Account Cards Section -->
                 <v-card class="mb-6 glass-card shadow-medium" rounded="xl">
-                    <v-card-title class="pa-6 pb-2">
-                        <h3 class="budget-text-gradient font-weight-bold">Your Accounts</h3>
-                        <p class="text-grey-darken-1 mb-0">Manage and track all your financial accounts</p>
+                    <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
+                        <h3 :class="$vuetify.display.mobile ? 'text-h5' : 'text-h4'"
+                            class="budget-text-gradient font-weight-bold">Your Accounts</h3>
+                        <p class="text-grey-darken-1 mb-0" :class="$vuetify.display.mobile ? 'text-caption' : ''">Manage
+                            and
+                            track all your financial accounts</p>
                     </v-card-title>
-                    <v-card-text class="pa-6 pt-2">
+                    <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
                         <AccountsCarousel ref="accountsCarousel" :userData="(this as any).userData"
                             @accountSelected="(this as any).handleAccountSelected"
                             @allAccountSelected="(this as any).handleAllAccountSelected"
@@ -88,25 +97,29 @@
 
                 <!-- Date Picker and Income/Expense Overview -->
                 <v-row class="mb-6">
-                    <v-col cols="12" lg="3">
-                        <v-card class="glass-card shadow-medium h-100" rounded="xl">
-                            <v-card-title class="pa-6 pb-2">
-                                <h4 class="budget-text-gradient font-weight-bold">Time Period</h4>
+                    <v-col cols="12" :lg="$vuetify.display.mobile ? 12 : 3">
+                        <v-card class="glass-card shadow-medium" :class="$vuetify.display.mobile ? '' : 'h-100'"
+                            rounded="xl">
+                            <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
+                                <h4 :class="$vuetify.display.mobile ? 'text-h6' : 'text-h5'"
+                                    class="budget-text-gradient font-weight-bold">Time Period</h4>
                                 <p class="text-grey-darken-1 mb-0 text-caption">Select your analysis period</p>
                             </v-card-title>
-                            <v-card-text class="pa-6 pt-2">
+                            <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
                                 <DatePicker :userData="(this as any).userData"
                                     @dateSelected="(this as any).handleDatePicked" />
                             </v-card-text>
                         </v-card>
                     </v-col>
-                    <v-col cols="12" lg="9">
-                        <v-card class="glass-card shadow-medium h-100" rounded="xl">
-                            <v-card-title class="pa-6 pb-2">
-                                <h4 class="budget-text-gradient font-weight-bold">Financial Overview</h4>
+                    <v-col cols="12" :lg="$vuetify.display.mobile ? 12 : 9">
+                        <v-card class="glass-card shadow-medium" :class="$vuetify.display.mobile ? 'mt-4' : 'h-100'"
+                            rounded="xl">
+                            <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
+                                <h4 :class="$vuetify.display.mobile ? 'text-h6' : 'text-h5'"
+                                    class="budget-text-gradient font-weight-bold">Financial Overview</h4>
                                 <p class="text-grey-darken-1 mb-0 text-caption">Your income and expenses summary</p>
                             </v-card-title>
-                            <v-card-text class="pa-6 pt-2">
+                            <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
                                 <IncomeExpense :transactions="(this as any).transactions" />
                             </v-card-text>
                         </v-card>
@@ -115,14 +128,16 @@
 
                 <!-- Transactions and Analytics -->
                 <v-row class="mb-6">
-                    <v-col cols="12" lg="8">
-                        <v-card class="glass-card shadow-medium h-100" rounded="xl">
-                            <v-card-title class="pa-6 pb-2">
-                                <h4 class="budget-text-gradient font-weight-bold">Transaction History</h4>
+                    <v-col cols="12" :lg="$vuetify.display.mobile ? 12 : 8">
+                        <v-card class="glass-card shadow-medium" :class="$vuetify.display.mobile ? '' : 'h-100'"
+                            rounded="xl">
+                            <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
+                                <h4 :class="$vuetify.display.mobile ? 'text-h6' : 'text-h5'"
+                                    class="budget-text-gradient font-weight-bold">Transaction History</h4>
                                 <p class="text-grey-darken-1 mb-0 text-caption">Track and manage your financial
                                     transactions</p>
                             </v-card-title>
-                            <v-card-text class="pa-6 pt-2">
+                            <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
                                 <TableData :transactions="(this as any).transactions" :userData="(this as any).userData"
                                     :accounts="(this as any).accounts"
                                     @updateAccounts="(this as any).handleUpdateAccountsMethod"
@@ -130,13 +145,15 @@
                             </v-card-text>
                         </v-card>
                     </v-col>
-                    <v-col cols="12" lg="4">
-                        <v-card class="glass-card shadow-medium h-100" rounded="xl">
-                            <v-card-title class="pa-6 pb-2">
-                                <h4 class="budget-text-gradient font-weight-bold">Spending Analysis</h4>
+                    <v-col cols="12" :lg="$vuetify.display.mobile ? 12 : 4">
+                        <v-card class="glass-card shadow-medium" :class="$vuetify.display.mobile ? 'mt-4' : 'h-100'"
+                            rounded="xl">
+                            <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
+                                <h4 :class="$vuetify.display.mobile ? 'text-h6' : 'text-h5'"
+                                    class="budget-text-gradient font-weight-bold">Spending Analysis</h4>
                                 <p class="text-grey-darken-1 mb-0 text-caption">Visual breakdown of your expenses</p>
                             </v-card-title>
-                            <v-card-text class="pa-6 pt-2">
+                            <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
                                 <PieChart :transactions="(this as any).transactions" />
                             </v-card-text>
                         </v-card>
@@ -540,5 +557,53 @@ export default {
 
 .welcome-subtitle {
     color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 600px) {
+    .budget-header {
+        height: 64px !important;
+    }
+
+    .main-content {
+        margin-top: 64px !important;
+    }
+
+    .header-title {
+        font-size: 1.2rem !important;
+    }
+
+    .glass-card {
+        margin-bottom: 16px !important;
+    }
+
+    .v-card-title h3,
+    .v-card-title h4 {
+        line-height: 1.2 !important;
+    }
+
+    .v-card-text {
+        padding: 16px !important;
+    }
+
+    .v-card-title {
+        padding: 16px 16px 8px 16px !important;
+    }
+
+    /* Reduce spacing between sections on mobile */
+    .mb-6 {
+        margin-bottom: 24px !important;
+    }
+
+    /* Make user menu button more compact */
+    .user-menu-btn {
+        min-width: auto !important;
+        padding: 0 12px !important;
+    }
+
+    /* Ensure proper text wrapping */
+    .budget-text-gradient {
+        word-break: break-word;
+    }
 }
 </style>
