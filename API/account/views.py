@@ -12,8 +12,29 @@ class AccountCreate(generics.CreateAPIView):
 
     def post(self, request: HttpRequest) -> HttpResponse:
         data = json.loads(request.body)
-        response = Account.create_account(data)
-        status = 400 if "error" in response else 201
+        try:
+            # Create account directly
+            account = Account.objects.create(
+                account_name=data.get('account_name'),
+                account_type=data.get('account_type'),
+                bank=data.get('bank'),
+                total=data.get('total', 0.0),
+                owner=data.get('owner')
+            )
+            response = {
+                "id": account.id,
+                "account_name": account.account_name,
+                "account_type": account.account_type,
+                "bank": account.bank,
+                "total": account.total,
+                "owner": account.owner,
+                "status": "Account saved"
+            }
+            status = 201
+        except Exception as e:
+            response = {"error": "Failed to create account", "details": str(e)}
+            status = 400
+        
         return HttpResponse(
             json.dumps(response, default=str),
             status=status,
@@ -26,7 +47,22 @@ class AccountOps(generics.RetrieveUpdateAPIView):
     serializer_class = AccountSerializer
 
     def get(self, request: HttpRequest, user: str, id: str) -> HttpResponse:
-        response = Account.get_accounts(user)
+        try:
+            # Get accounts for user
+            accounts = Account.objects.filter(owner=user)
+            response = []
+            for account in accounts:
+                response.append({
+                    "id": account.id,
+                    "account_name": account.account_name,
+                    "account_type": account.account_type,
+                    "bank": account.bank,
+                    "total": account.total,
+                    "owner": account.owner
+                })
+        except Exception as e:
+            response = {"error": "Failed to get accounts", "details": str(e)}
+        
         return HttpResponse(
             json.dumps(response, default=str),
             status=200,
@@ -35,7 +71,28 @@ class AccountOps(generics.RetrieveUpdateAPIView):
 
     def patch(self, request: HttpRequest, user: str, id: str) -> HttpResponse:
         data = json.loads(request.body)
-        response = Account.update_account(user, id, data)
+        try:
+            account = Account.objects.get(owner=user, id=id)
+            for key, value in data.items():
+                if hasattr(account, key):
+                    setattr(account, key, value)
+            account.save()
+            response = {
+                "success": "Account updated successfully",
+                "updated_account": {
+                    "id": account.id,
+                    "account_name": account.account_name,
+                    "account_type": account.account_type,
+                    "bank": account.bank,
+                    "total": account.total,
+                    "owner": account.owner
+                }
+            }
+        except Account.DoesNotExist:
+            response = {"error": "Account not found"}
+        except Exception as e:
+            response = {"error": "Failed to update account", "details": str(e)}
+        
         return HttpResponse(
             json.dumps(response, default=str),
             status=200,
@@ -48,8 +105,18 @@ class AccountDelete(generics.DestroyAPIView):
     serializer_class = AccountSerializer
 
     def delete(self, request: HttpRequest, user: str, id: str) -> HttpResponse:
-        response = Account.delete_account(user, id)
-        status = 400 if "error" in response else 200
+        try:
+            account = Account.objects.get(owner=user, id=id)
+            account.delete()
+            response = {"success": "Account deleted successfully"}
+            status = 200
+        except Account.DoesNotExist:
+            response = {"error": "Account not found"}
+            status = 400
+        except Exception as e:
+            response = {"error": "Failed to delete account", "details": str(e)}
+            status = 400
+        
         return HttpResponse(
             json.dumps(response, default=str),
             status=status,

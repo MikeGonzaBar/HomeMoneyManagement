@@ -41,8 +41,17 @@ export default {
   mounted() {
     // Get the value of the money_management_user key from localStorage
     const userDataString = localStorage.getItem('money_management_user');
+
     if (userDataString !== null) {
-      (this as any).userData.user = JSON.parse(userDataString);
+      const parsedUserData = JSON.parse(userDataString);
+
+      // Fix: The localStorage data has structure {user: {...}, valid: true}
+      // We need to extract the inner user object
+      if (parsedUserData.user) {
+        (this as any).userData.user = parsedUserData.user;
+      } else {
+        (this as any).userData.user = parsedUserData;
+      }
     } else {
       console.log("money_management_user key not found in local storage");
     }

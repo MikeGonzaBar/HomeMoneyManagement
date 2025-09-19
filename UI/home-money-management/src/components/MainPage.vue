@@ -134,6 +134,15 @@
                     </v-col>
                 </v-row>
 
+                <!-- Bank Statement Upload Section -->
+                <v-row class="mb-6">
+                    <v-col cols="12">
+                        <BankStatementUpload :userData="(this as any).userData"
+                            @statementProcessed="(this as any).handleStatementProcessed"
+                            @uploadError="(this as any).handleUploadError" />
+                    </v-col>
+                </v-row>
+
                 <!-- Financial Projections Section -->
                 <v-row>
                     <v-col cols="12">
@@ -142,6 +151,11 @@
                 </v-row>
             </v-container>
         </div>
+
+        <!-- Bank Statement Review Dialog -->
+        <BankStatementReview ref="bankStatementReview" :userData="(this as any).userData"
+            :accounts="(this as any).accounts" @transactionsImported="(this as any).handleTransactionsImported"
+            @importError="(this as any).handleImportError" />
     </v-container>
 </template>
 
@@ -153,6 +167,8 @@ import IncomeExpense from '@/components/IncomeExpense.vue';
 import TableData from '@/components/TableData.vue';
 import PieChart from '@/components/PieChart.vue';
 import Projections from '@/components/Projections.vue';
+import BankStatementUpload from '@/components/BankStatementUpload.vue';
+import BankStatementReview from '@/components/BankStatementReview.vue';
 import axios from 'axios';
 // import * as Vue from 'vue';
 interface AccountsCarousel {
@@ -208,7 +224,7 @@ export default {
         (this as any).year = currentDate.getFullYear();
         (this as any).getTransactions();
     },
-    components: { AccountsCarousel, DatePicker, IncomeExpense, TableData, PieChart, Projections },
+    components: { AccountsCarousel, DatePicker, IncomeExpense, TableData, PieChart, Projections, BankStatementUpload, BankStatementReview },
     methods: {
         triggerLogOut() {
             localStorage.removeItem('money_management_user');
@@ -237,7 +253,7 @@ export default {
         },
         getTransactions() {
             if ((this as any).accountSelected === null) {
-                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.id}/0/${(this as any).month + 1}/${(this as any).year}`)
+                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.username}/0/${(this as any).month + 1}/${(this as any).year}`)
                     .then((response) => {
                         (this as any).transactions = response.data;
                     })
@@ -246,7 +262,7 @@ export default {
                     })
             }
             else {
-                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.id}/${(this as any).accountSelected.id}/${(this as any).month + 1}/${(this as any).year}`)
+                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.username}/${(this as any).accountSelected.id}/${(this as any).month + 1}/${(this as any).year}`)
                     .then((response) => {
                         (this as any).transactions = response.data;
                     })
@@ -255,6 +271,25 @@ export default {
                     })
             }
 
+        },
+        handleStatementProcessed(bankStatementData: any) {
+            // Open the review dialog with the processed data
+            (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
+        },
+        handleUploadError(errorMessage: string) {
+            // Handle upload errors - you can add a snackbar or alert here
+            console.error('Upload error:', errorMessage);
+            // For now, just log the error. You can add a toast notification later
+        },
+        handleTransactionsImported(data: any) {
+            // Refresh transactions and accounts after import
+            (this as any).getTransactions();
+            (this as any).handleUpdateAccountsMethod();
+            console.log(`Successfully imported ${data.importedCount} transactions`);
+        },
+        handleImportError(errorMessage: string) {
+            // Handle import errors
+            console.error('Import error:', errorMessage);
         }
     }
 }

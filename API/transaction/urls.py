@@ -21,6 +21,6 @@ urlpatterns = [
     path(
         "delete/<str:transaction_id>/",
         TransactionDelete.as_view(),
-        name="transaction_update",
+        name="transaction_delete",
     ),
 ]

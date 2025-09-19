@@ -120,6 +120,31 @@ HomeMoneyManagement/
 - **Email**: `admin@example.com`
 - **Password**: `admin123`
 
+### Test Data Setup
+
+For testing with realistic data, you can populate the database with sample data:
+
+```bash
+# Quick setup (2 accounts, 20 transactions)
+cd Utils/TestData
+python populate_quick_test_data.py
+
+# Full setup (4 accounts, 100 transactions)
+python populate_test_data.py
+
+# Interactive menu (Windows)
+populate_test_data.bat
+
+# Interactive menu (Unix/Linux)
+chmod +x populate_test_data.sh
+./populate_test_data.sh
+```
+
+**Test User Credentials**:
+
+- **Username**: `testUser`
+- **Password**: `testpass123`
+
 ## 🎯 Usage Guide
 
 ### Getting Started
@@ -293,6 +318,24 @@ docker-compose down
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## 📚 Documentation
+
+### Core Documentation
+
+- **[API/README.md](API/README.md)** - Complete API documentation with endpoints and examples
+- **[ADMIN_SETUP.md](ADMIN_SETUP.md)** - Django admin interface setup and usage guide
+- **[SECURITY.md](SECURITY.md)** - Security policies, vulnerability management, and recent security fixes
+- **[API/DEVELOPMENT.md](API/DEVELOPMENT.md)** - Development history, issue resolution, and implementation details
+- **[API/TEST_DATA_README.md](API/TEST_DATA_README.md)** - Test data generation scripts and usage guide
+
+### Quick Reference
+
+- **API Endpoints**: See [API/README.md](API/README.md) for complete endpoint documentation
+- **Admin Access**: See [ADMIN_SETUP.md](ADMIN_SETUP.md) for admin interface setup
+- **Security Updates**: See [SECURITY.md](SECURITY.md) for latest security fixes and policies
+- **Development Issues**: See [API/DEVELOPMENT.md](API/DEVELOPMENT.md) for resolved issues and fixes
+- **Test Data Setup**: See [Utils/README.md](Utils/README.md) for test data generation scripts
+
 ## 🔒 Security
 
 For security-related information:
@@ -307,6 +350,7 @@ For support and questions:
 
 - Check the [ADMIN_SETUP.md](ADMIN_SETUP.md) for admin interface setup
 - Review the API documentation in [API/README.md](API/README.md)
+- Check [API/DEVELOPMENT.md](API/DEVELOPMENT.md) for common issues and solutions
 - Open an issue on GitHub
 
 ## 🎉 Acknowledgments

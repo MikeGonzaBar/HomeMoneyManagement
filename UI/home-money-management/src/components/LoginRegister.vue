@@ -108,13 +108,21 @@
                                 rounded="lg" prepend-inner-icon="mdi-account" class="mb-4" required></v-text-field>
 
                             <v-text-field v-model="(this as any).loginPassword" label="Password" type="password"
-                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock" class="mb-6"
-                                required></v-text-field>
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock" class="mb-4"
+                                @keyup.enter="(this as any).login" required></v-text-field>
+
+                            <!-- Login Error Message -->
+                            <v-alert v-if="(this as any).loginError" type="error" variant="tonal" class="mb-4" closable
+                                @click:close="(this as any).loginError = ''">
+                                <v-icon left>mdi-alert-circle</v-icon>
+                                {{ (this as any).loginError }}
+                            </v-alert>
 
                             <v-btn @click="(this as any).login" color="primary" size="large" block rounded="lg"
-                                class="smooth-transition hover-lift mb-4">
-                                <v-icon left>mdi-login</v-icon>
-                                Sign In to Dashboard
+                                class="smooth-transition hover-lift mb-4" :loading="(this as any).isLoading"
+                                :disabled="(this as any).isLoading">
+                                <v-icon left v-if="!(this as any).isLoading">mdi-login</v-icon>
+                                {{ (this as any).isLoading ? 'Signing In...' : 'Sign In to Dashboard' }}
                             </v-btn>
                         </v-form>
 
@@ -140,12 +148,20 @@
 
                             <v-text-field v-model="(this as any).registerConfirmPassword" label="Confirm Password"
                                 type="password" variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock-check"
-                                class="mb-6" required></v-text-field>
+                                @keyup.enter="(this as any).register" class="mb-4" required></v-text-field>
+
+                            <!-- Registration Error Message -->
+                            <v-alert v-if="(this as any).registerError" type="error" variant="tonal" class="mb-4"
+                                closable @click:close="(this as any).registerError = ''">
+                                <v-icon left>mdi-alert-circle</v-icon>
+                                {{ (this as any).registerError }}
+                            </v-alert>
 
                             <v-btn @click="(this as any).register" color="primary" size="large" block rounded="lg"
-                                class="smooth-transition hover-lift mb-4">
-                                <v-icon left>mdi-account-plus</v-icon>
-                                Start Free Account
+                                class="smooth-transition hover-lift mb-4" :loading="(this as any).isLoading"
+                                :disabled="(this as any).isLoading">
+                                <v-icon left v-if="!(this as any).isLoading">mdi-account-plus</v-icon>
+                                {{ (this as any).isLoading ? 'Creating Account...' : 'Start Free Account' }}
                             </v-btn>
                         </v-form>
 
@@ -192,6 +208,9 @@ export default {
             registerLastname: '',
             registerPassword: '',
             registerConfirmPassword: '',
+            loginError: '',
+            registerError: '',
+            isLoading: false,
         };
     },
     computed: {
@@ -209,29 +228,140 @@ export default {
     },
     methods: {
         login(): void {
+            // Clear previous errors
+            (this as any).loginError = '';
+
+            // Validate form data
+            if (!(this as any).loginUsername || !(this as any).loginPassword) {
+                (this as any).loginError = 'Please fill in both username and password fields.';
+                return;
+            }
+
+            // Debug: Log what we're sending
+            console.log('Login attempt:', {
+                username: (this as any).loginUsername,
+                password: (this as any).loginPassword,
+                url: `http://localhost:8000/user/${(this as any).loginUsername}/`
+            });
+
+            // Show loading state
+            (this as any).isLoading = true;
+
             axios.post(`http://localhost:8000/user/${(this as any).loginUsername}/`, {
                 password: (this as any).loginPassword,
             }).then(response => {
+                // Success - user authenticated
                 (this as any).$emit('userDataSent', response.data.user)
                 localStorage.setItem('money_management_user', JSON.stringify(response.data));
                 location.reload();
+            }).catch(error => {
+                // Handle authentication errors
+                console.error('Login error:', error);
+                console.error('Error response:', error.response);
+                console.error('Error response data:', error.response?.data);
+
+                let errorMessage = 'Login failed. Please try again.';
+
+                if (error.response) {
+                    // Server responded with error status
+                    console.log('Server response status:', error.response.status);
+                    console.log('Server response data:', error.response.data);
+
+                    if (error.response.status === 401) {
+                        // Check if it's a specific error message from server
+                        if (error.response.data && error.response.data.error) {
+                            if (error.response.data.error === 'User not found') {
+                                errorMessage = 'Username not found. Please check your username or create a new account.';
+                            } else if (error.response.data.error === 'Incorrect password') {
+                                errorMessage = 'Incorrect password. Please check your password.';
+                            } else {
+                                errorMessage = 'Invalid username or password. Please check your credentials.';
+                            }
+                        } else {
+                            errorMessage = 'Invalid username or password. Please check your credentials.';
+                        }
+                    } else if (error.response.status === 404) {
+                        errorMessage = 'User not found. Please check your username.';
+                    } else if (error.response.status === 500) {
+                        errorMessage = 'Server error. Please try again later.';
+                    } else if (error.response.data && error.response.data.error) {
+                        errorMessage = error.response.data.error;
+                    }
+                } else if (error.request) {
+                    // Network error
+                    errorMessage = 'Network error. Please check your connection.';
+                }
+
+                // Show error message in the form
+                (this as any).loginError = errorMessage;
+
+                // Reset loading state
+                (this as any).isLoading = false;
             });
         },
         register(): void {
+            // Clear previous errors
+            (this as any).registerError = '';
+
+            // Validate passwords match
+            if ((this as any).registerPassword !== (this as any).registerConfirmPassword) {
+                (this as any).registerError = 'Passwords do not match. Please try again.';
+                return;
+            }
+
+            // Validate required fields
+            if (!(this as any).registerUsername || !(this as any).registerFirstname || !(this as any).registerLastname || !(this as any).registerPassword) {
+                (this as any).registerError = 'Please fill in all required fields.';
+                return;
+            }
+
+            // Show loading state
+            (this as any).isLoading = true;
+
             axios.post('http://localhost:8000/user/', {
                 username: (this as any).registerUsername,
                 password: (this as any).registerPassword,
                 first_name: (this as any).registerFirstname,
                 last_name: (this as any).registerLastname
             }).then(response => {
+                // Success - user registered
                 (this as any).$emit('userDataSent', response.data)
                 localStorage.setItem('money_management_user', JSON.stringify(response.data));
                 (this as any).$emit('forceRemount');
+            }).catch(error => {
+                // Handle registration errors
+                console.error('Registration error:', error);
 
+                let errorMessage = 'Registration failed. Please try again.';
+
+                if (error.response) {
+                    // Server responded with error status
+                    if (error.response.status === 400) {
+                        if (error.response.data && error.response.data.error) {
+                            errorMessage = error.response.data.error;
+                        } else {
+                            errorMessage = 'Invalid registration data. Please check all fields.';
+                        }
+                    } else if (error.response.status === 500) {
+                        errorMessage = 'Server error. Please try again later.';
+                    }
+                } else if (error.request) {
+                    // Network error
+                    errorMessage = 'Network error. Please check your connection.';
+                }
+
+                // Show error message in the form
+                (this as any).registerError = errorMessage;
+
+                // Reset loading state
+                (this as any).isLoading = false;
             });
         },
         toggleForm() {
             (this as any).loginFormVisible = !(this as any).loginFormVisible;
+            // Clear errors when switching forms
+            (this as any).loginError = '';
+            (this as any).registerError = '';
         },
     },
 };

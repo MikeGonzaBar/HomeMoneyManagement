@@ -272,7 +272,7 @@ export default {
         },
         isFormValid(): boolean {
             let isValid = true;
-            (this as any).editedItem.owner_id = (this as any).userData.user.id
+            (this as any).editedItem.owner_id = (this as any).userData.user.username
             Object.values((this as any).editedItem).forEach((value) => {
                 if (value === '') {
                     isValid = false;
@@ -429,7 +429,7 @@ export default {
                         console.log(error);
                     });
             } else {
-                (this as any).editedItem.owner_id = (this as any).userData.user.id
+                (this as any).editedItem.owner_id = (this as any).userData.user.username
                 let account_name = (this as any).editedItem.account_id;
                 let account = (this as any).accounts.find((account: Account) => account.account_name === account_name);
                 let account_id = account ? account.id : null;

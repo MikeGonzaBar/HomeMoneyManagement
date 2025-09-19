@@ -2,10 +2,15 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("", views.UserPostGet.as_view(), name="user_post"),
-    path(
-        "<str:user>/",
-        views.UserDetail.as_view(),
-        name="User_detail",
-    ),
+    # New secure endpoints
+    path("register/", views.UserRegistrationView.as_view(), name="user_register"),
+    path("login/", views.UserLoginView.as_view(), name="user_login"),
+    path("profile/", views.user_profile, name="user_profile"),
+    
+    # Backward compatibility endpoints
+    path("", views.UserRegistrationView.as_view(), name="user_register_legacy"),
+    path("<str:username>/", views.UserLoginView.as_view(), name="user_login_legacy"),
+    
+    # User detail endpoint (for authenticated users)
+    path("detail/<str:username>/", views.UserDetailView.as_view(), name="user_detail"),
 ]
