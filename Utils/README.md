@@ -4,7 +4,7 @@ This directory contains utility scripts and tools for the Home Money Management 
 
 ## Structure
 
-```
+```text
 Utils/
 ├── README.md                    # This file
 └── TestData/                    # Test data generation scripts

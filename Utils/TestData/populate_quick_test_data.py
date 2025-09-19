@@ -20,9 +20,10 @@ sys.path.append('../../API')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'MoneyManagement.settings')
 django.setup()
 
-from users.models import User
-from account.models import Account
-from transaction.models import Transaction
+# Import Django models (path resolved at runtime)
+from users.models import User  # type: ignore
+from account.models import Account  # type: ignore
+from transaction.models import Transaction  # type: ignore
 
 
 def create_quick_test_data():
