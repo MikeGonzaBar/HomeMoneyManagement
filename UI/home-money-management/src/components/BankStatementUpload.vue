@@ -135,19 +135,42 @@ export default {
                 formData.append('pdf_file', (this as any).selectedFile[0]);
                 formData.append('user_id', (this as any).userData.user.username);
 
-                // Simulate API call - replace with actual endpoint
-                const response = await (this as any).simulateBankStatementProcessing();
+                // Upload to the actual API endpoint
+                const response = await axios.post('http://localhost:8000/bank-statements/upload/', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
 
-                // Emit the processed data to parent component
-                (this as any).$emit('statementProcessed', response);
+                if (response.data.status === 'success') {
+                    // Emit success with file details
+                    (this as any).$emit('statementProcessed', {
+                        message: response.data.message,
+                        file_details: response.data.file_details,
+                        status: 'uploaded'
+                    });
 
-                // Reset form
-                (this as any).selectedFile = null;
+                    // Reset form
+                    (this as any).selectedFile = null;
+                } else {
+                    throw new Error(response.data.message || 'Upload failed');
+                }
 
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error uploading bank statement:', error);
+
+                let errorMessage = 'Failed to upload bank statement. Please try again.';
+
+                if (error.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                } else if (error.response?.data?.error) {
+                    errorMessage = error.response.data.error;
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+
                 // Show error message to user
-                (this as any).$emit('uploadError', 'Failed to process bank statement. Please try again.');
+                (this as any).$emit('uploadError', errorMessage);
             } finally {
                 (this as any).isUploading = false;
             }

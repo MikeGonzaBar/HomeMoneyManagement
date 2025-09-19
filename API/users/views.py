@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import check_password, make_password
 
 from .models import User
 from .serializers import UserSerializer, UserLoginSerializer, UserResponseSerializer
@@ -213,3 +213,117 @@ def user_profile(request):
         data=serializer.data,
         message="Profile retrieved successfully"
     )
+
+
+@api_view(['PUT'])
+@permission_classes([AllowAny])  # We'll validate the user manually
+def update_user_info(request):
+    """
+    Update user information (username, first_name, last_name).
+    """
+    try:
+        username = request.data.get('username')
+        if not username:
+            return Response({
+                'error': 'Username is required',
+                'message': 'Please provide a username'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find the user
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({
+                'error': 'User not found',
+                'message': f'No user found with username: {username}'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Update user information
+        new_username = request.data.get('new_username', user.username)
+        first_name = request.data.get('first_name', user.first_name)
+        last_name = request.data.get('last_name', user.last_name)
+        
+        # Check if new username is already taken (if it's different)
+        if new_username != user.username:
+            if User.objects.filter(username=new_username).exists():
+                return Response({
+                    'error': 'Username already exists',
+                    'message': f'Username "{new_username}" is already taken'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update the user
+        user.username = new_username
+        user.first_name = first_name
+        user.last_name = last_name
+        user.save()
+        
+        return Response({
+            'message': 'User information updated successfully',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name
+            }
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            'error': 'Update failed',
+            'message': f'An error occurred while updating user information: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PUT'])
+@permission_classes([AllowAny])  # We'll validate the user manually
+def change_password(request):
+    """
+    Change user password with current password verification.
+    """
+    try:
+        username = request.data.get('username')
+        current_password = request.data.get('current_password')
+        new_password = request.data.get('new_password')
+        
+        if not all([username, current_password, new_password]):
+            return Response({
+                'error': 'Missing required fields',
+                'message': 'Please provide username, current_password, and new_password'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Find the user
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            return Response({
+                'error': 'User not found',
+                'message': f'No user found with username: {username}'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Verify current password
+        if not user.check_password(current_password):
+            return Response({
+                'error': 'Invalid current password',
+                'message': 'The current password you entered is incorrect'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validate new password
+        if len(new_password) < 8:
+            return Response({
+                'error': 'Password too short',
+                'message': 'New password must be at least 8 characters long'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Update password
+        user.set_password(new_password)
+        user.save()
+        
+        return Response({
+            'message': 'Password changed successfully'
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            'error': 'Password change failed',
+            'message': f'An error occurred while changing password: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

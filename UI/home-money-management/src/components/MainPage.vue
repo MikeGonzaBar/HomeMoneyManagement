@@ -34,7 +34,7 @@
                         </v-btn>
                     </template>
                     <v-list class="modern-menu" rounded="lg">
-                        <v-list-item class="user-profile-section">
+                        <v-list-item class="user-profile-section" @click="(this as any).goToProfile">
                             <template v-slot:prepend>
                                 <v-avatar size="40" class="budget-gradient me-3">
                                     <v-icon color="white" size="20">mdi-account</v-icon>
@@ -44,9 +44,18 @@
                                 {{ (this as any).userData.user.first_name }} {{ (this as any).userData.user.last_name }}
                             </v-list-item-title>
                             <v-list-item-subtitle class="text-grey-darken-1">{{ (this as any).userData.user.username
-                            }}</v-list-item-subtitle>
+                                }}</v-list-item-subtitle>
                         </v-list-item>
                         <v-divider class="my-2 bg-grey-lighten-2"></v-divider>
+                        <v-list-item @click="(this as any).goToProfile" class="profile-item">
+                            <template v-slot:prepend>
+                                <v-avatar size="32" class="bg-blue-lighten-4 me-3">
+                                    <v-icon color="blue-darken-2" size="18">mdi-account-edit</v-icon>
+                                </v-avatar>
+                            </template>
+                            <v-list-item-title class="text-blue-darken-2 font-weight-medium">Profile
+                                Settings</v-list-item-title>
+                        </v-list-item>
                         <v-list-item @click="(this as any).triggerLogOut" class="logout-item">
                             <template v-slot:prepend>
                                 <v-avatar size="32" class="bg-red-lighten-4 me-3">
@@ -230,6 +239,9 @@ export default {
             localStorage.removeItem('money_management_user');
             location.reload();
         },
+        goToProfile() {
+            (this as any).$router.push('/profile');
+        },
         handleUpdateIncomeExpense() {
             (this as any).getTransactions();
         },
@@ -273,13 +285,26 @@ export default {
 
         },
         handleStatementProcessed(bankStatementData: any) {
-            // Open the review dialog with the processed data
-            (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
+            // Handle the uploaded bank statement
+            if (bankStatementData.status === 'uploaded') {
+                // Show success message and file details
+                console.log('Bank statement uploaded successfully:', bankStatementData.file_details);
+
+                // For now, we'll show a success message
+                // In the future, this could trigger AI processing
+                alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded successfully!\n\nFile size: ${bankStatementData.file_details.file_size_display}\nStatus: ${bankStatementData.file_details.processing_status}\n\nNote: AI processing will be implemented in the future.`);
+
+                // Refresh the page to show updated data
+                (this as any).forceRemount();
+            } else {
+                // Handle other types of processed data (for future AI processing)
+                (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
+            }
         },
         handleUploadError(errorMessage: string) {
-            // Handle upload errors - you can add a snackbar or alert here
+            // Handle upload errors - show user-friendly error message
             console.error('Upload error:', errorMessage);
-            // For now, just log the error. You can add a toast notification later
+            alert(`Upload Error: ${errorMessage}`);
         },
         handleTransactionsImported(data: any) {
             // Refresh transactions and accounts after import
@@ -416,6 +441,12 @@ export default {
     background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(139, 195, 74, 0.1) 100%);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+.modern-menu .profile-item:hover {
+    background: rgba(33, 150, 243, 0.1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
 }
 
 .modern-menu .logout-item:hover {
