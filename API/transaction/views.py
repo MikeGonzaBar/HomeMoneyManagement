@@ -1,6 +1,7 @@
 import json
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.db import models
 from rest_framework import generics
 from .models import Transaction
 from .serializers import TransactionSerializer
@@ -13,16 +14,24 @@ class TransactionCreate(generics.CreateAPIView):
     def post(self, request: HttpRequest) -> HttpResponse:
         data = json.loads(request.body)
         try:
-            # Create transaction directly
-            transaction = Transaction.objects.create(
-                transaction_type=data.get('transaction_type'),
-                category=data.get('category'),
-                date=data.get('date'),
-                title=data.get('title'),
-                total=data.get('total', 0.0),
-                owner_id=data.get('owner_id'),
-                account_id=data.get('account_id')
-            )
+            # Create transaction with support for transfers
+            transaction_data = {
+                'transaction_type': data.get('transaction_type'),
+                'category': data.get('category'),
+                'date': data.get('date'),
+                'title': data.get('title'),
+                'total': data.get('total', 0.0),
+                'owner_id': data.get('owner_id'),
+                'account_id': data.get('account_id'),
+                'from_account_id': data.get('from_account_id'),
+                'to_account_id': data.get('to_account_id')
+            }
+            
+            transaction = Transaction.objects.create(**transaction_data)
+            
+            # Update account balances for transfers
+            if transaction.transaction_type == 'Transfer':
+                self._update_transfer_balances(transaction)
             response = {
                 "id": transaction.id,
                 "transaction_type": transaction.transaction_type,
@@ -32,6 +41,8 @@ class TransactionCreate(generics.CreateAPIView):
                 "total": transaction.total,
                 "owner_id": transaction.owner_id,
                 "account_id": transaction.account_id,
+                "from_account_id": transaction.from_account_id,
+                "to_account_id": transaction.to_account_id,
                 "status": "transaction saved"
             }
             status = 201
@@ -44,6 +55,27 @@ class TransactionCreate(generics.CreateAPIView):
             status=status,
             content_type="application/json",
         )
+    
+    def _update_transfer_balances(self, transaction):
+        """Update account balances for transfer transactions."""
+        from account.models import Account
+        
+        try:
+            # Update source account (subtract amount)
+            if transaction.from_account_id:
+                from_account = Account.objects.get(id=transaction.from_account_id)
+                from_account.total -= transaction.total
+                from_account.save()
+            
+            # Update destination account (add amount)
+            if transaction.to_account_id:
+                to_account = Account.objects.get(id=transaction.to_account_id)
+                to_account.total += transaction.total
+                to_account.save()
+                
+        except Account.DoesNotExist:
+            # Handle case where account doesn't exist
+            pass
 
 
 class TransactionRetrieve(generics.RetrieveAPIView):
@@ -58,7 +90,12 @@ class TransactionRetrieve(generics.RetrieveAPIView):
             base_query = Transaction.objects.filter(owner_id=user)
             
             if account_id != "0":
-                base_query = base_query.filter(account_id=account_id)
+                # For transfers, include transactions where this account is either source or destination
+                base_query = base_query.filter(
+                    models.Q(account_id=account_id) |  # Regular income/expense
+                    models.Q(from_account_id=account_id) |  # Transfer from this account
+                    models.Q(to_account_id=account_id)  # Transfer to this account
+                )
             
             if month != 0 and year != 0:
                 base_query = base_query.filter(date__month=month, date__year=year)
@@ -77,7 +114,9 @@ class TransactionRetrieve(generics.RetrieveAPIView):
                     "title": transaction.title,
                     "total": transaction.total,
                     "owner_id": transaction.owner_id,
-                    "account_id": transaction.account_id
+                    "account_id": transaction.account_id,
+                    "from_account_id": transaction.from_account_id,
+                    "to_account_id": transaction.to_account_id
                 })
         except Exception as e:
             response = {"error": "Failed to get transactions", "details": str(e)}

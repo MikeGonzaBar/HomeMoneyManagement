@@ -1,13 +1,41 @@
 services:
+  postgres:
+    hostname: postgres
+    container_name: money-management-postgres
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: moneymanagement
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   money-management-api:
     hostname: money-management-api
     container_name: money-management-api
     build: ./API
-
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/moneymanagement
+      POSTGRES_DB: moneymanagement
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
     command: bash -c "python /HomeMoneyManagement/manage.py makemigrations && python /HomeMoneyManagement/manage.py migrate && python /HomeMoneyManagement/create_superuser.py && python /HomeMoneyManagement/manage.py runserver 0.0.0.0:8000"
-
     ports:
       - 8000:8000
+    volumes:
+      - media_files:/HomeMoneyManagement/media
+    depends_on:
+      postgres:
+        condition: service_healthy
   # python /HomeMoneyManagement/manage.py collectstatic --noinput &&
   # cd HomeMoneyManagement/ &&
   # gunicorn --bind 0.0.0.0:8000 --workers=4 --log-level "debug" HomeMoneyManagement.wsgi"
@@ -19,3 +47,7 @@ services:
       - 8080:80
     depends_on:
       - money-management-api
+
+volumes:
+  postgres_data:
+  media_files:

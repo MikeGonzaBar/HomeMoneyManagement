@@ -2,7 +2,8 @@
     <v-slide-group v-model="model" class="pa-2" selected-class="account-selected" mandatory show-arrows>
         <!-- All Accounts Summary Card -->
         <v-slide-group-item v-slot="{ isSelected, toggle, selectedClass }">
-            <v-card :class="['ma-2 account-card', selectedClass, { 'selected': isSelected }]" height="140" width="180"
+            <v-card :class="['ma-2 account-card', selectedClass, { 'selected': isSelected }]"
+                :height="$vuetify.display.mobile ? 120 : 140" :width="$vuetify.display.mobile ? 280 : 320"
                 @click="toggle" class="smooth-transition hover-lift">
                 <v-card-text class="pa-4 d-flex flex-column justify-center align-center text-center h-100">
                     <v-avatar :size="$vuetify.display.mobile ? 32 : ($vuetify.display.mdAndDown ? 36 : 40)"
@@ -23,7 +24,8 @@
         <!-- Individual Account Cards -->
         <v-slide-group-item v-for="(acc, index) in accounts" :key="acc.id"
             v-slot="{ isSelected, toggle, selectedClass }">
-            <v-card :class="['ma-2 account-card', selectedClass, { 'selected': isSelected }]" height="140" width="180"
+            <v-card :class="['ma-2 account-card', selectedClass, { 'selected': isSelected }]"
+                :height="$vuetify.display.mobile ? 120 : 140" :width="$vuetify.display.mobile ? 280 : 320"
                 @click="toggle" class="smooth-transition hover-lift">
                 <!-- Edit Button -->
                 <v-btn icon size="small" class="edit-btn" @click.stop="editAccount(acc, index)" variant="text"
@@ -31,39 +33,83 @@
                     <v-icon size="18">mdi-pencil</v-icon>
                 </v-btn>
 
-                <v-card-text class="pa-4 d-flex flex-column justify-center align-center text-center h-100">
-                    <!-- Account Type Icon -->
-                    <v-avatar :size="$vuetify.display.mobile ? 32 : ($vuetify.display.mdAndDown ? 36 : 40)" class="mb-3"
-                        :class="getAccountTypeClass(acc.account_type)">
-                        <v-icon color="white"
-                            :size="$vuetify.display.mobile ? 20 : ($vuetify.display.mdAndDown ? 22 : 24)"
-                            :icon="getAccountTypeIcon(acc.account_type)" class="account-type-icon"></v-icon>
-                    </v-avatar>
+                <v-card-text class="pa-4 d-flex align-center h-100">
+                    <!-- Left Side: Icon and Type -->
+                    <div class="account-left d-flex flex-column align-center me-4">
+                        <!-- Account Type Icon -->
+                        <v-avatar :size="$vuetify.display.mobile ? 40 : 48" class="mb-2"
+                            :class="getAccountTypeClass(acc.account_type)">
+                            <v-icon color="white" :size="$vuetify.display.mobile ? 24 : 28"
+                                :icon="getAccountTypeIcon(acc.account_type)" class="account-type-icon"></v-icon>
+                        </v-avatar>
 
-                    <!-- Account Name -->
-                    <h5 :class="[
-                        $vuetify.display.mobile ? 'text-caption' : ($vuetify.display.mdAndDown ? 'text-caption' : 'text-h7'),
-                        $vuetify.display.mobile ? 'text-truncate' : '',
-                        'font-weight-bold'
-                    ]" :style="$vuetify.display.mobile ? 'max-width: 140px;' : ''">
-                        {{ acc.account_name }}
-                    </h5>
+                        <!-- Credit Card Indicator -->
+                        <v-chip v-if="acc.account_type === 'Crédito'" size="x-small" color="orange" variant="tonal">
+                            <v-icon size="12" class="me-1">mdi-credit-card</v-icon>
+                            Credit
+                        </v-chip>
+                    </div>
 
-                    <!-- Account Type -->
-                    <p class="text-caption text-grey-darken-1 mb-2">{{ acc.account_type }}</p>
+                    <!-- Right Side: Account Info and Values -->
+                    <div class="account-right flex-grow-1">
+                        <!-- Account Name and Type -->
+                        <div class="mb-2">
+                            <h5 :class="[
+                                $vuetify.display.mobile ? 'text-subtitle-2' : 'text-subtitle-1',
+                                'font-weight-bold mb-1'
+                            ]">
+                                {{ acc.account_name }}
+                            </h5>
+                            <p class="text-caption text-grey-darken-1 mb-0">{{ acc.account_type }}</p>
+                        </div>
 
-                    <!-- Balance -->
-                    <h4
-                        :class="[$vuetify.display.mobile ? 'text-subtitle-2' : ($vuetify.display.mdAndDown ? 'text-subtitle-2' : 'text-h7'), 'font-weight-bold mb-0', getBalanceClass(acc.total)]">
-                        ${{ acc.total.toLocaleString() }}
-                    </h4>
+                        <!-- Balance Information -->
+                        <div v-if="acc.account_type === 'Crédito'" class="credit-balance-info">
+                            <!-- Credit Card: Used / Available -->
+                            <div class="d-flex justify-space-between align-center mb-1">
+                                <span class="text-caption text-grey-darken-1">Used:</span>
+                                <span class="text-subtitle-2 font-weight-bold text-orange-darken-2">
+                                    ${{ getUsedCredit(acc).toLocaleString() }}
+                                </span>
+                            </div>
+                            <div class="d-flex justify-space-between align-center mb-1">
+                                <span class="text-caption text-grey-darken-1">Available:</span>
+                                <span class="text-subtitle-2 font-weight-bold text-success">
+                                    ${{ acc.total.toLocaleString() }}
+                                </span>
+                            </div>
+                            <div class="d-flex justify-space-between align-center">
+                                <span class="text-caption text-grey-darken-1">Limit:</span>
+                                <span class="text-caption font-weight-medium text-grey-darken-2">
+                                    ${{ getCreditLimit(acc).toLocaleString() }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div v-else class="regular-balance-info">
+                            <!-- Regular Account: Just Balance -->
+                            <div class="d-flex justify-space-between align-center">
+                                <span class="text-caption" :class="getBalanceLabelClass(acc.account_type)">
+                                    {{ getBalanceLabel(acc.account_type, acc.total) }}:
+                                </span>
+                                <span :class="[
+                                    $vuetify.display.mobile ? 'text-subtitle-2' : 'text-subtitle-1',
+                                    'font-weight-bold',
+                                    getBalanceClass(acc.total, acc.account_type)
+                                ]">
+                                    ${{ acc.total.toLocaleString() }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </v-card-text>
             </v-card>
         </v-slide-group-item>
 
         <!-- Add Account Card -->
         <v-slide-group-item v-slot="{ isSelected, toggle, selectedClass }">
-            <v-card :class="['ma-2 account-card add-account-card', selectedClass]" height="140" width="180"
+            <v-card :class="['ma-2 account-card add-account-card', selectedClass]"
+                :height="$vuetify.display.mobile ? 120 : 140" :width="$vuetify.display.mobile ? 280 : 320"
                 @click="toggle" class="smooth-transition hover-lift" variant="outlined">
                 <v-card-text class="pa-4 d-flex flex-column justify-center align-center text-center h-100">
                     <v-avatar :size="$vuetify.display.mobile ? 32 : ($vuetify.display.mdAndDown ? 36 : 40)" class="mb-3"
@@ -304,22 +350,73 @@ export default {
         getAccountTypeClass(this: ComponentInstance, accountType: string): string {
             switch (accountType) {
                 case 'Débito':
-                    return 'budget-gradient';
+                    return 'debit-account-gradient';
                 case 'Crédito':
-                    return 'bg-orange';
+                    return 'credit-account-gradient';
                 case 'Efectivo':
-                    return 'bg-blue';
+                    return 'cash-account-gradient';
                 default:
                     return 'budget-gradient';
             }
         },
 
-        getBalanceClass(this: ComponentInstance, balance: number): string {
-            if (balance >= 0) {
-                return 'text-success';
+        getBalanceClass(this: ComponentInstance, balance: number, accountType: string): string {
+            if (accountType === 'Crédito') {
+                // For credit cards: positive = good (available credit), negative = bad (debt)
+                if (balance >= 0) {
+                    return 'text-success';
+                } else {
+                    return 'text-error';
+                }
             } else {
-                return 'text-error';
+                // For cash/debit: positive = good, negative = bad
+                if (balance >= 0) {
+                    return 'text-success';
+                } else {
+                    return 'text-error';
+                }
             }
+        },
+
+        getBalanceLabel(this: ComponentInstance, accountType: string, balance: number): string {
+            if (accountType === 'Crédito') {
+                if (balance >= 0) {
+                    return 'Available Credit';
+                } else {
+                    return 'Debt';
+                }
+            } else if (accountType === 'Débito') {
+                return 'Balance';
+            } else if (accountType === 'Efectivo') {
+                return 'Cash on Hand';
+            }
+            return 'Balance';
+        },
+
+        getBalanceLabelClass(this: ComponentInstance, accountType: string): string {
+            if (accountType === 'Crédito') {
+                return 'text-orange-darken-2';
+            } else if (accountType === 'Débito') {
+                return 'text-blue-darken-2';
+            } else if (accountType === 'Efectivo') {
+                return 'text-green-darken-2';
+            }
+            return 'text-grey-darken-1';
+        },
+
+        getCreditLimit(this: ComponentInstance, account: any): number {
+            // Use credit_limit from database if available, otherwise calculate
+            if (account.credit_limit) {
+                return account.credit_limit;
+            }
+            // Fallback: assume credit limit is 1.5x the available credit
+            return Math.round(account.total * 1.5);
+        },
+
+        getUsedCredit(this: ComponentInstance, account: any): number {
+            // Used credit = Credit Limit - Available Credit
+            const creditLimit = (this as any).getCreditLimit(account);
+            return creditLimit - account.total;
         },
 
         deleteAccount(this: ComponentInstance) {
@@ -437,6 +534,71 @@ export default {
     cursor: pointer;
     position: relative;
     overflow: hidden;
+}
+
+/* Account Type Specific Gradients */
+.debit-account-gradient {
+    background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+}
+
+.credit-account-gradient {
+    background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
+    box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+}
+
+.cash-account-gradient {
+    background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+/* Balance Container */
+.balance-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+/* Account Layout */
+.account-left {
+    min-width: 60px;
+}
+
+.account-right {
+    min-width: 0;
+    /* Allow flex shrinking */
+}
+
+.credit-balance-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.regular-balance-info {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Credit Card Debt Information */
+.credit-debt-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    padding: 4px 8px;
+    background: rgba(255, 152, 0, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 152, 0, 0.2);
+}
+
+.debt-breakdown {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    min-width: 120px;
 }
 
 .account-card:hover {

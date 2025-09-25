@@ -218,7 +218,8 @@ export default {
             ],
             transactionTypes: [
                 { title: 'Income', value: 'Income' },
-                { title: 'Expense', value: 'Expense' }
+                { title: 'Expense', value: 'Expense' },
+                { title: 'Transfer', value: 'Transfer' }
             ],
             categories: [
                 'Awards',
@@ -235,6 +236,10 @@ export default {
                 'Salary',
                 'Shopping',
                 'Transportation',
+                'Transfer',
+                'Account Transfer',
+                'Money Transfer',
+                'Balance Transfer',
             ],
             accountTypes: [
                 'Checking',

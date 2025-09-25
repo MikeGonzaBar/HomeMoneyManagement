@@ -45,49 +45,47 @@ class TestDataGenerator:
             "Capital One", "PNC Bank", "US Bank", "TD Bank", "HSBC", "BB&T"
         ]
         
-        self.account_types = ["Checking", "Savings", "Credit Card", "Investment", "Business"]
+        # Account types that match the UI (Spanish labels with English values)
+        self.account_types = ["Débito", "Crédito", "Efectivo"]
         
+        # Income categories that match the UI
         self.income_categories = [
-            "Salary", "Freelance", "Investment Returns", "Rental Income", 
-            "Bonus", "Commission", "Side Business", "Dividends", "Interest"
+            "Salary", "Awards", "Investments", "Others"
         ]
         
+        # Expense categories that match the UI
         self.expense_categories = [
-            "Groceries", "Restaurants", "Transportation", "Gas", "Utilities",
-            "Rent/Mortgage", "Insurance", "Healthcare", "Entertainment",
-            "Shopping", "Travel", "Education", "Phone", "Internet", "Gym",
-            "Coffee", "Subscriptions", "Home Improvement", "Car Maintenance"
+            "Bills and utilities", "Education", "Entertainment", "Food and drinks",
+            "Gifts", "Insurance", "Investments", "Loans", "Medical", "Others",
+            "Shopping", "Transportation"
         ]
         
+        # Transfer categories
+        self.transfer_categories = [
+            "Transfer", "Account Transfer", "Money Transfer", "Balance Transfer"
+        ]
+        
+        # Transaction titles that match the UI categories
         self.transaction_titles = {
-            "Groceries": [
+            "Food and drinks": [
                 "Whole Foods", "Kroger", "Safeway", "Trader Joe's", "Costco",
-                "Walmart", "Target", "Local Market", "Organic Store"
-            ],
-            "Restaurants": [
-                "McDonald's", "Starbucks", "Pizza Hut", "Subway", "Chipotle",
-                "Local Diner", "Fine Dining", "Food Truck", "Coffee Shop"
+                "Walmart", "Target", "McDonald's", "Starbucks", "Pizza Hut", 
+                "Subway", "Chipotle", "Local Diner", "Fine Dining", "Coffee Shop"
             ],
             "Transportation": [
                 "Uber", "Lyft", "Taxi", "Bus Pass", "Train Ticket",
-                "Parking Fee", "Toll Road", "Car Rental"
+                "Parking Fee", "Toll Road", "Car Rental", "Shell Gas", "Exxon Gas"
             ],
-            "Gas": [
-                "Shell", "Exxon", "BP", "Chevron", "7-Eleven Gas",
-                "Costco Gas", "Local Station"
-            ],
-            "Utilities": [
+            "Bills and utilities": [
                 "Electric Bill", "Water Bill", "Gas Bill", "Internet Bill",
-                "Cable Bill", "Trash Service", "Sewer Bill"
-            ],
-            "Rent/Mortgage": [
-                "Monthly Rent", "Mortgage Payment", "HOA Fee", "Property Tax"
+                "Cable Bill", "Trash Service", "Sewer Bill", "Phone Bill",
+                "Comcast", "Verizon Fios", "AT&T Internet", "Spectrum"
             ],
             "Insurance": [
                 "Car Insurance", "Health Insurance", "Home Insurance",
                 "Life Insurance", "Renters Insurance"
             ],
-            "Healthcare": [
+            "Medical": [
                 "Doctor Visit", "Pharmacy", "Dental Checkup", "Eye Exam",
                 "Prescription", "Emergency Room", "Specialist Visit"
             ],
@@ -99,40 +97,33 @@ class TestDataGenerator:
                 "Amazon", "Target", "Walmart", "Best Buy", "Macy's",
                 "Nike", "Apple Store", "Local Boutique"
             ],
-            "Travel": [
-                "Flight Ticket", "Hotel Booking", "Airbnb", "Car Rental",
-                "Travel Insurance", "Vacation Package", "Cruise"
-            ],
             "Education": [
                 "Tuition", "Textbooks", "Online Course", "Certification",
                 "Workshop", "Conference", "Training"
             ],
-            "Phone": [
-                "Verizon", "AT&T", "T-Mobile", "Sprint", "Google Fi"
+            "Investments": [
+                "Stock Purchase", "Mutual Fund", "ETF", "Bond", "Dividend",
+                "Investment Return", "Portfolio Management"
             ],
-            "Internet": [
-                "Comcast", "Verizon Fios", "AT&T Internet", "Spectrum",
-                "Cox", "CenturyLink"
+            "Loans": [
+                "Student Loan", "Car Loan", "Personal Loan", "Credit Card Payment",
+                "Mortgage Payment", "Loan Interest"
             ],
-            "Gym": [
-                "Planet Fitness", "LA Fitness", "24 Hour Fitness", "Gold's Gym",
-                "Local Gym", "Yoga Studio", "Personal Trainer"
+            "Gifts": [
+                "Birthday Gift", "Wedding Gift", "Holiday Gift", "Charity Donation",
+                "Gift Card", "Flowers"
             ],
-            "Coffee": [
-                "Starbucks", "Dunkin'", "Local Coffee Shop", "Peet's Coffee",
-                "Caribou Coffee", "Tim Hortons"
+            "Others": [
+                "ATM Withdrawal", "Cash Deposit", "Transfer", "Fee",
+                "Refund", "Miscellaneous", "Unknown Transaction"
             ],
-            "Subscriptions": [
-                "Adobe Creative", "Microsoft Office", "Dropbox", "iCloud",
-                "Google Drive", "Slack", "Zoom", "Canva"
+            "Salary": [
+                "Monthly Salary", "Bi-weekly Pay", "Payroll", "Direct Deposit",
+                "Overtime Pay", "Holiday Pay"
             ],
-            "Home Improvement": [
-                "Home Depot", "Lowe's", "IKEA", "Hardware Store",
-                "Paint Store", "Furniture Store", "Garden Center"
-            ],
-            "Car Maintenance": [
-                "Oil Change", "Tire Rotation", "Brake Service", "Car Wash",
-                "Auto Repair", "DMV Fee", "Registration"
+            "Awards": [
+                "Bonus", "Commission", "Performance Award", "Recognition Bonus",
+                "Sales Commission", "Achievement Award"
             ]
         }
     
@@ -158,34 +149,41 @@ class TestDataGenerator:
         
         accounts_created = []
         
+        # Create one account of each type to match UI
         for i in range(num_accounts):
-            account_type = random.choice(self.account_types)
+            account_type = self.account_types[i]  # Use each type in order
             bank = random.choice(self.banks)
             
-            # Generate realistic account names
-            if account_type == "Checking":
-                account_name = f"{bank} Checking"
-                base_balance = random.uniform(500, 5000)
-            elif account_type == "Savings":
-                account_name = f"{bank} Savings"
-                base_balance = random.uniform(1000, 25000)
-            elif account_type == "Credit Card":
-                account_name = f"{bank} Credit Card"
-                base_balance = random.uniform(-5000, -500)  # Negative for credit card
-            elif account_type == "Investment":
-                account_name = f"{bank} Investment"
-                base_balance = random.uniform(10000, 100000)
-            else:  # Business
-                account_name = f"{bank} Business"
-                base_balance = random.uniform(1000, 10000)
+            # Generate realistic account names based on UI account types
+            if account_type == "Débito":
+                # Debit accounts (like checking/savings) - should be positive
+                account_name = f"{bank} Débito"
+                base_balance = random.uniform(1000, 8000)  # Higher positive balance
+            elif account_type == "Crédito":
+                # Credit card accounts - positive = available credit, negative = debt
+                account_name = f"{bank} Crédito"
+                credit_limit = random.uniform(5000, 15000)  # Credit limit
+                used_credit = random.uniform(1000, credit_limit * 0.7)  # Used credit (up to 70% of limit)
+                base_balance = credit_limit - used_credit  # Available credit
+            elif account_type == "Efectivo":
+                # Cash accounts - should be positive
+                account_name = "Efectivo"
+                base_balance = random.uniform(100, 2000)  # Positive cash
             
-            account = Account.objects.create(
-                account_type=account_type,
-                bank=bank,
-                total=round(base_balance, 2),
-                account_name=account_name,
-                owner=self.test_username
-            )
+            # Create account with credit limit for credit cards
+            account_data = {
+                'account_type': account_type,
+                'bank': bank,
+                'total': round(base_balance, 2),
+                'account_name': account_name,
+                'owner': self.test_username
+            }
+            
+            # Add credit limit for credit card accounts
+            if account_type == "Crédito":
+                account_data['credit_limit'] = round(credit_limit, 2)
+            
+            account = Account.objects.create(**account_data)
             
             accounts_created.append(account)
             print(f"  ✅ Created: {account.account_name} - ${account.total:,.2f}")
@@ -212,33 +210,37 @@ class TestDataGenerator:
             account = random.choice(accounts)
             account_id = str(account.id)
             
-            # 70% chance of expense, 30% chance of income
-            if random.random() < 0.7:
+            # 50% expense, 30% income, 20% transfer
+            rand = random.random()
+            if rand < 0.5:
+                # Expense transaction
                 transaction_type = "Expense"
                 category = random.choice(self.expense_categories)
                 
-                # Generate realistic expense amounts based on category
-                if category in ["Groceries"]:
-                    amount = random.uniform(20, 200)
-                elif category in ["Restaurants", "Coffee"]:
-                    amount = random.uniform(5, 50)
-                elif category in ["Gas"]:
-                    amount = random.uniform(30, 80)
-                elif category in ["Utilities"]:
-                    amount = random.uniform(50, 300)
-                elif category in ["Rent/Mortgage"]:
-                    amount = random.uniform(800, 3000)
-                elif category in ["Insurance"]:
-                    amount = random.uniform(100, 500)
-                elif category in ["Healthcare"]:
-                    amount = random.uniform(50, 500)
-                elif category in ["Entertainment"]:
-                    amount = random.uniform(10, 100)
-                elif category in ["Shopping"]:
-                    amount = random.uniform(20, 500)
-                elif category in ["Travel"]:
-                    amount = random.uniform(100, 2000)
-                else:
+                # Generate realistic expense amounts based on UI categories
+                if category == "Food and drinks":
+                    amount = random.uniform(5, 200)  # Coffee to groceries
+                elif category == "Transportation":
+                    amount = random.uniform(10, 100)  # Gas, parking, rides
+                elif category == "Bills and utilities":
+                    amount = random.uniform(50, 300)  # Monthly bills
+                elif category == "Insurance":
+                    amount = random.uniform(100, 500)  # Monthly insurance
+                elif category == "Medical":
+                    amount = random.uniform(50, 500)  # Medical expenses
+                elif category == "Entertainment":
+                    amount = random.uniform(10, 100)  # Movies, subscriptions
+                elif category == "Shopping":
+                    amount = random.uniform(20, 500)  # Retail purchases
+                elif category == "Education":
+                    amount = random.uniform(50, 500)  # Tuition, courses (reduced)
+                elif category == "Investments":
+                    amount = random.uniform(50, 1000)  # Investment amounts (reduced)
+                elif category == "Loans":
+                    amount = random.uniform(100, 800)  # Loan payments (reduced)
+                elif category == "Gifts":
+                    amount = random.uniform(20, 200)  # Gift amounts
+                else:  # Others
                     amount = random.uniform(10, 200)
                 
                 # Generate title based on category
@@ -247,35 +249,72 @@ class TestDataGenerator:
                 else:
                     title = f"{category} Payment"
                 
-            else:
+                # Create expense transaction
+                transaction = Transaction.objects.create(
+                    transaction_type=transaction_type,
+                    category=category,
+                    date=transaction_date.date(),
+                    title=title,
+                    total=round(amount, 2),
+                    owner_id=self.test_username,
+                    account_id=account_id
+                )
+                
+            elif rand < 0.8:  # 30% income
+                # Income transaction
                 transaction_type = "Income"
                 category = random.choice(self.income_categories)
                 
-                # Generate realistic income amounts
+                # Generate realistic income amounts based on UI categories
                 if category == "Salary":
-                    amount = random.uniform(2000, 8000)
-                elif category == "Freelance":
-                    amount = random.uniform(200, 2000)
-                elif category == "Investment Returns":
-                    amount = random.uniform(50, 1000)
-                elif category == "Rental Income":
-                    amount = random.uniform(800, 2500)
-                elif category == "Bonus":
-                    amount = random.uniform(500, 5000)
-                else:
-                    amount = random.uniform(100, 1000)
+                    amount = random.uniform(2000, 8000)  # Monthly salary
+                elif category == "Awards":
+                    amount = random.uniform(500, 5000)  # Bonuses, commissions
+                elif category == "Investments":
+                    amount = random.uniform(50, 2000)  # Investment returns
+                else:  # Others
+                    amount = random.uniform(100, 1000)  # Miscellaneous income
                 
-                title = f"{category} Payment"
-            
-            transaction = Transaction.objects.create(
-                transaction_type=transaction_type,
-                category=category,
-                date=transaction_date.date(),
-                title=title,
-                total=round(amount, 2),
-                owner_id=self.test_username,
-                account_id=account_id
-            )
+                # Generate title based on category
+                if category in self.transaction_titles:
+                    title = random.choice(self.transaction_titles[category])
+                else:
+                    title = f"{category} Payment"
+                
+                # Create income transaction
+                transaction = Transaction.objects.create(
+                    transaction_type=transaction_type,
+                    category=category,
+                    date=transaction_date.date(),
+                    title=title,
+                    total=round(amount, 2),
+                    owner_id=self.test_username,
+                    account_id=account_id
+                )
+                
+            else:  # 20% transfer
+                # Transfer transaction
+                transaction_type = "Transfer"
+                category = random.choice(self.transfer_categories)
+                
+                # Choose two different accounts for transfer
+                from_account = random.choice(accounts)
+                to_account = random.choice([acc for acc in accounts if acc.id != from_account.id])
+                
+                amount = random.uniform(50, 1000)  # Transfer amounts
+                title = f"Transfer to {to_account.account_name}"
+                
+                # Create transfer transaction
+                transaction = Transaction.objects.create(
+                    transaction_type=transaction_type,
+                    category=category,
+                    date=transaction_date.date(),
+                    title=title,
+                    total=round(amount, 2),
+                    owner_id=self.test_username,
+                    from_account_id=str(from_account.id),
+                    to_account_id=str(to_account.id)
+                )
             
             transactions_created.append(transaction)
             
@@ -290,7 +329,13 @@ class TestDataGenerator:
         print(f"\n🔄 Updating account balances...")
         
         for account in accounts:
-            account_transactions = [t for t in transactions if t.account_id == str(account.id)]
+            # Get all transactions that affect this account
+            account_transactions = []
+            for t in transactions:
+                if (t.account_id == str(account.id) or  # Regular income/expense
+                    t.from_account_id == str(account.id) or  # Transfer from this account
+                    t.to_account_id == str(account.id)):  # Transfer to this account
+                    account_transactions.append(t)
             
             # Start with the original balance
             current_balance = account.total
@@ -299,8 +344,16 @@ class TestDataGenerator:
             for transaction in account_transactions:
                 if transaction.transaction_type == "Income":
                     current_balance += transaction.total
-                else:  # Expense
+                elif transaction.transaction_type == "Expense":
                     current_balance -= transaction.total
+                elif transaction.transaction_type == "Transfer":
+                    # For transfers, check if this account is source or destination
+                    if transaction.from_account_id == str(account.id):
+                        # This account is the source - money goes out
+                        current_balance -= transaction.total
+                    elif transaction.to_account_id == str(account.id):
+                        # This account is the destination - money comes in
+                        current_balance += transaction.total
             
             # Update the account balance
             account.total = round(current_balance, 2)
@@ -362,8 +415,8 @@ class TestDataGenerator:
             return False
         
         try:
-            # Create accounts
-            accounts = self.create_accounts(num_accounts=4)
+            # Create accounts (one of each type: Débito, Crédito, Efectivo)
+            accounts = self.create_accounts(num_accounts=3)
             
             # Create transactions
             transactions = self.create_transactions(accounts, num_transactions=100)
