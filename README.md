@@ -40,6 +40,88 @@ A comprehensive full-stack personal finance management application that helps us
 - **API Endpoints**: RESTful APIs for users, accounts, and transactions
 - **Admin Interface**: Django admin for data management
 
+### Database Schema
+
+The application uses a relational database structure with the following entities and relationships:
+
+```mermaid
+erDiagram
+    User {
+        int id PK
+        string username UK
+        string password
+        string first_name
+        string last_name
+    }
+    
+    Account {
+        int id PK
+        string account_type
+        string bank
+        float total
+        string account_name
+        string owner
+        float credit_limit
+    }
+    
+    Transaction {
+        int id PK
+        string transaction_type
+        string category
+        date date
+        string title
+        float total
+        string owner_id
+        string from_account_id
+        string to_account_id
+        string account_id
+    }
+    
+    BankStatement {
+        int id PK
+        string user_id
+        file file
+        string original_filename
+        bigint file_size
+        datetime upload_date
+        boolean processed
+        string processing_status
+        text error_message
+    }
+    
+    User ||--o{ Account : "owns (owner field)"
+    User ||--o{ Transaction : "creates (owner_id field)"
+    User ||--o{ BankStatement : "uploads (user_id field)"
+    Account ||--o{ Transaction : "source (from_account_id field)"
+    Account ||--o{ Transaction : "destination (to_account_id field)"
+    Account ||--o{ Transaction : "legacy (account_id field)"
+```
+
+**Key Relationships:**
+
+- **User → Account**: One-to-Many (User owns multiple accounts via `owner` field)
+- **User → Transaction**: One-to-Many (User creates multiple transactions via `owner_id` field)
+- **User → BankStatement**: One-to-Many (User uploads multiple bank statements via `user_id` field)
+- **Account → Transaction**: One-to-Many (Account can be source/destination for multiple transactions)
+- **Transaction Types**: Income, Expense, Transfer (with different account relationships)
+
+**Database Design Notes:**
+
+- **String-based Relationships**: The application uses string fields (`owner_id`, `from_account_id`, `to_account_id`, `account_id`) instead of formal foreign keys for flexibility
+- **Transaction Flexibility**: Transactions support three types:
+  - **Income/Expense**: Uses `account_id` for single account
+  - **Transfer**: Uses `from_account_id` and `to_account_id` for inter-account transfers
+- **Credit Card Support**: Accounts include `credit_limit` field for credit card management
+- **File Management**: BankStatement model handles PDF uploads with processing status tracking
+- **Data Isolation**: All user data is isolated by username/user_id fields for security
+
+**Supported Account Types:**
+
+- **Debit** (`Débito`): Checking/Savings accounts with positive balances
+- **Credit** (`Crédito`): Credit card accounts with credit limits and available credit tracking
+- **Cash** (`Efectivo`): Physical cash accounts
+- **Investment** (`Inversión`): *Ready to support* - schema is flexible enough, just needs UI implementation
+
 ### Frontend (Vue.js 3)
 
 - **Framework**: Vue.js 3 with TypeScript
@@ -59,12 +141,40 @@ A comprehensive full-stack personal finance management application that helps us
 HomeMoneyManagement/
 ├── API/                          # Django Backend
 │   ├── users/                    # User management app
+│   │   ├── models.py            # User model
+│   │   ├── views.py             # User API endpoints
+│   │   ├── serializers.py       # User data serialization
+│   │   ├── services.py          # User business logic
+│   │   └── migrations/          # Database migrations
 │   ├── account/                  # Account management app
+│   │   ├── models.py            # Account model
+│   │   ├── views.py             # Account API endpoints
+│   │   ├── serializers.py       # Account data serialization
+│   │   └── migrations/          # Database migrations
 │   ├── transaction/              # Transaction management app
+│   │   ├── models.py            # Transaction model
+│   │   ├── views.py             # Transaction API endpoints
+│   │   ├── serializers.py       # Transaction data serialization
+│   │   └── migrations/          # Database migrations
+│   ├── bankstatements/           # Bank statement processing app
+│   │   ├── models.py            # BankStatement model
+│   │   ├── views.py             # Statement upload/processing endpoints
+│   │   ├── serializers.py       # Statement data serialization
+│   │   └── migrations/          # Database migrations
 │   ├── MoneyManagement/          # Django project settings
+│   │   ├── settings.py          # Main configuration
+│   │   ├── urls.py              # URL routing
+│   │   ├── wsgi.py              # WSGI configuration
+│   │   └── error_handlers.py    # Custom error handling
 │   ├── requirements.txt          # Python dependencies
 │   ├── Dockerfile               # Backend container config
-│   └── create_superuser.py      # Admin user creation script
+│   ├── create_superuser.py      # Admin user creation script
+│   ├── create_superuser_interactive.py  # Interactive admin creation
+│   ├── create_test_user.py      # Test user creation script
+│   ├── db.sqlite3               # SQLite database (development)
+│   ├── README.md                # API documentation
+│   ├── DEVELOPMENT.md           # Development history and issues
+│   └── TEST_DATA_README.md      # Test data documentation
 ├── UI/                          # Vue.js Frontend
 │   └── home-money-management/
 │       ├── src/
@@ -76,14 +186,56 @@ HomeMoneyManagement/
 │       │   │   ├── IncomeExpense.vue
 │       │   │   ├── PieChart.vue
 │       │   │   ├── Projections.vue
-│       │   │   └── TableData.vue
+│       │   │   ├── TableData.vue
+│       │   │   ├── BankStatementUpload.vue
+│       │   │   └── BankStatementReview.vue
 │       │   ├── views/           # Page views
+│       │   │   ├── Home.vue
+│       │   │   └── Profile.vue
+│       │   ├── layouts/         # Layout components
+│       │   │   └── default/
+│       │   │       ├── AppBar.vue
+│       │   │       ├── Default.vue
+│       │   │       └── View.vue
 │       │   ├── router/          # Vue Router configuration
-│       │   └── plugins/         # Vuetify and other plugins
+│       │   │   └── index.ts
+│       │   ├── plugins/         # Vuetify and other plugins
+│       │   │   ├── index.ts
+│       │   │   └── vuetify.ts
+│       │   ├── types/           # TypeScript type definitions
+│       │   │   └── global.d.ts
+│       │   ├── styles/          # SCSS styles
+│       │   │   └── settings.scss
+│       │   ├── assets/          # Static assets
+│       │   │   ├── logo.png
+│       │   │   └── logo.svg
+│       │   ├── App.vue          # Main app component
+│       │   ├── main.ts          # Application entry point
+│       │   └── shims-vue.d.ts   # Vue type declarations
+│       ├── public/              # Public assets
+│       │   ├── favicon.ico
+│       │   └── favicon.png
+│       ├── dist/                # Built application (production)
 │       ├── package.json         # Node.js dependencies
-│       └── Dockerfile          # Frontend container config
+│       ├── package-lock.json    # Dependency lock file
+│       ├── tsconfig.json        # TypeScript configuration
+│       ├── vite.config.ts       # Vite build configuration
+│       ├── Dockerfile          # Frontend container config
+│       └── README.md           # Frontend documentation
+├── Utils/                       # Utility scripts and tools
+│   ├── README.md               # Utils documentation
+│   └── TestData/               # Test data generation scripts
+│       ├── populate_test_data.py
+│       ├── populate_quick_test_data.py
+│       ├── create_docker_test_data.py
+│       ├── populate_test_data.bat
+│       └── populate_test_data.sh
 ├── docker-compose.yaml          # Multi-container orchestration
+├── create_admin_user.sh         # Admin user creation script
+├── security-check.sh            # Security validation script
 ├── ADMIN_SETUP.md              # Django admin setup guide
+├── SECURITY.md                 # Security policies and fixes
+├── POSTGRES_MIGRATION.md       # PostgreSQL migration guide
 └── README.md                   # This file
 ```
 
