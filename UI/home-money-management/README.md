@@ -1,69 +1,31 @@
-# base
+# Home Money Management - Frontend
 
-## Project setup
+Vue.js 3 frontend application for the Home Money Management system.
+
+## Quick Start
 
 ```bash
-# yarn
-yarn
-
-# npm
+# Install dependencies
 npm install
 
-# pnpm
-pnpm install
-
-# bun
-bun install
-```
-
-### Compiles and hot-reloads for development
-
-```bash
-# yarn
-yarn dev
-
-# npm
+# Start development server
 npm run dev
 
-# pnpm
-pnpm dev
-
-# bun
-pnpm run dev
-```
-
-### Compiles and minifies for production
-
-```bash
-# yarn
-yarn build
-
-# npm
+# Build for production
 npm run build
-
-# pnpm
-pnpm build
-
-# bun
-pnpm run build
 ```
 
-### Lints and fixes files
+## Technology Stack
 
-```bash
-# yarn
-yarn lint
+- **Vue.js 3** - Progressive JavaScript framework
+- **TypeScript** - Type-safe JavaScript
+- **Vuetify 3** - Material Design component framework
+- **Chart.js** - Data visualization library
+- **Vite** - Build tool and development server
+- **Vue Router** - Client-side routing
 
-# npm
-npm run lint
+## Development
 
-# pnpm
-pnpm lint
+The frontend runs on `http://localhost:8080` in development mode and connects to the Django API at `http://localhost:8000`.
 
-# bun
-pnpm run lint
-```
-
-### Customize configuration
-
-See [Configuration Reference](https://vitejs.dev/config/).
+For detailed project documentation, see the [main README.md](../../README.md).

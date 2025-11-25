@@ -41,6 +41,8 @@ This backend provides the following API endpoints:
 
 - `/transactions/`: Endpoints for managing transactions done by the user.
 
+- `/bank-statements/`: Endpoints for uploading and managing bank statement PDFs with AI-powered transaction extraction.
+
 Each endpoint offers specific functionalities related to the respective domain, facilitating efficient interaction with the frontend application.
 
 ### Users Endpoint
@@ -397,3 +399,81 @@ In the `urls.py` file, the URLs for the Transactions endpoint are configured:
 - `GET /transactions/retrieve/<username>/<account_id>/<month>/<year>/`: Retrieves transactions based on provided parameters.
 - `PATCH /transactions/update/<transaction_id>/`: Updates an existing transaction.
 - `DELETE /transactions/delete/<transaction_id>/`: Deletes a transaction.
+
+### Bank Statements Endpoint
+
+The Bank Statements endpoint provides functionalities for uploading PDF bank statements and automatically extracting transaction data using Google AI Studio (Gemini API).
+
+#### Bank Statements Views
+
+- `upload_bank_statement`:
+  - URL: `POST /bank-statements/upload/`
+  - Description: Uploads a bank statement PDF and processes it with AI to extract transactions.
+  - Method: `POST`
+  - Request: Form data with `pdf_file` (PDF file) and `user_id` (username)
+  - Response:
+    - Status 200 (OK) - Upload successful with extracted data
+
+      ```json
+      {
+        "message": "Bank statement uploaded successfully",
+        "file_details": {
+          "id": 1,
+          "filename": "statement.pdf",
+          "file_size": 123456,
+          "file_size_display": "120.6 KB",
+          "upload_date": "2024-01-15T10:30:00Z",
+          "processing_status": "completed"
+        },
+        "status": "success",
+        "extracted_data": {
+          "transactions": [
+            {
+              "date": "2024-01-15",
+              "title": "Grocery Store Purchase",
+              "amount": 125.50,
+              "transaction_type": "Expense",
+              "category": "Food and drinks"
+            }
+          ],
+          "account_name": "Checking Account",
+          "account_type": "Credit Card",
+          "statement_period": {
+            "start": "2024-01-01",
+            "end": "2024-01-31"
+          },
+          "processing_error": null
+        }
+      }
+      ```
+
+    - Status 400 (Bad Request) - Invalid file or missing data
+
+- `get_user_bank_statements`:
+  - URL: `GET /bank-statements/user/<user_id>/`
+  - Description: Retrieves all bank statements for a specific user.
+  - Method: `GET`
+  - Response: List of bank statements with metadata
+
+- `get_bank_statement_details`:
+  - URL: `GET /bank-statements/details/<statement_id>/`
+  - Description: Retrieves details of a specific bank statement.
+  - Method: `GET`
+  - Response: Bank statement details including file information and processing status
+
+- `delete_bank_statement`:
+  - URL: `DELETE /bank-statements/delete/<statement_id>/`
+  - Description: Deletes a bank statement and its associated file.
+  - Method: `DELETE`
+  - Response: Success message
+
+#### Bank Statements URLs
+
+In the `urls.py` file, the URLs for the Bank Statements endpoint are configured:
+
+- `POST /bank-statements/upload/`: Uploads and processes a bank statement PDF.
+- `GET /bank-statements/user/<user_id>/`: Retrieves all bank statements for a user.
+- `GET /bank-statements/details/<statement_id>/`: Retrieves details of a specific statement.
+- `DELETE /bank-statements/delete/<statement_id>/`: Deletes a bank statement.
+
+**Note**: Bank statement processing requires Google AI Studio API key configuration. See [GOOGLE_AI_SETUP.md](GOOGLE_AI_SETUP.md) for setup instructions.

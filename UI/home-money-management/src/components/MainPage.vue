@@ -50,7 +50,7 @@
                                 {{ (this as any).userData.user.first_name }} {{ (this as any).userData.user.last_name }}
                             </v-list-item-title>
                             <v-list-item-subtitle class="text-grey-darken-1">{{ (this as any).userData.user.username
-                            }}</v-list-item-subtitle>
+                                }}</v-list-item-subtitle>
                         </v-list-item>
                         <v-divider class="my-2 bg-grey-lighten-2"></v-divider>
                         <v-list-item @click="(this as any).goToProfile" class="profile-item">
@@ -169,7 +169,7 @@
                     </v-col>
                 </v-row>
 
-                <!-- Financial Projections Section -->
+                <!-- Transaction History Chart Section -->
                 <v-row>
                     <v-col cols="12">
                         <Projections :transactions="(this as any).transactions" :accounts="(this as any).accounts" />
@@ -281,8 +281,10 @@ export default {
             (this as any).accounts = accs;
         },
         getTransactions() {
+            // Fetch all transactions (month=0, year=0) so the chart has access to last 12 months of data
+            // The table component will filter by month/year for display
             if ((this as any).accountSelected === null) {
-                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.username}/0/${(this as any).month + 1}/${(this as any).year}`)
+                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.username}/0/0/0`)
                     .then((response) => {
                         (this as any).transactions = response.data;
                     })
@@ -291,7 +293,7 @@ export default {
                     })
             }
             else {
-                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.username}/${(this as any).accountSelected.id}/${(this as any).month + 1}/${(this as any).year}`)
+                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.username}/${(this as any).accountSelected.id}/0/0`)
                     .then((response) => {
                         (this as any).transactions = response.data;
                     })
@@ -307,14 +309,17 @@ export default {
                 // Show success message and file details
                 console.log('Bank statement uploaded successfully:', bankStatementData.file_details);
 
-                // For now, we'll show a success message
-                // In the future, this could trigger AI processing
-                alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded successfully!\n\nFile size: ${bankStatementData.file_details.file_size_display}\nStatus: ${bankStatementData.file_details.processing_status}\n\nNote: AI processing will be implemented in the future.`);
-
-                // Refresh the page to show updated data
-                (this as any).forceRemount();
+                // Check if there's a processing error
+                if (bankStatementData.file_details.processing_status === 'failed') {
+                    alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded but processing failed.\n\nPlease try again or process manually.`);
+                } else {
+                    alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded successfully!\n\nFile size: ${bankStatementData.file_details.file_size_display}\nStatus: ${bankStatementData.file_details.processing_status}`);
+                }
+            } else if (bankStatementData.status === 'processed' && bankStatementData.extracted_data) {
+                // Open review dialog with extracted transactions
+                (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
             } else {
-                // Handle other types of processed data (for future AI processing)
+                // Handle other types of processed data
                 (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
             }
         },

@@ -143,12 +143,23 @@ export default {
                 });
 
                 if (response.data.status === 'success') {
-                    // Emit success with file details
-                    (this as any).$emit('statementProcessed', {
-                        message: response.data.message,
-                        file_details: response.data.file_details,
-                        status: 'uploaded'
-                    });
+                    // Check if we have extracted transaction data
+                    if (response.data.extracted_data && response.data.extracted_data.transactions && response.data.extracted_data.transactions.length > 0) {
+                        // We have transactions to review - emit with extracted data
+                        (this as any).$emit('statementProcessed', {
+                            message: response.data.message,
+                            file_details: response.data.file_details,
+                            extracted_data: response.data.extracted_data,
+                            status: 'processed'
+                        });
+                    } else {
+                        // Just uploaded, no transactions extracted yet
+                        (this as any).$emit('statementProcessed', {
+                            message: response.data.message,
+                            file_details: response.data.file_details,
+                            status: 'uploaded'
+                        });
+                    }
 
                     // Reset form
                     (this as any).selectedFile = null;

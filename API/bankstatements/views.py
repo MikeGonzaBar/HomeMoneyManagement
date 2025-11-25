@@ -6,9 +6,13 @@ from django.http import JsonResponse
 from django.core.files.storage import default_storage
 import os
 import mimetypes
+import logging
 
 from .models import BankStatement
 from .serializers import BankStatementUploadSerializer, BankStatementResponseSerializer
+from .services import extract_transactions_from_pdf
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['POST'])
@@ -79,6 +83,39 @@ def upload_bank_statement(request):
             processing_status='pending'
         )
         
+        # Process the PDF with AI to extract transactions
+        extracted_data = None
+        try:
+            # Update status to processing
+            bank_statement.processing_status = 'processing'
+            bank_statement.save()
+            
+            # Get the full path to the saved file
+            pdf_file_path = bank_statement.file.path
+            
+            # Extract transactions using AI
+            extracted_data = extract_transactions_from_pdf(pdf_file_path)
+            
+            # Update processing status based on results
+            if extracted_data.get('error'):
+                bank_statement.processing_status = 'failed'
+                bank_statement.error_message = extracted_data.get('error', 'Unknown error')
+                bank_statement.save()
+            else:
+                # Processing completed successfully (with or without transactions)
+                bank_statement.processing_status = 'completed'
+                # Mark as processed if we have transactions, or if processing completed without errors
+                # (empty transactions list means AI successfully analyzed but found no transactions)
+                bank_statement.processed = True
+                bank_statement.save()
+                
+        except Exception as e:
+            logger.error(f"Error during AI processing: {str(e)}", exc_info=True)
+            bank_statement.processing_status = 'failed'
+            bank_statement.error_message = f'AI processing error: {str(e)}'
+            bank_statement.save()
+            # Continue with response even if AI processing fails
+        
         # Prepare response data
         response_data = {
             'message': 'Bank statement uploaded successfully',
@@ -92,6 +129,16 @@ def upload_bank_statement(request):
             },
             'status': 'success'
         }
+        
+        # Add extracted transaction data if available
+        if extracted_data:
+            response_data['extracted_data'] = {
+                'transactions': extracted_data.get('transactions', []),
+                'account_name': extracted_data.get('account_name'),
+                'account_type': extracted_data.get('account_type'),  # Credit Card, Debit Card, etc.
+                'statement_period': extracted_data.get('statement_period'),
+                'processing_error': extracted_data.get('error')
+            }
         
         return Response(response_data, status=status.HTTP_200_OK)
         

@@ -21,69 +21,82 @@
             </v-card-title>
 
             <v-card-text class="pa-6 pt-2">
-                <!-- Account Information -->
+                <!-- Account Selection -->
                 <v-card class="mb-6" variant="tonal" color="primary" rounded="lg">
                     <v-card-text class="pa-4">
-                        <div class="d-flex align-center justify-space-between mb-3">
-                            <div class="d-flex align-center">
-                                <v-avatar size="32" class="me-3 bg-primary">
-                                    <v-icon color="white">mdi-bank</v-icon>
-                                </v-avatar>
-                                <div>
-                                    <h4 class="text-h6 font-weight-bold mb-1">Detected Account</h4>
-                                    <p class="text-caption mb-0">Edit account details below</p>
-                                </div>
-                            </div>
-                            <v-btn icon size="small" variant="text" @click="toggleAccountEdit"
-                                :color="isEditingAccount ? 'error' : 'primary'">
-                                <v-icon>{{ isEditingAccount ? 'mdi-close' : 'mdi-pencil' }}</v-icon>
-                            </v-btn>
-                        </div>
-
-                        <!-- Account Edit Form -->
-                        <v-form v-if="isEditingAccount" class="account-edit-form">
-                            <v-row>
-                                <v-col cols="12" md="4">
-                                    <v-text-field v-model="editableAccountInfo.name" label="Account Name"
-                                        variant="outlined" density="compact" prepend-inner-icon="mdi-account"
-                                        class="mb-2"></v-text-field>
-                                </v-col>
-                                <v-col cols="12" md="4">
-                                    <v-text-field v-model="editableAccountInfo.bank" label="Bank Name"
-                                        variant="outlined" density="compact" prepend-inner-icon="mdi-bank"
-                                        class="mb-2"></v-text-field>
-                                </v-col>
-                                <v-col cols="12" md="4">
-                                    <v-select v-model="editableAccountInfo.account_type" label="Account Type"
-                                        :items="accountTypes" variant="outlined" density="compact"
-                                        prepend-inner-icon="mdi-credit-card" class="mb-2"></v-select>
-                                </v-col>
-                            </v-row>
-                            <div class="d-flex justify-end">
-                                <v-btn size="small" variant="outlined" @click="cancelAccountEdit" class="me-2">
-                                    Cancel
-                                </v-btn>
-                                <v-btn size="small" color="primary" @click="saveAccountEdit">
-                                    Save
-                                </v-btn>
-                            </div>
-                        </v-form>
-
-                        <!-- Account Display -->
-                        <div v-else class="account-display">
-                            <div class="d-flex align-center">
-                                <v-avatar size="24" class="me-3 bg-primary">
-                                    <v-icon color="white" size="16">mdi-account</v-icon>
-                                </v-avatar>
-                                <div>
-                                    <h5 class="text-subtitle-1 font-weight-bold mb-1">{{ accountInfo.name }}</h5>
-                                    <p class="text-caption mb-0">{{ accountInfo.bank }} • {{ accountInfo.account_type }}
-                                    </p>
-                                </div>
+                        <div class="d-flex align-center mb-3">
+                            <v-avatar size="32" class="me-3 bg-primary">
+                                <v-icon color="white">mdi-bank</v-icon>
+                            </v-avatar>
+                            <div>
+                                <h4 class="text-h6 font-weight-bold mb-1">Assign to Account</h4>
+                                <p class="text-caption mb-0">Select an existing account or create a new one</p>
                             </div>
                         </div>
+
+                        <!-- Account Selection -->
+                        <v-row>
+                            <v-col cols="12" md="6">
+                                <v-select v-model="selectedAccountId" :items="accountOptions" label="Select Account"
+                                    variant="outlined" density="comfortable" prepend-inner-icon="mdi-account"
+                                    item-title="title" item-value="value" @update:model-value="handleAccountSelection"
+                                    class="mb-2">
+                                    <template v-slot:item="{ props, item }">
+                                        <v-list-item v-bind="props">
+                                            <template v-slot:prepend v-if="item.raw.value !== 'new'">
+                                                <v-avatar size="24" class="me-2 bg-primary">
+                                                    <v-icon color="white" size="14">mdi-account</v-icon>
+                                                </v-avatar>
+                                            </template>
+                                        </v-list-item>
+                                    </template>
+                                </v-select>
+                            </v-col>
+                            <v-col cols="12" md="6">
+                                <v-chip v-if="detectedAccountInfo.account_name" color="info" variant="tonal"
+                                    class="mb-2">
+                                    <v-icon left size="16">mdi-information</v-icon>
+                                    Detected: {{ detectedAccountInfo.account_name }} ({{
+                                        detectedAccountInfo.account_type }})
+                                </v-chip>
+                            </v-col>
+                        </v-row>
+
+                        <!-- Create New Account Form -->
+                        <v-expand-transition>
+                            <v-form v-if="selectedAccountId === 'new'" class="account-create-form mt-3">
+                                <v-row>
+                                    <v-col cols="12" md="4">
+                                        <v-text-field v-model="newAccount.name" label="Account Name" variant="outlined"
+                                            density="compact" prepend-inner-icon="mdi-account"
+                                            :rules="[v => !!v || 'Account name is required']" required></v-text-field>
+                                    </v-col>
+                                    <v-col cols="12" md="4">
+                                        <v-text-field v-model="newAccount.bank" label="Bank Name" variant="outlined"
+                                            density="compact" prepend-inner-icon="mdi-bank"></v-text-field>
+                                    </v-col>
+                                    <v-col cols="12" md="4">
+                                        <v-select v-model="newAccount.account_type" label="Account Type"
+                                            :items="accountTypes" variant="outlined" density="compact"
+                                            prepend-inner-icon="mdi-credit-card"
+                                            :rules="[v => !!v || 'Account type is required']" required></v-select>
+                                    </v-col>
+                                </v-row>
+                            </v-form>
+                        </v-expand-transition>
                     </v-card-text>
                 </v-card>
+
+                <!-- Statement Period Info -->
+                <v-alert v-if="statementPeriod" type="info" variant="tonal" rounded="lg" class="mb-4">
+                    <template v-slot:prepend>
+                        <v-icon>mdi-calendar-range</v-icon>
+                    </template>
+                    <div>
+                        <strong>Statement Period:</strong>
+                        {{ formatDate(statementPeriod.start) }} - {{ formatDate(statementPeriod.end) }}
+                    </div>
+                </v-alert>
 
                 <!-- Transactions Table -->
                 <div class="transactions-review">
@@ -154,10 +167,11 @@
                 <v-btn variant="outlined" @click="closeDialog" class="me-2" rounded="lg">
                     Cancel
                 </v-btn>
-                <v-btn color="primary" @click="importTransactions" :disabled="selectedTransactions.length === 0"
-                    rounded="lg" class="smooth-transition">
-                    <v-icon left>mdi-import</v-icon>
-                    Import {{ selectedTransactions.length }} Transactions
+                <v-btn color="primary" @click="importTransactions"
+                    :disabled="selectedTransactions.length === 0 || !selectedAccountId" rounded="lg"
+                    class="smooth-transition">
+                    <v-icon left>mdi-content-save</v-icon>
+                    Save {{ selectedTransactions.length }} Transaction{{ selectedTransactions.length !== 1 ? 's' : '' }}
                 </v-btn>
             </v-card-actions>
         </v-card>
@@ -168,13 +182,13 @@
 import axios from 'axios';
 
 interface DetectedTransaction {
-    id: string;
+    id?: string;
     title: string;
     amount: number;
     date: string;
     category: string;
-    transaction_type: 'Income' | 'Expense';
-    account_name: string;
+    transaction_type: 'Income' | 'Expense' | 'Transfer';
+    account_name?: string;
 }
 
 interface AccountInfo {
@@ -184,8 +198,18 @@ interface AccountInfo {
 }
 
 interface BankStatementData {
-    account_detected: AccountInfo;
-    transactions: DetectedTransaction[];
+    extracted_data?: {
+        transactions: DetectedTransaction[];
+        account_name: string;
+        account_type: string;
+        statement_period?: {
+            start: string;
+            end: string;
+        };
+        processing_error?: string;
+    };
+    account_detected?: AccountInfo;
+    transactions?: DetectedTransaction[];
 }
 
 export default {
@@ -203,9 +227,18 @@ export default {
     data() {
         return {
             dialog: false,
-            accountInfo: {} as AccountInfo,
-            editableAccountInfo: {} as AccountInfo,
-            isEditingAccount: false,
+            selectedAccountId: null as string | null,
+            selectedAccount: null as any,
+            detectedAccountInfo: {
+                account_name: '',
+                account_type: ''
+            },
+            newAccount: {
+                name: '',
+                bank: '',
+                account_type: ''
+            },
+            statementPeriod: null as { start: string; end: string } | null,
             editableTransactions: [] as DetectedTransaction[],
             selectedTransactions: [] as DetectedTransaction[],
             headers: [
@@ -253,14 +286,81 @@ export default {
             ]
         }
     },
-    emits: ['transactionsImported', 'dialogClosed'],
+    emits: ['transactionsImported', 'dialogClosed', 'importError'],
+    computed: {
+        accountOptions() {
+            const options = (this as any).accounts.map((acc: any) => ({
+                title: `${acc.account_name} (${acc.account_type})`,
+                value: acc.id.toString(),
+                account: acc
+            }));
+            options.push({
+                title: '+ Create New Account',
+                value: 'new',
+                account: null
+            });
+            return options;
+        }
+    },
     methods: {
         openDialog(bankStatementData: BankStatementData) {
-            (this as any).accountInfo = bankStatementData.account_detected;
-            (this as any).editableAccountInfo = { ...bankStatementData.account_detected };
-            (this as any).editableTransactions = [...bankStatementData.transactions];
-            (this as any).selectedTransactions = [...bankStatementData.transactions];
-            (this as any).isEditingAccount = false;
+            // Handle new API format with extracted_data
+            let transactions: DetectedTransaction[] = [];
+            let accountName = '';
+            let accountType = '';
+
+            if (bankStatementData.extracted_data) {
+                transactions = bankStatementData.extracted_data.transactions || [];
+                accountName = bankStatementData.extracted_data.account_name || '';
+                accountType = bankStatementData.extracted_data.account_type || '';
+                (this as any).statementPeriod = bankStatementData.extracted_data.statement_period || null;
+            } else if (bankStatementData.transactions) {
+                // Fallback to old format
+                transactions = bankStatementData.transactions;
+                if (bankStatementData.account_detected) {
+                    accountName = bankStatementData.account_detected.name || '';
+                    accountType = bankStatementData.account_detected.account_type || '';
+                }
+            }
+
+            // Add unique IDs to transactions if they don't have them
+            transactions = transactions.map((t, index) => ({
+                ...t,
+                id: t.id || `temp-${Date.now()}-${index}`
+            }));
+
+            (this as any).detectedAccountInfo = {
+                account_name: accountName,
+                account_type: accountType
+            };
+
+            (this as any).editableTransactions = [...transactions];
+            (this as any).selectedTransactions = [...transactions];
+
+            // Try to find matching account (only if accountName is not empty)
+            let matchingAccount = null;
+            if (accountName && accountName.trim() !== '') {
+                matchingAccount = (this as any).accounts.find((acc: any) =>
+                    acc.account_name === accountName ||
+                    acc.account_name.toLowerCase().includes(accountName.toLowerCase())
+                );
+            }
+
+            if (matchingAccount) {
+                (this as any).selectedAccountId = matchingAccount.id.toString();
+                (this as any).selectedAccount = matchingAccount;
+            } else {
+                (this as any).selectedAccountId = null;
+                (this as any).selectedAccount = null;
+            }
+
+            // Initialize new account form with detected info
+            (this as any).newAccount = {
+                name: accountName,
+                bank: accountName.split('(')[0]?.trim() || '',
+                account_type: accountType || 'Credit Card'
+            };
+
             (this as any).dialog = true;
         },
 
@@ -268,32 +368,45 @@ export default {
             (this as any).dialog = false;
             (this as any).editableTransactions = [];
             (this as any).selectedTransactions = [];
-            (this as any).accountInfo = {} as AccountInfo;
-            (this as any).editableAccountInfo = {} as AccountInfo;
-            (this as any).isEditingAccount = false;
+            (this as any).selectedAccountId = null;
+            (this as any).selectedAccount = null;
+            (this as any).detectedAccountInfo = { account_name: '', account_type: '' };
+            (this as any).newAccount = { name: '', bank: '', account_type: '' };
+            (this as any).statementPeriod = null;
             (this as any).$emit('dialogClosed');
         },
 
-        toggleAccountEdit() {
-            (this as any).isEditingAccount = !(this as any).isEditingAccount;
-            if ((this as any).isEditingAccount) {
-                (this as any).editableAccountInfo = { ...(this as any).accountInfo };
+        formatDate(dateString: string): string {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        },
+
+        handleAccountSelection(selectedValue: string | null) {
+            // Handle null/undefined (user cleared selection)
+            if (!selectedValue) {
+                (this as any).selectedAccountId = null;
+                (this as any).selectedAccount = null;
+                return;
             }
-        },
 
-        cancelAccountEdit() {
-            (this as any).isEditingAccount = false;
-            (this as any).editableAccountInfo = { ...(this as any).accountInfo };
-        },
+            // Handle "new" account option
+            if (selectedValue === 'new') {
+                (this as any).selectedAccountId = 'new';
+                (this as any).selectedAccount = null;
+                return;
+            }
 
-        saveAccountEdit() {
-            (this as any).accountInfo = { ...(this as any).editableAccountInfo };
-            (this as any).isEditingAccount = false;
-
-            // Update all transactions with the new account name
-            (this as any).editableTransactions.forEach((transaction: DetectedTransaction) => {
-                transaction.account_name = (this as any).accountInfo.name;
-            });
+            // Find the account object from the accounts array
+            const account = (this as any).accounts.find((acc: any) => acc.id.toString() === selectedValue);
+            if (account) {
+                (this as any).selectedAccount = account;
+                (this as any).selectedAccountId = selectedValue;
+            } else {
+                // Account not found - reset selection
+                (this as any).selectedAccountId = null;
+                (this as any).selectedAccount = null;
+            }
         },
 
         removeTransaction(transaction: DetectedTransaction) {
@@ -310,13 +423,36 @@ export default {
 
         async importTransactions() {
             try {
-                // Find the account ID for the detected account
-                const account = (this as any).accounts.find((acc: any) =>
-                    acc.account_name === (this as any).accountInfo.name
-                );
+                let account: any = null;
 
-                if (!account) {
-                    (this as any).$emit('importError', 'Account not found. Please create the account first.');
+                // Handle account creation or selection
+                if ((this as any).selectedAccountId === 'new') {
+                    // Create new account
+                    if (!(this as any).newAccount.name || !(this as any).newAccount.account_type) {
+                        (this as any).$emit('importError', 'Please fill in all required account fields.');
+                        return;
+                    }
+
+                    const accountData = {
+                        account_name: (this as any).newAccount.name,
+                        account_type: (this as any).newAccount.account_type,
+                        bank: (this as any).newAccount.bank || '',
+                        total: 0.0,
+                        owner: (this as any).userData.user.username
+                    };
+
+                    const accountResponse = await axios.post('http://localhost:8000/accounts/', accountData);
+                    account = accountResponse.data;
+                } else if ((this as any).selectedAccountId) {
+                    // Use selected account
+                    account = (this as any).selectedAccount;
+                } else {
+                    (this as any).$emit('importError', 'Please select an account or create a new one.');
+                    return;
+                }
+
+                if (!account || !account.id) {
+                    (this as any).$emit('importError', 'Account not found or could not be created.');
                     return;
                 }
 
@@ -326,36 +462,80 @@ export default {
                     transaction_type: transaction.transaction_type,
                     category: transaction.category,
                     date: transaction.date,
-                    total: transaction.amount,
+                    total: parseFloat(transaction.amount.toString()),
                     owner_id: (this as any).userData.user.username,
                     account_id: account.id.toString()
                 }));
 
-                // Import each transaction
-                for (const transaction of transactionsToImport) {
-                    await axios.post('http://localhost:8000/transactions/create/', transaction);
+                // Import each transaction and track successful imports
+                const successfulImports: DetectedTransaction[] = [];
+                const failedImports: { transaction: DetectedTransaction; error: any }[] = [];
+
+                for (let i = 0; i < transactionsToImport.length; i++) {
+                    try {
+                        await axios.post('http://localhost:8000/transactions/create/', transactionsToImport[i]);
+                        successfulImports.push((this as any).selectedTransactions[i]);
+                    } catch (error: any) {
+                        console.error(`Failed to import transaction ${i + 1}:`, error);
+                        failedImports.push({
+                            transaction: (this as any).selectedTransactions[i],
+                            error: error
+                        });
+                    }
                 }
 
-                // Update account total
-                const totalChange = (this as any).selectedTransactions.reduce((sum: number, transaction: DetectedTransaction) => {
-                    return sum + (transaction.transaction_type === 'Income' ? transaction.amount : -transaction.amount);
+                // Check if all imports failed
+                if (successfulImports.length === 0) {
+                    const errorMessage = `Failed to import all ${transactionsToImport.length} transactions. Please try again.`;
+                    (this as any).$emit('importError', errorMessage);
+                    return; // No transactions imported, no balance update needed
+                }
+
+                // Update account total based on successfully imported transactions
+                // This ensures consistency even if some transactions failed
+                const totalChange = successfulImports.reduce((sum: number, transaction: DetectedTransaction) => {
+                    const amount = parseFloat(transaction.amount.toString());
+                    if (transaction.transaction_type === 'Income') {
+                        return sum + amount;
+                    } else if (transaction.transaction_type === 'Expense') {
+                        return sum - amount;
+                    }
+                    return sum; // Transfer doesn't change total
                 }, 0);
 
-                const newTotal = account.total + totalChange;
-                await axios.patch(`http://localhost:8000/accounts/details/${(this as any).userData.user.username}/${account.id}/`, {
-                    total: newTotal
-                });
+                const currentTotal = account.total || 0;
+                const newTotal = currentTotal + totalChange;
 
-                (this as any).$emit('transactionsImported', {
-                    importedCount: transactionsToImport.length,
-                    accountUpdated: account
-                });
+                try {
+                    await axios.patch(`http://localhost:8000/accounts/details/${(this as any).userData.user.username}/${account.id}/`, {
+                        total: newTotal
+                    });
+
+                    // Handle partial success scenario
+                    if (failedImports.length > 0) {
+                        // Some transactions failed but we updated balance for successful ones
+                        const warningMessage = `Imported ${successfulImports.length} of ${transactionsToImport.length} transactions. ${failedImports.length} transaction(s) failed to import. Account balance has been updated for the successful imports.`;
+                        (this as any).$emit('importError', warningMessage);
+                    } else {
+                        // All transactions imported successfully
+                        (this as any).$emit('transactionsImported', {
+                            importedCount: successfulImports.length,
+                            accountUpdated: { ...account, total: newTotal }
+                        });
+                    }
+                } catch (balanceError: any) {
+                    // Balance update failed - this is a critical error
+                    console.error('Failed to update account balance:', balanceError);
+                    const errorMessage = `Transactions imported but failed to update account balance. Please update manually.`;
+                    (this as any).$emit('importError', errorMessage);
+                }
 
                 (this as any).closeDialog();
 
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error importing transactions:', error);
-                (this as any).$emit('importError', 'Failed to import transactions. Please try again.');
+                const errorMessage = error.response?.data?.error || error.response?.data?.details || error.message || 'Failed to import transactions. Please try again.';
+                (this as any).$emit('importError', errorMessage);
             }
         }
     }
@@ -488,19 +668,25 @@ export default {
     box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
-/* Account edit form styling */
-.account-edit-form {
+/* Account create form styling */
+.account-create-form {
     background: rgba(255, 255, 255, 0.8);
     border-radius: 12px;
     padding: 16px;
     border: 1px solid rgba(76, 175, 80, 0.2);
+    animation: slideDown 0.3s ease-out;
 }
 
-.account-display {
-    background: rgba(255, 255, 255, 0.6);
-    border-radius: 8px;
-    padding: 12px;
-    border: 1px solid rgba(76, 175, 80, 0.1);
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Animation for dialog */

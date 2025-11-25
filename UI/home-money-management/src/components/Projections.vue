@@ -4,28 +4,22 @@
         <div class="projections-header">
             <div class="header-content">
                 <v-icon color="primary" class="me-2">mdi-chart-line</v-icon>
-                <span class="text-h5 font-weight-bold">Financial Projections</span>
+                <span class="text-h5 font-weight-bold">Transaction History</span>
             </div>
-            <p class="text-subtitle-1 text-grey-darken-1 mb-0">Predict your financial future based on historical data
+            <p class="text-subtitle-1 text-grey-darken-1 mb-0">View your income, expenses, and balance over time
             </p>
         </div>
 
         <!-- Controls Section -->
         <div class="controls-section">
             <v-row>
-                <v-col cols="12" md="4">
+                <v-col cols="12" md="6">
                     <v-select v-model="selectedAccount" :items="accountOptions" label="Account Filter"
                         variant="outlined" rounded="lg" prepend-inner-icon="mdi-account"
-                        @update:model-value="updateProjections"></v-select>
+                        @update:model-value="updateChart"></v-select>
                 </v-col>
-                <v-col cols="12" md="4">
-                    <v-select v-model="projectionPeriod" :items="periodOptions" label="Projection Period"
-                        variant="outlined" rounded="lg" prepend-inner-icon="mdi-calendar-range"
-                        @update:model-value="updateProjections"></v-select>
-                </v-col>
-                <v-col cols="12" md="4">
-                    <v-btn color="primary" variant="outlined" rounded="lg" @click="refreshProjections"
-                        :loading="isLoading">
+                <v-col cols="12" md="6">
+                    <v-btn color="primary" variant="outlined" rounded="lg" @click="refreshChart" :loading="isLoading">
                         <v-icon left>mdi-refresh</v-icon>
                         Refresh
                     </v-btn>
@@ -42,8 +36,8 @@
                             <v-icon color="white">mdi-chart-line</v-icon>
                         </v-avatar>
                         <div>
-                            <h3 class="text-h5 font-weight-bold budget-text-gradient mb-0">Projection Chart</h3>
-                            <p class="text-caption text-grey-darken-1 mb-0">Historical data and future projections</p>
+                            <h3 class="text-h5 font-weight-bold budget-text-gradient mb-0">Transaction Chart</h3>
+                            <p class="text-caption text-grey-darken-1 mb-0">Actual transaction data over time</p>
                         </div>
                     </div>
                 </v-card-title>
@@ -74,14 +68,6 @@
                     <div class="legend-item">
                         <div class="legend-color balance-color"></div>
                         <span class="legend-text">Balance</span>
-                    </div>
-                </v-col>
-            </v-row>
-            <v-row class="mt-2">
-                <v-col cols="12">
-                    <div class="explanation-text">
-                        <v-icon size="16" class="me-2">mdi-information-outline</v-icon>
-                        <span>Solid lines represent current data, dotted lines represent projected data</span>
                     </div>
                 </v-col>
             </v-row>
@@ -229,20 +215,15 @@ interface ProjectionsComponentInstance {
     transactions: Transaction[];
     accounts: Account[];
     selectedAccount: string;
-    projectionPeriod: string;
     isLoading: boolean;
     chartData: any;
     chartOptions: any;
     accountOptions: any[];
-    periodOptions: any[];
     monthlyData: MonthlyData[];
-    updateProjections(): void;
-    refreshProjections(): void;
-    calculateProjections(): void;
+    updateChart(): void;
+    refreshChart(): void;
     generateChartData(): void;
     getHistoricalData(): MonthlyData[];
-    calculateProjectedData(): MonthlyData[];
-    calculateGrowthRate(values: number[]): number;
 }
 
 export default {
@@ -262,16 +243,10 @@ export default {
     },
     data: (): Partial<ProjectionsComponentInstance> => ({
         selectedAccount: 'all',
-        projectionPeriod: '3months',
         isLoading: false,
         monthlyData: [],
         accountOptions: [
             { title: 'All Accounts', value: 'all' }
-        ],
-        periodOptions: [
-            { title: '3 Months', value: '3months' },
-            { title: '6 Months', value: '6months' },
-            { title: '1 Year', value: '1year' }
         ],
         chartData: {
             labels: [],
@@ -327,11 +302,11 @@ export default {
     }),
     mounted() {
         this.initializeAccountOptions();
-        this.calculateProjections();
+        this.updateChart();
     },
     watch: {
         transactions: {
-            handler: 'calculateProjections',
+            handler: 'updateChart',
             deep: true
         },
         accounts: {
@@ -350,33 +325,39 @@ export default {
             ];
         },
 
-        updateProjections(this: ProjectionsComponentInstance) {
-            this.calculateProjections();
+        updateChart(this: ProjectionsComponentInstance) {
+            this.monthlyData = this.getHistoricalData();
+            this.generateChartData();
         },
 
-        refreshProjections(this: ProjectionsComponentInstance) {
+        refreshChart(this: ProjectionsComponentInstance) {
             this.isLoading = true;
             setTimeout(() => {
-                this.calculateProjections();
+                this.updateChart();
                 this.isLoading = false;
-            }, 1000);
-        },
-
-        calculateProjections(this: ProjectionsComponentInstance) {
-            this.monthlyData = [
-                ...this.getHistoricalData(),
-                ...this.calculateProjectedData()
-            ];
-            this.generateChartData();
+            }, 500);
         },
 
         getHistoricalData(this: ProjectionsComponentInstance): MonthlyData[] {
             const historicalData: MonthlyData[] = [];
             const currentDate = new Date();
+            const currentYear = currentDate.getFullYear();
+            const currentMonth = currentDate.getMonth();
 
-            // Get last 9 months of data
-            for (let i = 8; i >= 0; i--) {
-                const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+            // Get last 12 months including current month (from 11 months ago to current month)
+            for (let i = 11; i >= 0; i--) {
+                // Calculate the month: current month - i (so i=11 is 11 months ago, i=0 is current month)
+                const targetMonth = currentMonth - i;
+                let year = currentYear;
+                let month = targetMonth;
+
+                // Handle year rollover for months in previous year
+                if (targetMonth < 0) {
+                    year = currentYear - 1;
+                    month = 12 + targetMonth; // e.g., -1 becomes 11 (December)
+                }
+
+                const date = new Date(year, month, 1);
                 const monthKey = date.toISOString().substring(0, 7); // YYYY-MM format
 
                 let filteredTransactions = this.transactions;
@@ -388,8 +369,8 @@ export default {
 
                 const monthTransactions = filteredTransactions.filter((t: Transaction) => {
                     const transactionDate = new Date(t.date);
-                    return transactionDate.getFullYear() === date.getFullYear() &&
-                        transactionDate.getMonth() === date.getMonth();
+                    return transactionDate.getFullYear() === year &&
+                        transactionDate.getMonth() === month;
                 });
 
                 const income = monthTransactions
@@ -402,8 +383,12 @@ export default {
 
                 const balance = income - expenses;
 
+                // Format month label - highlight current month
+                const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                const isCurrentMonth = year === currentYear && month === currentMonth;
+
                 historicalData.push({
-                    month: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+                    month: monthLabel,
                     income,
                     expenses,
                     balance,
@@ -414,66 +399,12 @@ export default {
             return historicalData;
         },
 
-        calculateProjectedData(this: ProjectionsComponentInstance): MonthlyData[] {
-            const projectedData: MonthlyData[] = [];
-            const currentDate = new Date();
-
-            // Get the last month's data as starting point
-            const historicalData = this.getHistoricalData();
-            if (historicalData.length < 1) return projectedData;
-
-            const lastMonth = historicalData[historicalData.length - 1];
-            if (!lastMonth) return projectedData;
-
-            // Project next 3 months
-            const monthsToProject = this.projectionPeriod === '3months' ? 3 :
-                this.projectionPeriod === '6months' ? 6 : 12;
-
-            let runningBalance = lastMonth.balance;
-
-            for (let i = 1; i <= monthsToProject; i++) {
-                const date = new Date(currentDate.getFullYear(), currentDate.getMonth() + i, 1);
-
-                // For projections, keep income and expenses the same as the last known values
-                const projectedIncome = lastMonth.income;
-                const projectedExpenses = lastMonth.expenses;
-
-                // Calculate balance based on the difference
-                const monthlyDifference = projectedIncome - projectedExpenses;
-                runningBalance += monthlyDifference;
-
-                projectedData.push({
-                    month: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-                    income: projectedIncome,
-                    expenses: projectedExpenses,
-                    balance: Math.round(runningBalance),
-                    isProjected: true
-                });
-            }
-
-            return projectedData;
-        },
-
-        calculateGrowthRate(this: ProjectionsComponentInstance, values: number[]): number {
-            if (values.length < 2) return 0;
-
-            const firstValue = values[0];
-            const lastValue = values[values.length - 1];
-
-            if (firstValue === undefined || lastValue === undefined || firstValue === 0) return 0;
-
-            return (lastValue - firstValue) / firstValue / (values.length - 1);
-        },
-
         generateChartData(this: ProjectionsComponentInstance) {
             const labels = this.monthlyData.map(d => d.month);
 
-            // Find the index where projected data starts
-            const projectedStartIndex = this.monthlyData.findIndex(d => d.isProjected);
-
             const datasets: any[] = [];
 
-            // Income line (solid for historical, dotted for projected)
+            // Income line (only actual data)
             const incomeData = this.monthlyData.map(d => d.income);
             datasets.push({
                 label: 'Income',
@@ -484,16 +415,10 @@ export default {
                 fill: false,
                 tension: 0.4,
                 pointRadius: 4,
-                pointHoverRadius: 6,
-                segment: {
-                    borderDash: (ctx: any) => {
-                        // Use dotted line for projected data (after projectedStartIndex)
-                        return ctx.p1DataIndex >= projectedStartIndex ? [5, 5] : [];
-                    }
-                }
+                pointHoverRadius: 6
             });
 
-            // Expenses line (solid for historical, dotted for projected)
+            // Expenses line (only actual data)
             const expensesData = this.monthlyData.map(d => d.expenses);
             datasets.push({
                 label: 'Expenses',
@@ -504,16 +429,10 @@ export default {
                 fill: false,
                 tension: 0.4,
                 pointRadius: 4,
-                pointHoverRadius: 6,
-                segment: {
-                    borderDash: (ctx: any) => {
-                        // Use dotted line for projected data (after projectedStartIndex)
-                        return ctx.p1DataIndex >= projectedStartIndex ? [5, 5] : [];
-                    }
-                }
+                pointHoverRadius: 6
             });
 
-            // Balance line (solid for historical, dotted for projected)
+            // Balance line (only actual data)
             const balanceData = this.monthlyData.map(d => d.balance);
             datasets.push({
                 label: 'Balance',
@@ -524,13 +443,7 @@ export default {
                 fill: false,
                 tension: 0.4,
                 pointRadius: 4,
-                pointHoverRadius: 6,
-                segment: {
-                    borderDash: (ctx: any) => {
-                        // Use dotted line for projected data (after projectedStartIndex)
-                        return ctx.p1DataIndex >= projectedStartIndex ? [5, 5] : [];
-                    }
-                }
+                pointHoverRadius: 6
             });
 
             this.chartData = {

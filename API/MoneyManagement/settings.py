@@ -12,9 +12,17 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file in project root
+# The .env file should be in the root directory (one level up from API/)
+PROJECT_ROOT = BASE_DIR.parent
+env_path = PROJECT_ROOT / '.env'
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
 
 
 # Quick-start development settings - unsuitable for production
@@ -106,7 +114,17 @@ WSGI_APPLICATION = "MoneyManagement.wsgi.application"
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 # Use PostgreSQL in production/Docker, SQLite for local development
-if os.getenv('DATABASE_URL'):
+# Check if we should use PostgreSQL (only if explicitly configured and not using Docker hostname locally)
+use_postgres = os.getenv('DATABASE_URL') or os.getenv('USE_POSTGRES', '').lower() == 'true'
+postgres_host = os.getenv('POSTGRES_HOST', 'postgres')
+
+# If DATABASE_URL is set but POSTGRES_HOST is 'postgres' (Docker hostname), 
+# and we're likely running locally (not in Docker), use SQLite instead
+if use_postgres and postgres_host == 'postgres' and not os.path.exists('/.dockerenv'):
+    # Likely running locally with Docker config - use SQLite instead
+    use_postgres = False
+
+if use_postgres:
     # Production/Docker environment with PostgreSQL
     DATABASES = {
         "default": {
@@ -114,7 +132,7 @@ if os.getenv('DATABASE_URL'):
             "NAME": os.getenv('POSTGRES_DB', 'moneymanagement'),
             "USER": os.getenv('POSTGRES_USER', 'postgres'),
             "PASSWORD": os.getenv('POSTGRES_PASSWORD', 'postgres'),
-            "HOST": os.getenv('POSTGRES_HOST', 'postgres'),
+            "HOST": postgres_host,
             "PORT": os.getenv('POSTGRES_PORT', '5432'),
         }
     }
@@ -173,6 +191,9 @@ MEDIA_ROOT = BASE_DIR / "media"
 # File upload settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
+
+# Google AI Studio (Gemini API) Configuration
+GOOGLE_AI_API_KEY = os.getenv('GOOGLE_AI_API_KEY', None)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

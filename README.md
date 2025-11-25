@@ -173,8 +173,7 @@ HomeMoneyManagement/
 │   ├── create_test_user.py      # Test user creation script
 │   ├── db.sqlite3               # SQLite database (development)
 │   ├── README.md                # API documentation
-│   ├── DEVELOPMENT.md           # Development history and issues
-│   └── TEST_DATA_README.md      # Test data documentation
+│   └── GOOGLE_AI_SETUP.md       # Google AI Studio setup guide
 ├── UI/                          # Vue.js Frontend
 │   └── home-money-management/
 │       ├── src/
@@ -223,7 +222,7 @@ HomeMoneyManagement/
 │       ├── Dockerfile          # Frontend container config
 │       └── README.md           # Frontend documentation
 ├── Utils/                       # Utility scripts and tools
-│   ├── README.md               # Utils documentation
+│   ├── README.md               # Test data generation documentation
 │   └── TestData/               # Test data generation scripts
 │       ├── populate_test_data.py
 │       ├── populate_quick_test_data.py
@@ -477,15 +476,16 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **[API/README.md](API/README.md)** - Complete API documentation with endpoints and examples
 - **[ADMIN_SETUP.md](ADMIN_SETUP.md)** - Django admin interface setup and usage guide
 - **[SECURITY.md](SECURITY.md)** - Security policies, vulnerability management, and recent security fixes
-- **[API/DEVELOPMENT.md](API/DEVELOPMENT.md)** - Development history, issue resolution, and implementation details
-- **[API/TEST_DATA_README.md](API/TEST_DATA_README.md)** - Test data generation scripts and usage guide
+- **[POSTGRES_MIGRATION.md](POSTGRES_MIGRATION.md)** - PostgreSQL migration guide for Docker deployment
+- **[API/GOOGLE_AI_SETUP.md](API/GOOGLE_AI_SETUP.md)** - Google AI Studio (Gemini API) integration setup
 
 ### Quick Reference
 
 - **API Endpoints**: See [API/README.md](API/README.md) for complete endpoint documentation
 - **Admin Access**: See [ADMIN_SETUP.md](ADMIN_SETUP.md) for admin interface setup
 - **Security Updates**: See [SECURITY.md](SECURITY.md) for latest security fixes and policies
-- **Development Issues**: See [API/DEVELOPMENT.md](API/DEVELOPMENT.md) for resolved issues and fixes
+- **Database Setup**: See [POSTGRES_MIGRATION.md](POSTGRES_MIGRATION.md) for PostgreSQL configuration
+- **AI Integration**: See [API/GOOGLE_AI_SETUP.md](API/GOOGLE_AI_SETUP.md) for bank statement processing setup
 - **Test Data Setup**: See [Utils/README.md](Utils/README.md) for test data generation scripts
 
 ## 🔒 Security
