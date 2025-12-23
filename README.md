@@ -6,10 +6,14 @@ A comprehensive full-stack personal finance management application that helps us
 
 ### 💰 Financial Management
 
-- **Multi-Account Support**: Manage multiple bank accounts with different types (Savings, Checking, etc.)
+- **Multi-Account Support**: Manage multiple bank accounts with different types (Savings, Checking, Credit Cards, Cash, etc.)
+- **Credit Card Management**: Track credit limits, available credit, and used credit with real-time calculations
+- **Net Worth Calculation**: Automatic calculation of total net worth (assets minus liabilities)
 - **Transaction Tracking**: Record and categorize income and expenses
 - **Real-time Balance Updates**: Automatic balance calculations across all accounts
 - **Date-based Filtering**: View transactions by month and year
+- **AI-Powered Bank Statement Processing**: Upload PDF bank statements (including password-protected files) for automatic transaction extraction using Google AI Studio (Gemini API)
+- **Initial Balance Detection**: Automatically detects and sets initial account balances from bank statements
 
 ### 📊 Data Visualization
 
@@ -309,16 +313,24 @@ chmod +x populate_test_data.sh
 
 #### Account Management
 
-- Create multiple accounts (Savings, Checking, Credit, etc.)
+- Create multiple accounts (Savings, Checking, Credit Cards, Cash, Investment, etc.)
 - Set initial balances and account details
+- **Credit Card Features**:
+  - Set and update credit limits
+  - Track available credit and used credit
+  - Real-time debt calculation (Credit Limit - Available Credit)
 - View account summaries in an interactive carousel
+- **Net Worth Tracking**: See your total net worth (assets minus liabilities) in the "All Accounts" card
 
 #### Transaction Tracking
 
-- Add income and expense transactions
+- Add income and expense transactions manually
+- **AI-Powered Import**: Upload bank statement PDFs for automatic transaction extraction
+- **Password-Protected PDF Support**: Upload encrypted PDF bank statements with password
 - Categorize transactions for better organization
 - Filter transactions by date, account, and type
 - Edit and delete existing transactions
+- **Automatic Account Creation**: Create new accounts directly from bank statements with detected initial balances
 
 #### Financial Analytics
 
@@ -383,9 +395,10 @@ npm run build
 
 #### Accounts
 
-- `POST /accounts/` - Create new account
+- `POST /accounts/` - Create new account (supports `credit_limit` for credit cards)
 - `GET /accounts/details/<username>/` - Get user accounts
-- `PATCH /accounts/details/<username>/` - Update account balance
+- `GET /accounts/details/<username>/<id>/` - Get individual account details
+- `PATCH /accounts/details/<username>/<id>/` - Update account (balance, credit limit, etc.)
 - `DELETE /accounts/delete/<username>/<id>/` - Delete account
 
 #### Transactions
@@ -394,6 +407,13 @@ npm run build
 - `GET /transactions/retrieve/<username>/<account_id>/<month>/<year>/` - Get transactions
 - `PATCH /transactions/update/<transaction_id>/` - Update transaction
 - `DELETE /transactions/delete/<transaction_id>/` - Delete transaction
+
+#### Bank Statements
+
+- `POST /bank-statements/upload/` - Upload and process bank statement PDF (supports password-protected files)
+- `GET /bank-statements/user/<user_id>/` - Get all bank statements for a user
+- `GET /bank-statements/details/<statement_id>/` - Get bank statement details
+- `DELETE /bank-statements/delete/<statement_id>/` - Delete bank statement
 
 ## 🐳 Docker Deployment
 
@@ -505,12 +525,27 @@ For support and questions:
 - Check [API/DEVELOPMENT.md](API/DEVELOPMENT.md) for common issues and solutions
 - Open an issue on GitHub
 
+## 📸 Screenshots
+
+> **Note**: Screenshots coming soon! We're working on capturing the best views of the application to help you understand its features.
+
+**Recommended Screenshots to Add:**
+
+- Main Dashboard with account carousel and net worth display
+- Credit Card Management showing credit limits and used credit
+- AI-Powered Bank Statement Upload and Review
+- Financial Projections Chart with historical and forecasted data
+- Transaction Table with filtering capabilities
+
+---
+
 ## 🎉 Acknowledgments
 
 - Built with Vue.js and Django
 - UI components by Vuetify
 - Charts powered by Chart.js
 - Icons by Material Design Icons
+- AI-powered transaction extraction by Google AI Studio (Gemini API)
 
 ---
 
