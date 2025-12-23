@@ -44,7 +44,9 @@
                         </v-avatar>
 
                         <!-- Credit Card Indicator -->
-                        <v-chip v-if="acc.account_type === 'Crédito'" size="x-small" color="orange" variant="tonal">
+                        <v-chip
+                            v-if="acc.account_type === 'Crédito' || acc.account_type === 'Credit Card' || acc.account_type === 'Credit'"
+                            size="x-small" color="orange" variant="tonal">
                             <v-icon size="12" class="me-1">mdi-credit-card</v-icon>
                             Credit
                         </v-chip>
@@ -64,7 +66,8 @@
                         </div>
 
                         <!-- Balance Information -->
-                        <div v-if="acc.account_type === 'Crédito'" class="credit-balance-info">
+                        <div v-if="acc.account_type === 'Crédito' || acc.account_type === 'Credit Card' || acc.account_type === 'Credit'"
+                            class="credit-balance-info">
                             <!-- Credit Card: Used / Available -->
                             <div class="d-flex justify-space-between align-center mb-1">
                                 <span class="text-caption text-grey-darken-1">Used:</span>
@@ -141,12 +144,8 @@
                 <v-container class="pa-0">
                     <v-row>
                         <v-col cols="12">
-                            <v-select v-model="newAccountType" :items="[
-                                { title: 'Debit', value: 'Débito' },
-                                { title: 'Credit', value: 'Crédito' },
-                                { title: 'Cash', value: 'Efectivo' }
-                            ]" label="Account Type" variant="outlined" rounded="lg"
-                                prepend-inner-icon="mdi-credit-card"></v-select>
+                            <v-select v-model="newAccountType" :items="accountTypeOptions" label="Account Type"
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-credit-card"></v-select>
                         </v-col>
                     </v-row>
                     <v-row>
@@ -156,7 +155,7 @@
                                 prepend-inner-icon="mdi-bank"></v-text-field>
                         </v-col>
                     </v-row>
-                    <v-row v-if="newAccountType === 'Crédito'">
+                    <v-row v-if="newAccountType === 'Crédito' || newAccountType === 'Credit Card'">
                         <v-col cols="12">
                             <v-alert type="warning" variant="tonal" class="mb-0">
                                 <small>Credit card transactions will be recorded as expenses, and payments should be
@@ -210,19 +209,15 @@
                 <v-container class="pa-0">
                     <v-row>
                         <v-col cols="12">
-                            <v-select v-model="editAccountType" :items="[
-                                { title: 'Debit', value: 'Débito' },
-                                { title: 'Credit', value: 'Crédito' },
-                                { title: 'Cash', value: 'Efectivo' }
-                            ]" label="Account Type" variant="outlined" rounded="lg"
-                                prepend-inner-icon="mdi-credit-card"></v-select>
+                            <v-select v-model="editAccountType" :items="accountTypeOptions" label="Account Type"
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-credit-card"></v-select>
                         </v-col>
                     </v-row>
                     <v-row>
                         <v-col cols="12">
                             <v-text-field v-model="editBankName" label="Bank Name"
-                                :disabled="editAccountType === 'Efectivo'" variant="outlined" rounded="lg"
-                                prepend-inner-icon="mdi-bank"></v-text-field>
+                                :disabled="editAccountType === 'Efectivo' || editAccountType === 'Cash'"
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-bank"></v-text-field>
                         </v-col>
                     </v-row>
                     <v-row>
@@ -335,33 +330,65 @@ export default {
     },
     methods: {
         getAccountTypeIcon(this: ComponentInstance, accountType: string): string {
-            switch (accountType) {
+            // Normalize account type for comparison (handle "Savings Account" -> "Savings")
+            const normalizedType = accountType.replace(/\s+Account$/i, '').trim();
+
+            switch (normalizedType) {
                 case 'Débito':
+                case 'Checking':
+                case 'Savings':
                     return 'mdi-wallet-outline';
                 case 'Crédito':
+                case 'Credit Card':
+                case 'Credit':
                     return 'mdi-credit-card-outline';
                 case 'Efectivo':
+                case 'Cash':
                     return 'mdi-cash-multiple';
+                case 'Investment':
+                    return 'mdi-chart-line';
+                case 'Loan':
+                case 'Mortgage':
+                    return 'mdi-bank-transfer';
+                case 'Business':
+                    return 'mdi-briefcase';
                 default:
                     return 'mdi-bank';
             }
         },
 
         getAccountTypeClass(this: ComponentInstance, accountType: string): string {
-            switch (accountType) {
+            // Normalize account type for comparison (handle "Savings Account" -> "Savings")
+            const normalizedType = accountType.replace(/\s+Account$/i, '').trim();
+
+            switch (normalizedType) {
                 case 'Débito':
+                case 'Checking':
+                case 'Savings':
                     return 'debit-account-gradient';
                 case 'Crédito':
+                case 'Credit Card':
+                case 'Credit':
                     return 'credit-account-gradient';
                 case 'Efectivo':
+                case 'Cash':
                     return 'cash-account-gradient';
+                case 'Investment':
+                case 'Loan':
+                case 'Mortgage':
+                case 'Business':
+                case 'Other':
+                    return 'budget-gradient';
                 default:
                     return 'budget-gradient';
             }
         },
 
         getBalanceClass(this: ComponentInstance, balance: number, accountType: string): string {
-            if (accountType === 'Crédito') {
+            // Normalize account type for comparison
+            const normalizedType = accountType.replace(/\s+Account$/i, '').trim();
+
+            if (normalizedType === 'Crédito' || normalizedType === 'Credit Card' || normalizedType === 'Credit') {
                 // For credit cards: positive = good (available credit), negative = bad (debt)
                 if (balance >= 0) {
                     return 'text-success';
@@ -379,26 +406,32 @@ export default {
         },
 
         getBalanceLabel(this: ComponentInstance, accountType: string, balance: number): string {
-            if (accountType === 'Crédito') {
+            // Normalize account type for comparison
+            const normalizedType = accountType.replace(/\s+Account$/i, '').trim();
+
+            if (normalizedType === 'Crédito' || normalizedType === 'Credit Card' || normalizedType === 'Credit') {
                 if (balance >= 0) {
                     return 'Available Credit';
                 } else {
                     return 'Debt';
                 }
-            } else if (accountType === 'Débito') {
+            } else if (normalizedType === 'Débito' || normalizedType === 'Checking' || normalizedType === 'Savings') {
                 return 'Balance';
-            } else if (accountType === 'Efectivo') {
+            } else if (normalizedType === 'Efectivo' || normalizedType === 'Cash') {
                 return 'Cash on Hand';
             }
             return 'Balance';
         },
 
         getBalanceLabelClass(this: ComponentInstance, accountType: string): string {
-            if (accountType === 'Crédito') {
+            // Normalize account type for comparison
+            const normalizedType = accountType.replace(/\s+Account$/i, '').trim();
+
+            if (normalizedType === 'Crédito' || normalizedType === 'Credit Card' || normalizedType === 'Credit') {
                 return 'text-orange-darken-2';
-            } else if (accountType === 'Débito') {
+            } else if (normalizedType === 'Débito' || normalizedType === 'Checking' || normalizedType === 'Savings') {
                 return 'text-blue-darken-2';
-            } else if (accountType === 'Efectivo') {
+            } else if (normalizedType === 'Efectivo' || normalizedType === 'Cash') {
                 return 'text-green-darken-2';
             }
             return 'text-grey-darken-1';
@@ -468,10 +501,10 @@ export default {
             this.model = 0;
         },
         createNewAccount(this: ComponentInstance) {
-            if (this.newAccountType === 'Efectivo') {
+            if (this.newAccountType === 'Efectivo' || this.newAccountType === 'Cash') {
                 this.newBankName = 'Efectivo';
             }
-            if (this.newAccountType === 'Crédito') {
+            if (this.newAccountType === 'Crédito' || this.newAccountType === 'Credit Card') {
                 this.newTotal = 0.0;
             }
             axios.post(`http://localhost:8000/accounts/`, {
@@ -495,6 +528,24 @@ export default {
     computed: {
         total(this: ComponentInstance): number {
             return this.accounts.reduce((acc: number, item: Account) => acc + item.total, 0);
+        },
+        accountTypeOptions(this: ComponentInstance): Array<{ title: string; value: string }> {
+            // Comprehensive list that includes both Spanish (for backward compatibility) 
+            // and English types (for AI agent compatibility)
+            // Note: "Savings Account" and "Checking Account" are normalized to "Savings" and "Checking" in backend
+            return [
+                { title: 'Checking', value: 'Checking' },
+                { title: 'Savings', value: 'Savings' },
+                { title: 'Credit Card', value: 'Credit Card' },
+                { title: 'Debit', value: 'Débito' },
+                { title: 'Credit', value: 'Crédito' },
+                { title: 'Cash', value: 'Efectivo' },
+                { title: 'Investment', value: 'Investment' },
+                { title: 'Loan', value: 'Loan' },
+                { title: 'Mortgage', value: 'Mortgage' },
+                { title: 'Business', value: 'Business' },
+                { title: 'Other', value: 'Other' }
+            ];
         }
     },
     emits: ['accountSelected', 'allAccountSelected', 'accountsModified'],

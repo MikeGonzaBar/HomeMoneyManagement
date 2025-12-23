@@ -30,9 +30,16 @@
                     </div>
                 </v-alert>
 
+                <!-- Password field for password-protected PDFs -->
+                <v-text-field v-if="showPasswordField || passwordRequired" v-model="pdfPassword" label="PDF Password"
+                    type="password" variant="outlined" prepend-inner-icon="mdi-lock"
+                    hint="Enter the password for this password-protected PDF" persistent-hint :error="passwordRequired"
+                    :error-messages="passwordRequired ? 'Password is required for this PDF' : ''" class="mb-3"
+                    rounded="lg" density="comfortable" clearable></v-text-field>
+
                 <v-btn color="primary" size="large" rounded="lg" :loading="isUploading"
-                    :disabled="!selectedFile || isUploading" @click="uploadBankStatement"
-                    class="smooth-transition hover-lift" block>
+                    :disabled="!selectedFile || isUploading || (passwordRequired && !pdfPassword)"
+                    @click="uploadBankStatement" class="smooth-transition hover-lift" block>
                     <v-icon left>mdi-upload</v-icon>
                     {{ isUploading ? 'Processing...' : 'Upload & Process Statement' }}
                 </v-btn>
@@ -87,6 +94,9 @@ export default {
         return {
             selectedFile: null as File[] | null,
             isUploading: false,
+            pdfPassword: '',
+            showPasswordField: false,
+            passwordRequired: false,
             fileRules: [
                 (value: File[]) => {
                     if (!value || value.length === 0) return true;
@@ -107,6 +117,10 @@ export default {
         handleFileSelect() {
             // File selection is handled by v-file-input
             console.log('File selected:', (this as any).selectedFile);
+            // Reset password fields when new file is selected
+            (this as any).pdfPassword = '';
+            (this as any).showPasswordField = false;
+            (this as any).passwordRequired = false;
         },
 
         triggerFileInput() {
@@ -134,6 +148,11 @@ export default {
                 const formData = new FormData();
                 formData.append('pdf_file', (this as any).selectedFile[0]);
                 formData.append('user_id', (this as any).userData.user.username);
+
+                // Add password if provided
+                if ((this as any).pdfPassword) {
+                    formData.append('pdf_password', (this as any).pdfPassword);
+                }
 
                 // Upload to the actual API endpoint
                 const response = await axios.post('http://localhost:8000/bank-statements/upload/', formData, {
@@ -163,6 +182,9 @@ export default {
 
                     // Reset form
                     (this as any).selectedFile = null;
+                    (this as any).pdfPassword = '';
+                    (this as any).showPasswordField = false;
+                    (this as any).passwordRequired = false;
                 } else {
                     throw new Error(response.data.message || 'Upload failed');
                 }
@@ -172,10 +194,21 @@ export default {
 
                 let errorMessage = 'Failed to upload bank statement. Please try again.';
 
-                if (error.response?.data?.message) {
+                // Check if password is required
+                if (error.response?.data?.requires_password) {
+                    (this as any).passwordRequired = true;
+                    (this as any).showPasswordField = true;
+                    errorMessage = error.response.data.message || 'This PDF is password-protected. Please enter the password.';
+                } else if (error.response?.data?.message) {
                     errorMessage = error.response.data.message;
                 } else if (error.response?.data?.error) {
                     errorMessage = error.response.data.error;
+                    // Check if it's a password-related error
+                    if (error.response.data.error.toLowerCase().includes('password') ||
+                        error.response.data.error.toLowerCase().includes('decrypt')) {
+                        (this as any).passwordRequired = true;
+                        (this as any).showPasswordField = true;
+                    }
                 } else if (error.message) {
                     errorMessage = error.message;
                 }

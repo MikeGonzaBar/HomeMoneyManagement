@@ -69,7 +69,8 @@
                                     <v-col cols="12" md="4">
                                         <v-text-field v-model="newAccount.name" label="Account Name" variant="outlined"
                                             density="compact" prepend-inner-icon="mdi-account"
-                                            :rules="[v => !!v || 'Account name is required']" required></v-text-field>
+                                            :rules="[(v: string) => !!v || 'Account name is required']"
+                                            required></v-text-field>
                                     </v-col>
                                     <v-col cols="12" md="4">
                                         <v-text-field v-model="newAccount.bank" label="Bank Name" variant="outlined"
@@ -79,13 +80,32 @@
                                         <v-select v-model="newAccount.account_type" label="Account Type"
                                             :items="accountTypes" variant="outlined" density="compact"
                                             prepend-inner-icon="mdi-credit-card"
-                                            :rules="[v => !!v || 'Account type is required']" required></v-select>
+                                            :rules="[(v: string) => !!v || 'Account type is required']"
+                                            required></v-select>
                                     </v-col>
                                 </v-row>
                             </v-form>
                         </v-expand-transition>
                     </v-card-text>
                 </v-card>
+
+                <!-- Display Detected Initial Balance -->
+                <v-alert v-if="extractedData?.initial_balance !== null && extractedData?.initial_balance !== undefined"
+                    type="info" variant="tonal" class="mt-2" density="compact">
+                    <div class="d-flex align-center">
+                        <v-icon class="me-2">mdi-information</v-icon>
+                        <span>
+                            <strong>Detected Initial Balance:</strong>
+                            ${{ extractedData.initial_balance.toLocaleString('en-US', {
+                                minimumFractionDigits: 2,
+                            maximumFractionDigits:
+                            2 }) }}
+                        </span>
+                    </div>
+                    <small class="text-grey-darken-1">
+                        This will be set as the account's initial balance when creating a new account.
+                    </small>
+                </v-alert>
 
                 <!-- Statement Period Info -->
                 <v-alert v-if="statementPeriod" type="info" variant="tonal" rounded="lg" class="mb-4">
@@ -314,6 +334,7 @@ export default {
                 accountName = bankStatementData.extracted_data.account_name || '';
                 accountType = bankStatementData.extracted_data.account_type || '';
                 (this as any).statementPeriod = bankStatementData.extracted_data.statement_period || null;
+                (this as any).extractedData = bankStatementData.extracted_data; // Store extracted data
             } else if (bankStatementData.transactions) {
                 // Fallback to old format
                 transactions = bankStatementData.transactions;
@@ -373,6 +394,7 @@ export default {
             (this as any).detectedAccountInfo = { account_name: '', account_type: '' };
             (this as any).newAccount = { name: '', bank: '', account_type: '' };
             (this as any).statementPeriod = null;
+            (this as any).extractedData = null; // Clear extracted data
             (this as any).$emit('dialogClosed');
         },
 
@@ -433,11 +455,14 @@ export default {
                         return;
                     }
 
+                    // Use detected initial_balance if available, otherwise default to 0
+                    const initialBalance = (this as any).extractedData?.initial_balance ?? 0.0;
+
                     const accountData = {
                         account_name: (this as any).newAccount.name,
                         account_type: (this as any).newAccount.account_type,
                         bank: (this as any).newAccount.bank || '',
-                        total: 0.0,
+                        total: initialBalance,  // Changed from 0.0 to use detected initial balance
                         owner: (this as any).userData.user.username
                     };
 

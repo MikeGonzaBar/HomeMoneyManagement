@@ -10,7 +10,7 @@ import logging
 
 from .models import BankStatement
 from .serializers import BankStatementUploadSerializer, BankStatementResponseSerializer
-from .services import extract_transactions_from_pdf
+from .services import extract_transactions_from_pdf, is_pdf_password_protected, decrypt_pdf_file
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +24,11 @@ def upload_bank_statement(request):
     Expected form data:
     - pdf_file: The PDF file
     - user_id: The username of the user uploading the file
+    - pdf_password: (Optional) Password for password-protected PDFs
     
     Returns:
     - 200: Success with file details
-    - 400: Bad request (invalid file or missing data)
+    - 400: Bad request (invalid file or missing data, or password required/incorrect)
     - 500: Server error
     """
     
@@ -48,6 +49,7 @@ def upload_bank_statement(request):
         # Get the file and user_id
         pdf_file = request.FILES['pdf_file']
         user_id = request.data['user_id']
+        pdf_password = request.data.get('pdf_password', None)  # Optional password
         
         # Validate file type
         if not pdf_file.name.lower().endswith('.pdf'):
@@ -74,12 +76,64 @@ def upload_bank_statement(request):
                 'message': 'File does not appear to be a valid PDF'
             }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Check if PDF is password-protected and handle decryption
+        try:
+            if is_pdf_password_protected(pdf_file):
+                if not pdf_password:
+                    return Response({
+                        'error': 'Password required',
+                        'message': 'This PDF is password-protected. Please provide the password.',
+                        'requires_password': True
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Decrypt the PDF
+                try:
+                    decrypted_pdf = decrypt_pdf_file(pdf_file, pdf_password)
+                    # Replace the original file with decrypted version
+                    pdf_file = decrypted_pdf
+                    logger.info(f"Successfully decrypted password-protected PDF for user {user_id}")
+                except ValueError as e:
+                    # Password error
+                    error_msg = str(e)
+                    if "Incorrect password" in error_msg or "decryption failed" in error_msg:
+                        return Response({
+                            'error': 'Incorrect password',
+                            'message': 'The provided password is incorrect. Please try again.',
+                            'requires_password': True
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        return Response({
+                            'error': 'PDF decryption failed',
+                            'message': f'Failed to decrypt PDF: {error_msg}'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                except Exception as e:
+                    logger.error(f"Error decrypting PDF: {str(e)}", exc_info=True)
+                    return Response({
+                        'error': 'PDF decryption error',
+                        'message': f'An error occurred while decrypting the PDF: {str(e)}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            # If checking for password protection fails, log but continue
+            logger.warning(f"Error checking PDF encryption status: {str(e)}")
+        
         # Create the bank statement record
+        # Get original filename before potential decryption
+        original_filename = request.FILES['pdf_file'].name
+        
+        # Calculate file size
+        if hasattr(pdf_file, 'size'):
+            file_size = pdf_file.size
+        else:
+            # For ContentFile, we need to read to get size
+            pdf_file.seek(0, 2)  # Seek to end
+            file_size = pdf_file.tell()
+            pdf_file.seek(0)  # Reset to beginning
+        
         bank_statement = BankStatement.objects.create(
             user_id=user_id,
             file=pdf_file,
-            original_filename=pdf_file.name,
-            file_size=pdf_file.size,
+            original_filename=original_filename,
+            file_size=file_size,
             processing_status='pending'
         )
         
@@ -137,6 +191,7 @@ def upload_bank_statement(request):
                 'account_name': extracted_data.get('account_name'),
                 'account_type': extracted_data.get('account_type'),  # Credit Card, Debit Card, etc.
                 'statement_period': extracted_data.get('statement_period'),
+                'initial_balance': extracted_data.get('initial_balance'),  # Add this line
                 'processing_error': extracted_data.get('error')
             }
         

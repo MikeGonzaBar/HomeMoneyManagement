@@ -146,6 +146,7 @@ class UserService:
     def delete_user(username: str, password: str) -> Dict:
         """
         Deletes a user after verifying their password.
+        Also deletes all related accounts, transactions, and bank statements.
         
         Args:
             username (str): Username of user to delete
@@ -165,12 +166,38 @@ class UserService:
                     "first_name": user.first_name,
                     "last_name": user.last_name
                 }
+                
+                # Cascade delete related objects
+                from account.models import Account
+                from transaction.models import Transaction
+                from bankstatements.models import BankStatement
+                
+                user_id = str(user.id)
+                
+                # Delete related bank statements (and their files)
+                statements = BankStatement.objects.filter(user_id=username)
+                statements_count = statements.count()
+                for statement in statements:
+                    statement.delete()  # This will also delete the file
+                
+                # Delete related transactions
+                transactions_count = Transaction.objects.filter(owner_id=user_id).delete()[0]
+                
+                # Delete related accounts
+                accounts_count = Account.objects.filter(owner=username).delete()[0]
+                
+                # Finally, delete the user
                 user.delete()
                 
                 return {
                     "success": True,
-                    "message": "User deleted successfully",
-                    "deleted_user": user_data
+                    "message": f"User deleted successfully. Also deleted {accounts_count} account(s), {transactions_count} transaction(s), and {statements_count} bank statement(s).",
+                    "deleted_user": user_data,
+                    "deleted_counts": {
+                        "accounts": accounts_count,
+                        "transactions": transactions_count,
+                        "bank_statements": statements_count
+                    }
                 }
             else:
                 return {
@@ -186,7 +213,7 @@ class UserService:
         except Exception as e:
             return {
                 "error": "Deletion error",
-                "message": "An error occurred while deleting the user"
+                "message": f"An error occurred while deleting the user: {str(e)}"
             }
     
     @staticmethod
