@@ -23,7 +23,32 @@ class Account(models.Model):
     @property
     def is_credit_card(self):
         """Check if this is a credit card account."""
-        return self.account_type == 'Crédito'
+        normalized_type = self.account_type.replace(' Account', '').strip()
+        return normalized_type in ['Crédito', 'Credit Card', 'Credit']
+    
+    @property
+    def is_liability(self):
+        """Check if this account represents a liability (debt)."""
+        normalized_type = self.account_type.replace(' Account', '').strip()
+        return normalized_type in ['Crédito', 'Credit Card', 'Credit', 'Loan', 'Mortgage']
+    
+    @property
+    def net_worth_value(self):
+        """
+        Get the value this account contributes to net worth.
+        For assets: returns positive balance
+        For liabilities: returns negative debt amount
+        """
+        if self.is_credit_card and self.credit_limit:
+            # Credit card: debt = credit_limit - available_credit
+            debt = self.credit_limit - self.total
+            return -debt  # Negative because it's debt
+        elif self.is_liability:
+            # Loans/Mortgages: subtract what you owe
+            return -self.total
+        else:
+            # Assets: add what you have
+            return self.total
     
     @property
     def available_credit(self):

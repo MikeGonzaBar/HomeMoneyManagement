@@ -26,4 +26,5 @@ class AccountSerializer(serializers.ModelSerializer):
             "total",
             "account_name",
             "owner",
+            "credit_limit",
         )

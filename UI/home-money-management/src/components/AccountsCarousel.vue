@@ -13,10 +13,14 @@
                     </v-avatar>
                     <h5 :class="$vuetify.display.mobile ? 'text-subtitle-2' : ($vuetify.display.mdAndDown ? 'text-subtitle-1' : 'text-h6')"
                         class="font-weight-bold mb-0 budget-text-gradient">All Accounts</h5>
-                    <p class="text-caption text-grey-darken-1 mb-0">Total Balance</p>
-                    <h6 :class="$vuetify.display.mobile ? 'text-h6' : ($vuetify.display.mdAndDown ? 'text-h6' : 'text-h5')"
-                        class="font-weight-bold budget-text-gradient mb-0">${{ total.toLocaleString()
-                        }}</h6>
+                    <p class="text-caption text-grey-darken-1 mb-0">Net Worth</p>
+                    <h6 :class="[
+                        $vuetify.display.mobile ? 'text-h6' : ($vuetify.display.mdAndDown ? 'text-h6' : 'text-h5'),
+                        total >= 0 ? 'text-success' : 'text-error',
+                        'font-weight-bold mb-0'
+                    ]">
+                        ${{ total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                    </h6>
                 </v-card-text>
             </v-card>
         </v-slide-group-item>
@@ -222,9 +226,35 @@
                     </v-row>
                     <v-row>
                         <v-col cols="12">
-                            <v-text-field v-model="editTotal" label="Current Balance" type="number" step="0.01"
-                                :disabled="true" variant="outlined" rounded="lg"
-                                prepend-inner-icon="mdi-currency-usd"></v-text-field>
+                            <v-text-field v-model="editTotal"
+                                :label="(editAccountType === 'Crédito' || editAccountType === 'Credit Card' || editAccountType === 'Credit') ? 'Available Credit' : 'Current Balance'"
+                                type="number" step="0.01" :disabled="false" variant="outlined" rounded="lg"
+                                prepend-inner-icon="mdi-currency-usd"
+                                :hint="(editAccountType === 'Crédito' || editAccountType === 'Credit Card' || editAccountType === 'Credit') ? 'For credit cards, this is your available credit (limit - used)' : ''"
+                                persistent-hint></v-text-field>
+                        </v-col>
+                    </v-row>
+                    <v-row
+                        v-if="editAccountType === 'Crédito' || editAccountType === 'Credit Card' || editAccountType === 'Credit'">
+                        <v-col cols="12">
+                            <v-text-field v-model="editCreditLimit" label="Credit Limit" type="number" step="0.01"
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-credit-card-lock"
+                                hint="Set the credit limit for this credit card" persistent-hint></v-text-field>
+                            <!-- Show calculated used credit -->
+                            <v-alert v-if="editCreditLimit && editTotal !== null && editTotal !== undefined" type="info"
+                                variant="tonal" density="compact" class="mt-2">
+                                <div class="d-flex justify-space-between align-center">
+                                    <span class="text-caption">Used Credit:</span>
+                                    <span class="font-weight-bold">
+                                        ${{ ((editCreditLimit || 0) - (editTotal || 0)).toLocaleString('en-US', {
+                                            minimumFractionDigits: 2, maximumFractionDigits: 2
+                                        }) }}
+                                    </span>
+                                </div>
+                                <div class="text-caption text-grey-darken-1 mt-1">
+                                    Formula: Limit - Available = Used
+                                </div>
+                            </v-alert>
                         </v-col>
                     </v-row>
                     <v-row>
@@ -261,6 +291,7 @@ interface Account {
     bank: string;
     total: number;
     account_name: string;
+    credit_limit?: number | null;
 }
 
 interface Data {
@@ -274,6 +305,7 @@ interface Data {
     editBankName: string;
     editTotal: number;
     editNickname: string;
+    editCreditLimit: number | null;
     newAccountType: string;
     newBankName: string;
     newTotal: number;
@@ -316,6 +348,7 @@ export default {
         editBankName: '',
         editTotal: 0.0,
         editNickname: '',
+        editCreditLimit: null as number | null,
         newAccountType: '',
         newBankName: '',
         newTotal: 0.0,
@@ -452,6 +485,33 @@ export default {
             return creditLimit - account.total;
         },
 
+        getAccountNetWorthContribution(this: ComponentInstance, account: Account): number {
+            /**
+             * Calculate how much this account contributes to net worth.
+             * Returns positive for assets, negative for liabilities.
+             */
+            const accountType = account.account_type;
+            const normalizedType = accountType.replace(/\s+Account$/i, '').trim();
+
+            // Credit Cards: Subtract debt (credit_limit - available_credit)
+            if (normalizedType === 'Crédito' || normalizedType === 'Credit Card' || normalizedType === 'Credit') {
+                if (account.credit_limit) {
+                    const debt = account.credit_limit - account.total;
+                    return -debt; // Negative because it's debt
+                }
+                return 0; // No credit limit = no debt
+            }
+
+            // Loans and Mortgages: Subtract what you owe
+            if (normalizedType === 'Loan' || normalizedType === 'Mortgage') {
+                return -account.total; // Negative because it's debt
+            }
+
+            // Assets: Add what you have
+            // Savings, Checking, Debit, Cash, Investment, Business, Other
+            return account.total;
+        },
+
         deleteAccount(this: ComponentInstance) {
             axios.delete(`http://localhost:8000/accounts/delete/${this.userData.user.username}/${this.editAccountId}/`).then((response: any) => {
                 this.editAccountModalVisible = false;
@@ -468,7 +528,7 @@ export default {
         },
 
         sendUpdateAccount(this: ComponentInstance) {
-            const editedAccount = {
+            const editedAccount: any = {
                 id: this.editAccountId,
                 account_type: this.editAccountType,
                 bank: this.editBankName,
@@ -476,9 +536,23 @@ export default {
                 account_name: this.editNickname,
                 owner: this.userData.user.username
             }
+
+            // Add credit_limit if it's a credit card account
+            if (this.editAccountType === 'Crédito' || this.editAccountType === 'Credit Card' || this.editAccountType === 'Credit') {
+                editedAccount.credit_limit = this.editCreditLimit || null;
+            } else {
+                // Clear credit_limit for non-credit card accounts
+                editedAccount.credit_limit = null;
+            }
+
             axios.patch(`http://localhost:8000/accounts/details/${this.userData.user.username}/${this.editAccountId}/`, editedAccount).then((response: any) => {
                 this.editAccountModalVisible = false;
-                this.accounts[this.editAccountIndex] = editedAccount;
+                // Update the account in the local array with the response data
+                if (response.data.updated_account) {
+                    this.accounts[this.editAccountIndex] = response.data.updated_account;
+                } else {
+                    this.accounts[this.editAccountIndex] = editedAccount;
+                }
                 location.reload();
             });
 
@@ -491,10 +565,14 @@ export default {
             this.editNickname = acc.account_name;
             this.editAccountId = acc.id;
             this.editAccountIndex = index;
+            // Set credit_limit if available, otherwise null
+            this.editCreditLimit = acc.credit_limit || null;
         },
         closeEditAccountModal(this: ComponentInstance) {
             this.editAccountModalVisible = false;
             this.model = 0;
+            // Reset credit limit when closing
+            this.editCreditLimit = null;
         },
         closeNewAccountModal(this: ComponentInstance) {
             this.newAccountModalVisible = false;
@@ -527,7 +605,19 @@ export default {
     },
     computed: {
         total(this: ComponentInstance): number {
-            return this.accounts.reduce((acc: number, item: Account) => acc + item.total, 0);
+            /**
+             * Calculate net worth (total balance) correctly:
+             * - Assets (Savings, Checking, Debit, Cash, Investment, Business, Other): ADD their balance
+             * - Liabilities (Credit Cards, Loans, Mortgage): SUBTRACT their debt
+             * 
+             * For Credit Cards:
+             *   - total field = available credit (e.g., $5,209.60)
+             *   - debt = credit_limit - available_credit (e.g., $42,000 - $5,209.60 = $36,790.40)
+             *   - Net worth contribution = -debt (subtract from net worth)
+             */
+            return this.accounts.reduce((netWorth: number, account: Account) => {
+                return netWorth + (this as any).getAccountNetWorthContribution(account);
+            }, 0);
         },
         accountTypeOptions(this: ComponentInstance): Array<{ title: string; value: string }> {
             // Comprehensive list that includes both Spanish (for backward compatibility) 
