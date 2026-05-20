@@ -1,32 +1,20 @@
 <template>
-    <v-card class="glass-card shadow-medium" rounded="xl">
-        <v-card-title class="pa-6 pb-2">
-            <div class="d-flex align-center">
-                <v-avatar size="40" class="me-3 budget-gradient">
-                    <v-icon color="white">mdi-file-pdf-box</v-icon>
-                </v-avatar>
-                <div>
-                    <h4 class="budget-text-gradient font-weight-bold mb-0">Bank Statement Upload</h4>
-                    <p class="text-grey-darken-1 mb-0 text-caption">Upload your bank statement PDF for automatic
-                        transaction detection</p>
-                </div>
-            </div>
-        </v-card-title>
-        <v-card-text class="pa-6 pt-2">
+    <div class="bank-upload-content">
+        <div class="upload-form">
             <v-file-input ref="fileInput" v-model="selectedFile" accept=".pdf" label="Select Bank Statement PDF"
                 prepend-icon="mdi-file-pdf-box" variant="outlined" rounded="lg" :rules="fileRules"
                 :loading="isUploading" @change="handleFileSelect" class="mb-4" clearable show-size
                 density="comfortable"></v-file-input>
 
-            <div v-if="selectedFile" class="file-preview mb-4">
+            <div v-if="selectedPdfFile" class="file-preview mb-4">
                 <v-alert type="info" variant="tonal" rounded="lg" class="mb-3">
                     <template v-slot:prepend>
                         <v-icon>mdi-information</v-icon>
                     </template>
                     <div>
-                        <strong>Selected File:</strong> {{ selectedFile[0]?.name }}
+                        <strong>Selected File:</strong> {{ selectedPdfFile.name }}
                         <br>
-                        <small class="text-grey-darken-1">Size: {{ formatFileSize(selectedFile[0]?.size) }}</small>
+                        <small class="text-grey-darken-1">Size: {{ formatFileSize(selectedPdfFile.size) }}</small>
                     </div>
                 </v-alert>
 
@@ -38,30 +26,37 @@
                     rounded="lg" density="comfortable" clearable></v-text-field>
 
                 <v-btn color="primary" size="large" rounded="lg" :loading="isUploading"
-                    :disabled="!selectedFile || isUploading || (passwordRequired && !pdfPassword)"
+                    :disabled="!selectedPdfFile || isUploading || (passwordRequired && !pdfPassword)"
                     @click="uploadBankStatement" class="smooth-transition hover-lift" block>
                     <v-icon left>mdi-upload</v-icon>
                     {{ isUploading ? 'Processing...' : 'Upload & Process Statement' }}
                 </v-btn>
             </div>
 
-            <div v-else class="upload-placeholder text-center pa-6" @click="triggerFileInput">
-                <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-cloud-upload</v-icon>
-                <h3 class="text-h6 text-grey-darken-1 mb-2">Upload Your Bank Statement</h3>
-                <p class="text-body-2 text-grey-darken-1 mb-4">
-                    Click here or use the file input above to select a PDF file of your bank statement
+            <div v-else class="upload-placeholder text-center" @click="triggerFileInput">
+                <svg class="upload-icon mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                </svg>
+                <h4 class="upload-title mb-2">Upload Your Bank Statement</h4>
+                <p class="upload-hint mb-4">
+                    Click here or use the file input above to select a PDF file
                 </p>
-                <v-chip color="primary" variant="tonal" size="small">
-                    <v-icon left>mdi-information</v-icon>
+                <span class="upload-badge">
+                    <svg class="badge-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
                     PDF files only
-                </v-chip>
+                </span>
             </div>
-        </v-card-text>
-    </v-card>
+        </div>
+    </div>
 </template>
 
 <script lang="ts">
-import axios from 'axios';
+import axios from '@/services/api';
 
 interface DetectedTransaction {
     id: string;
@@ -92,15 +87,15 @@ export default {
     },
     data() {
         return {
-            selectedFile: null as File[] | null,
+            selectedFile: null as File | File[] | null,
             isUploading: false,
             pdfPassword: '',
             showPasswordField: false,
             passwordRequired: false,
             fileRules: [
-                (value: File[]) => {
-                    if (!value || value.length === 0) return true;
-                    const file = value[0];
+                (value: File | File[] | null) => {
+                    const file = Array.isArray(value) ? value[0] : value;
+                    if (!file) return true;
                     if (file && file.type !== 'application/pdf') {
                         return 'Please select a PDF file';
                     }
@@ -113,6 +108,15 @@ export default {
         }
     },
     emits: ['statementProcessed', 'uploadError'],
+    computed: {
+        selectedPdfFile(): File | null {
+            const selected = (this as any).selectedFile;
+            if (Array.isArray(selected)) {
+                return selected[0] ?? null;
+            }
+            return selected ?? null;
+        }
+    },
     methods: {
         handleFileSelect() {
             // File selection is handled by v-file-input
@@ -140,14 +144,14 @@ export default {
         },
 
         async uploadBankStatement() {
-            if (!(this as any).selectedFile || (this as any).selectedFile.length === 0) return;
+            const file = (this as any).selectedPdfFile as File | null;
+            if (!file) return;
 
             (this as any).isUploading = true;
 
             try {
                 const formData = new FormData();
-                formData.append('pdf_file', (this as any).selectedFile[0]);
-                formData.append('user_id', (this as any).userData.user.username);
+                formData.append('pdf_file', file);
 
                 // Add password if provided
                 if ((this as any).pdfPassword) {
@@ -155,13 +159,18 @@ export default {
                 }
 
                 // Upload to the actual API endpoint
-                const response = await axios.post('http://localhost:8000/bank-statements/upload/', formData, {
+                const response = await axios.post('/bank-statements/upload/', formData, {
                     headers: {
                         'Content-Type': 'multipart/form-data',
                     },
                 });
 
                 if (response.data.status === 'success') {
+                    const processingError = response.data.extracted_data?.processing_error;
+                    if (processingError) {
+                        throw new Error(processingError);
+                    }
+
                     // Check if we have extracted transaction data
                     if (response.data.extracted_data && response.data.extracted_data.transactions && response.data.extracted_data.transactions.length > 0) {
                         // We have transactions to review - emit with extracted data
@@ -286,24 +295,72 @@ export default {
 </script>
 
 <style scoped>
-/* Upload component specific styles */
+.bank-upload-content {
+    width: 100%;
+}
+
+.upload-form {
+    width: 100%;
+}
+
 .file-preview {
     animation: slideInUp 0.3s ease-out;
 }
 
 .upload-placeholder {
-    background: rgba(76, 175, 80, 0.05);
-    border: 2px dashed rgba(76, 175, 80, 0.3);
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.06) 0%, rgba(232, 245, 233, 0.4) 100%);
+    border: 2px dashed rgba(76, 175, 80, 0.4);
     border-radius: 16px;
-    transition: all 0.3s ease;
+    padding: 32px 24px !important;
+    transition: all 0.25s ease;
     cursor: pointer;
 }
 
 .upload-placeholder:hover {
-    background: rgba(76, 175, 80, 0.1);
-    border-color: rgba(76, 175, 80, 0.5);
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(232, 245, 233, 0.6) 100%);
+    border-color: rgba(76, 175, 80, 0.6);
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(76, 175, 80, 0.15);
+    box-shadow: 0 8px 24px rgba(76, 175, 80, 0.12);
+}
+
+.upload-icon {
+    width: 56px;
+    height: 56px;
+    color: #9E9E9E;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.upload-placeholder:hover .upload-icon {
+    color: #4CAF50;
+}
+
+.upload-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.upload-hint {
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.upload-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #4CAF50;
+    background: rgba(76, 175, 80, 0.1);
+    padding: 6px 12px;
+    border-radius: 8px;
+}
+
+.badge-icon {
+    width: 16px;
+    height: 16px;
 }
 
 @keyframes slideInUp {
@@ -321,17 +378,16 @@ export default {
 /* File input styling */
 :deep(.v-file-input .v-field) {
     border-radius: 12px;
-    min-height: 56px;
-    border: 2px dashed rgba(76, 175, 80, 0.3);
-    background: rgba(76, 175, 80, 0.05);
-    transition: all 0.3s ease;
+    min-height: 52px;
+    border: 2px dashed rgba(76, 175, 80, 0.35);
+    background: rgba(76, 175, 80, 0.04);
+    transition: all 0.25s ease;
 }
 
 :deep(.v-file-input .v-field:hover) {
-    border-color: rgba(76, 175, 80, 0.6);
-    background: rgba(76, 175, 80, 0.12);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    border-color: rgba(76, 175, 80, 0.55);
+    background: rgba(76, 175, 80, 0.08);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.1);
 }
 
 :deep(.v-file-input .v-field__outline) {

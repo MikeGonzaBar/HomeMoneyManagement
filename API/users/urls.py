@@ -5,6 +5,7 @@ urlpatterns = [
     # New secure endpoints
     path("register/", views.UserRegistrationView.as_view(), name="user_register"),
     path("login/", views.UserLoginView.as_view(), name="user_login"),
+    path("logout/", views.logout, name="user_logout"),
     path("profile/", views.user_profile, name="user_profile"),
     
     # Profile management endpoints

@@ -21,10 +21,13 @@ class AccountSerializer(serializers.ModelSerializer):
         """
         model = Account
         fields = (
+            "id",
             "account_type",
             "bank",
             "total",
             "account_name",
             "owner",
+            "owner_user",
             "credit_limit",
         )
+        read_only_fields = ("id", "owner", "owner_user")

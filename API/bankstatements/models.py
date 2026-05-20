@@ -18,6 +18,13 @@ class BankStatement(models.Model):
     
     id = models.AutoField(primary_key=True)
     user_id = models.CharField(max_length=150, help_text="Username of the user who uploaded the statement")
+    owner_user = models.ForeignKey(
+        "users.User",
+        related_name="bank_statements",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
     file = models.FileField(
         upload_to=bank_statement_upload_path,
         validators=[FileExtensionValidator(allowed_extensions=['pdf'])],
@@ -44,9 +51,18 @@ class BankStatement(models.Model):
         ordering = ['-upload_date']
         verbose_name = "Bank Statement"
         verbose_name_plural = "Bank Statements"
+        indexes = [
+            models.Index(fields=["owner_user", "-upload_date"]),
+            models.Index(fields=["user_id", "-upload_date"]),
+        ]
     
     def __str__(self):
         return f"{self.user_id} - {self.original_filename} ({self.upload_date.strftime('%Y-%m-%d')})"
+
+    def save(self, *args, **kwargs):
+        if self.owner_user_id:
+            self.user_id = self.owner_user.username
+        super().save(*args, **kwargs)
     
     def get_file_size_display(self):
         """Return human-readable file size."""

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.log
+local-*.log
+local-*.err.log
+npm-audit-report.txt

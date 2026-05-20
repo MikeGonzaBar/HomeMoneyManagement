@@ -21,6 +21,7 @@ FROM nginx:stable-alpine3.19
 
 # Copy the pre-built app from the previous stage
 COPY --from=0 /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 80 for the app
 EXPOSE 80

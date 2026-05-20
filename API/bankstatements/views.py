@@ -23,7 +23,7 @@ def upload_bank_statement(request):
     
     Expected form data:
     - pdf_file: The PDF file
-    - user_id: The username of the user uploading the file
+    - user_id: Ignored if present; ownership comes from the authenticated token
     - pdf_password: (Optional) Password for password-protected PDFs
     
     Returns:
@@ -40,15 +40,9 @@ def upload_bank_statement(request):
                 'message': 'Please provide a PDF file in the request'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if 'user_id' not in request.data:
-            return Response({
-                'error': 'No user_id provided',
-                'message': 'Please provide a user_id in the request'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Get the file and user_id
+        # Get the file and derive ownership from the authenticated token.
         pdf_file = request.FILES['pdf_file']
-        user_id = request.data['user_id']
+        user_id = request.user.username
         pdf_password = request.data.get('pdf_password', None)  # Optional password
         
         # Validate file type
@@ -131,6 +125,7 @@ def upload_bank_statement(request):
         
         bank_statement = BankStatement.objects.create(
             user_id=user_id,
+            owner_user=request.user,
             file=pdf_file,
             original_filename=original_filename,
             file_size=file_size,
@@ -155,6 +150,33 @@ def upload_bank_statement(request):
                 bank_statement.processing_status = 'failed'
                 bank_statement.error_message = extracted_data.get('error', 'Unknown error')
                 bank_statement.save()
+                error_message = bank_statement.error_message
+                status_code = (
+                    status.HTTP_503_SERVICE_UNAVAILABLE
+                    if 'api key not configured' in error_message.lower()
+                    else status.HTTP_502_BAD_GATEWAY
+                )
+                return Response({
+                    'error': 'AI processing failed',
+                    'message': error_message,
+                    'file_details': {
+                        'id': bank_statement.id,
+                        'filename': bank_statement.original_filename,
+                        'file_size': bank_statement.file_size,
+                        'file_size_display': bank_statement.get_file_size_display(),
+                        'upload_date': bank_statement.upload_date.isoformat(),
+                        'processing_status': bank_statement.processing_status
+                    },
+                    'status': 'failed',
+                    'extracted_data': {
+                        'transactions': extracted_data.get('transactions', []),
+                        'account_name': extracted_data.get('account_name'),
+                        'account_type': extracted_data.get('account_type'),
+                        'statement_period': extracted_data.get('statement_period'),
+                        'initial_balance': extracted_data.get('initial_balance'),
+                        'processing_error': error_message
+                    }
+                }, status=status_code)
             else:
                 # Processing completed successfully (with or without transactions)
                 bank_statement.processing_status = 'completed'
@@ -215,7 +237,12 @@ def get_user_bank_statements(request, user_id):
     """
     
     try:
-        bank_statements = BankStatement.objects.filter(user_id=user_id).order_by('-upload_date')
+        if user_id != request.user.username:
+            return Response({
+                'error': 'Cannot access another user\'s bank statements'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        bank_statements = BankStatement.objects.filter(owner_user=request.user).order_by('-upload_date')
         
         if not bank_statements.exists():
             return Response({
@@ -248,7 +275,7 @@ def get_bank_statement_details(request, statement_id):
     """
     
     try:
-        bank_statement = BankStatement.objects.get(id=statement_id)
+        bank_statement = BankStatement.objects.get(id=statement_id, owner_user=request.user)
         serializer = BankStatementResponseSerializer(bank_statement)
         
         return Response({
@@ -280,7 +307,7 @@ def delete_bank_statement(request, statement_id):
     """
     
     try:
-        bank_statement = BankStatement.objects.get(id=statement_id)
+        bank_statement = BankStatement.objects.get(id=statement_id, owner_user=request.user)
         filename = bank_statement.original_filename
         bank_statement.delete()
         

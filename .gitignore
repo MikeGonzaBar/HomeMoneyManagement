@@ -1,27 +1,65 @@
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
 # Ignore compiled Python files
-*.pyc
+*.py[cod]
 __pycache__/
 
 # Ignore the Django database file
 db.sqlite3
+*.sqlite3
 
 # Ignore media and static files
 media/
 static/
+staticfiles/
 
 # Ignore the environment file that might contain sensitive information
 .env
+.env.*
+!.env.example
 
-# Ignore any migrations (uncomment if needed)
-*/migrations/
-API/users/migrations/*
-API/account/migrations/*
+# Ignore local Python virtual environments
+.venv/
+venv/
+ENV/
+API/.venv/
 
-# Ignore pytest cache
+# Track Django migrations so database schema changes are reproducible.
+
+# Ignore Python test/type/lint caches
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
 
 # Ignore generated HTML documentation
 docs/_build/
+# README screenshots under docs/screenshots/ are intentionally tracked.
 
+# Ignore local migration artifacts/backups
+migration-backups/
+migration-fixtures/
 
-.vscode
+# Ignore local runtime logs
+*.log
+*.err.log
+local-*.log
+local-*.err.log
+
+# Ignore frontend dependencies/build outputs
+UI/home-money-management/node_modules/
+UI/home-money-management/dist/
+UI/home-money-management/.vite/
+UI/home-money-management/coverage/
+UI/home-money-management/.eslintcache
+UI/home-money-management/*.tsbuildinfo
+UI/home-money-management/npm-audit-report.txt
+
+# Ignore local visual QA output
+visual-review-screenshots/

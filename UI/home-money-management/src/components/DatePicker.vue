@@ -124,12 +124,11 @@ export default {
 }
 
 .date-selector-card {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(10px);
+    background: #ffffff;
     border-radius: 16px;
     padding: 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(76, 175, 80, 0.1);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    border: 1px solid #f3f4f6;
 }
 
 .selector-header {
@@ -162,8 +161,8 @@ export default {
 }
 
 .quick-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    transform: none;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 /* Custom styling for v-select components */
@@ -178,13 +177,13 @@ export default {
 }
 
 :deep(.v-field:hover) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    transform: none;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 :deep(.v-field--focused) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    transform: none;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
 }
 
 /* Custom dropdown styling */

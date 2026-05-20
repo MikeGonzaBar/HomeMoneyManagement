@@ -172,19 +172,17 @@ class UserService:
                 from transaction.models import Transaction
                 from bankstatements.models import BankStatement
                 
-                user_id = str(user.id)
-                
                 # Delete related bank statements (and their files)
-                statements = BankStatement.objects.filter(user_id=username)
+                statements = BankStatement.objects.filter(owner_user=user)
                 statements_count = statements.count()
                 for statement in statements:
                     statement.delete()  # This will also delete the file
                 
                 # Delete related transactions
-                transactions_count = Transaction.objects.filter(owner_id=user_id).delete()[0]
+                transactions_count = Transaction.objects.filter(owner_user=user).delete()[0]
                 
                 # Delete related accounts
-                accounts_count = Account.objects.filter(owner=username).delete()[0]
+                accounts_count = Account.objects.filter(owner_user=user).delete()[0]
                 
                 # Finally, delete the user
                 user.delete()

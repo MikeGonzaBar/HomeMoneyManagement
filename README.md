@@ -32,21 +32,22 @@ A comprehensive full-stack personal finance management application that helps us
 ### 🔐 Security & Authentication
 
 - **User Registration & Login**: Secure authentication system
-- **Session Management**: Persistent login with localStorage
-- **Data Privacy**: User-specific data isolation
+- **Token Authentication**: DRF-style opaque tokens sent with `Authorization: Token <token>`
+- **Session Management**: The frontend stores only `{ token, user }` in localStorage and clears invalid/legacy sessions
+- **Data Privacy**: Server-enforced user-specific data isolation
 
 ## 🏗️ Architecture
 
 ### Backend (Django REST API)
 
-- **Framework**: Django 4.2.5 with Django REST Framework 3.14.0
-- **Database**: SQLite (easily configurable for PostgreSQL/MySQL)
-- **API Endpoints**: RESTful APIs for users, accounts, and transactions
+- **Framework**: Django 4.2.24 with Django REST Framework 3.15.2
+- **Database**: PostgreSQL in Docker, SQLite for lightweight local development
+- **API Endpoints**: RESTful APIs for users, accounts, transactions, bank statements, and reports
 - **Admin Interface**: Django admin for data management
 
 ### Database Schema
 
-The application uses a relational database structure with the following entities and relationships:
+The application uses formal ownership/account foreign keys for integrity while temporarily keeping legacy string fields populated for older API/UI compatibility:
 
 ```mermaid
 erDiagram
@@ -58,14 +59,23 @@ erDiagram
         string last_name
     }
     
+    AuthToken {
+        string key PK
+        int user_id FK
+        datetime created_at
+        datetime last_used_at
+        datetime revoked_at
+    }
+
     Account {
         int id PK
         string account_type
         string bank
-        float total
+        decimal total
         string account_name
-        string owner
-        float credit_limit
+        int owner_user_id FK
+        string owner "legacy"
+        decimal credit_limit
     }
     
     Transaction {
@@ -74,16 +84,21 @@ erDiagram
         string category
         date date
         string title
-        float total
-        string owner_id
-        string from_account_id
-        string to_account_id
-        string account_id
+        decimal total
+        int owner_user_id FK
+        int account_fk_id FK
+        int from_account_fk_id FK
+        int to_account_fk_id FK
+        string owner_id "legacy"
+        string from_account_id "legacy"
+        string to_account_id "legacy"
+        string account_id "legacy"
     }
     
     BankStatement {
         int id PK
-        string user_id
+        int owner_user_id FK
+        string user_id "legacy"
         file file
         string original_filename
         bigint file_size
@@ -93,31 +108,35 @@ erDiagram
         text error_message
     }
     
-    User ||--o{ Account : "owns (owner field)"
-    User ||--o{ Transaction : "creates (owner_id field)"
-    User ||--o{ BankStatement : "uploads (user_id field)"
-    Account ||--o{ Transaction : "source (from_account_id field)"
-    Account ||--o{ Transaction : "destination (to_account_id field)"
-    Account ||--o{ Transaction : "legacy (account_id field)"
+    User ||--o{ AuthToken : "has"
+    User ||--o{ Account : "owns"
+    User ||--o{ Transaction : "creates"
+    User ||--o{ BankStatement : "uploads"
+    Account ||--o{ Transaction : "source"
+    Account ||--o{ Transaction : "destination"
+    Account ||--o{ Transaction : "single-account"
 ```
 
 **Key Relationships:**
 
-- **User → Account**: One-to-Many (User owns multiple accounts via `owner` field)
-- **User → Transaction**: One-to-Many (User creates multiple transactions via `owner_id` field)
-- **User → BankStatement**: One-to-Many (User uploads multiple bank statements via `user_id` field)
-- **Account → Transaction**: One-to-Many (Account can be source/destination for multiple transactions)
+- **User → Account**: One-to-Many through `Account.owner_user`
+- **User → Transaction**: One-to-Many through `Transaction.owner_user`
+- **User → BankStatement**: One-to-Many through `BankStatement.owner_user`
+- **Account → Transaction**: One-to-Many through `account_fk`, `from_account_fk`, and `to_account_fk`
 - **Transaction Types**: Income, Expense, Transfer (with different account relationships)
 
 **Database Design Notes:**
 
-- **String-based Relationships**: The application uses string fields (`owner_id`, `from_account_id`, `to_account_id`, `account_id`) instead of formal foreign keys for flexibility
+- **Foreign-key Integrity**: Ownership and account references are enforced by database relationships and owner-scoped validation
+- **Compatibility Fields**: Legacy strings (`owner`, `owner_id`, `from_account_id`, `to_account_id`, `account_id`, `user_id`) remain populated during this transition
+- **Decimal Money**: Balances, credit limits, and transaction totals use fixed-precision decimal fields
+- **Token Auth**: `users.AuthToken` provides opaque API tokens and supports logout/revocation
 - **Transaction Flexibility**: Transactions support three types:
   - **Income/Expense**: Uses `account_id` for single account
   - **Transfer**: Uses `from_account_id` and `to_account_id` for inter-account transfers
 - **Credit Card Support**: Accounts include `credit_limit` field for credit card management
 - **File Management**: BankStatement model handles PDF uploads with processing status tracking
-- **Data Isolation**: All user data is isolated by username/user_id fields for security
+- **Data Isolation**: All user data is isolated by authenticated user, not by client-supplied usernames
 
 **Supported Account Types:**
 
@@ -165,6 +184,10 @@ HomeMoneyManagement/
 │   │   ├── views.py             # Statement upload/processing endpoints
 │   │   ├── serializers.py       # Statement data serialization
 │   │   └── migrations/          # Database migrations
+│   ├── reports/                  # Analytics and smart insights app
+│   │   ├── views.py             # Reports API endpoints
+│   │   ├── services.py          # AI-assisted insights
+│   │   └── urls.py              # Reports URL routing
 │   ├── MoneyManagement/          # Django project settings
 │   │   ├── settings.py          # Main configuration
 │   │   ├── urls.py              # URL routing
@@ -175,7 +198,7 @@ HomeMoneyManagement/
 │   ├── create_superuser.py      # Admin user creation script
 │   ├── create_superuser_interactive.py  # Interactive admin creation
 │   ├── create_test_user.py      # Test user creation script
-│   ├── db.sqlite3               # SQLite database (development)
+│   ├── db.sqlite3               # Generated SQLite database for local development (ignored)
 │   ├── README.md                # API documentation
 │   └── GOOGLE_AI_SETUP.md       # Google AI Studio setup guide
 ├── UI/                          # Vue.js Frontend
@@ -271,6 +294,8 @@ HomeMoneyManagement/
 
 ### Default Admin Credentials
 
+Docker development creates a default admin account if one does not already exist. Treat these as local-only credentials and override them for shared or production environments.
+
 - **Username**: `admin`
 - **Email**: `admin@example.com`
 - **Password**: `admin123`
@@ -358,8 +383,7 @@ cd API
 # Install dependencies
 pip install -r requirements.txt
 
-# Run migrations
-python manage.py makemigrations
+# Run committed migrations
 python manage.py migrate
 
 # Create superuser
@@ -385,39 +409,58 @@ npm run dev
 npm run build
 ```
 
+The Vite development server runs on <http://localhost:3000> and proxies `/api` requests to the Django API. Docker serves the production frontend on <http://localhost:8080>.
+
 ### API Endpoints
+
+Register and login return `{ valid, token, user }`. Authenticated requests must include:
+
+```http
+Authorization: Token <token>
+```
+
+Route usernames are retained for compatibility, but the server derives the effective owner from the token. Mismatched route usernames return `403`.
 
 #### Users
 
-- `POST /user/` - Create new user
-- `POST /user/<username>/` - User login
-- `DELETE /user/<username>/` - Delete user
+- `POST /user/register/` - Create a user and issue a token
+- `POST /user/login/` - Login and issue a token
+- `POST /user/logout/` - Revoke the current token
+- `GET /user/profile/` - Get the authenticated user's profile
+- `PUT /user/update-info/` - Update the authenticated user's username/name
+- `PUT /user/change-password/` - Change the authenticated user's password
+- `GET /user/detail/<username>/` - Get details for the authenticated user
+- `DELETE /user/detail/<username>/` - Delete the authenticated user after password confirmation
 
 #### Accounts
 
-- `POST /accounts/` - Create new account (supports `credit_limit` for credit cards)
-- `GET /accounts/details/<username>/` - Get user accounts
-- `GET /accounts/details/<username>/<id>/` - Get individual account details
-- `PATCH /accounts/details/<username>/<id>/` - Update account (balance, credit limit, etc.)
-- `DELETE /accounts/delete/<username>/<id>/` - Delete account
+- `POST /accounts/` - Create a new account for the token user
+- `GET /accounts/details/<username>/<id>/` - List accounts for the token user (`id` is ignored for compatibility)
+- `PATCH /accounts/details/<username>/<id>/` - Update one owned account
+- `DELETE /accounts/delete/<username>/<id>/` - Delete one owned account
 
 #### Transactions
 
-- `POST /transactions/create/` - Create new transaction
-- `GET /transactions/retrieve/<username>/<account_id>/<month>/<year>/` - Get transactions
-- `PATCH /transactions/update/<transaction_id>/` - Update transaction
-- `DELETE /transactions/delete/<transaction_id>/` - Delete transaction
+- `POST /transactions/create/` - Create a transaction and apply the balance effect atomically
+- `GET /transactions/retrieve/<username>/<account_id>/<month>/<year>/` - Get owned transactions; use `0` as a wildcard
+- `PATCH /transactions/update/<transaction_id>/` - Reverse old balance effect, apply new effect, and save
+- `DELETE /transactions/delete/<transaction_id>/` - Reverse balance effect and delete
 
 #### Bank Statements
 
-- `POST /bank-statements/upload/` - Upload and process bank statement PDF (supports password-protected files)
-- `GET /bank-statements/user/<user_id>/` - Get all bank statements for a user
-- `GET /bank-statements/details/<statement_id>/` - Get bank statement details
-- `DELETE /bank-statements/delete/<statement_id>/` - Delete bank statement
+- `POST /bank-statements/upload/` - Upload and process a bank statement PDF for the token user
+- `GET /bank-statements/user/<user_id>/` - Get owned bank statements
+- `GET /bank-statements/details/<statement_id>/` - Get owned bank statement details
+- `DELETE /bank-statements/delete/<statement_id>/` - Delete an owned bank statement
+
+#### Reports
+
+- `GET /reports/analytics/<username>/` - Get financial KPIs, chart data, top categories, net worth, and smart insights
+- `GET /reports/insights/<username>/` - Get smart insights for a date range
 
 ## 🐳 Docker Deployment
 
-### Production Deployment
+### Local Docker
 
 ```bash
 # Build and start containers
@@ -430,20 +473,53 @@ docker-compose logs -f
 docker-compose down
 ```
 
+The API container runs committed migrations on startup. It does not generate migrations automatically.
+
+### Production Deployment
+
+For production, provide explicit environment values and serve Django with Gunicorn:
+
+```bash
+export DEBUG=False
+export SECRET_KEY=<strong-secret>
+export ALLOWED_HOSTS=example.com
+export CORS_ALLOWED_ORIGINS=https://example.com
+export CORS_ALLOW_ALL_ORIGINS=False
+export GOOGLE_AI_API_KEY=<google-ai-studio-key>
+export GOOGLE_AI_MODEL=gemini-2.5-flash
+export SECURE_SSL_REDIRECT=True
+export SESSION_COOKIE_SECURE=True
+export CSRF_COOKIE_SECURE=True
+export SECURE_HSTS_SECONDS=31536000
+# Set only after confirming the production domain and subdomains are preload-ready.
+export SECURE_HSTS_PRELOAD=False
+
+docker-compose up --build -d
+```
+
+The production API command should be:
+
+```bash
+python /HomeMoneyManagement/manage.py migrate
+gunicorn --bind 0.0.0.0:8000 --workers=4 MoneyManagement.wsgi:application
+```
+
+`DEBUG=False` fails fast when `SECRET_KEY`, `ALLOWED_HOSTS`, or CORS origins are unsafe or missing. It also defaults SSL redirect, secure cookies, and HSTS to production-safe values.
+
 ### Environment Configuration
 
 - Backend runs on port 8000
 - Frontend runs on port 8080
-- Database: SQLite (configurable)
+- Database: PostgreSQL 15 in Docker, with a named `postgres_data` volume
 - Admin interface available at `/admin`
 
 ## 📊 Technology Stack
 
 ### Backend
 
-- **Django 4.2.5**: Web framework
-- **Django REST Framework 3.14.0**: API framework
-- **SQLite**: Database (production-ready alternatives available)
+- **Django 4.2.24**: Web framework
+- **Django REST Framework 3.15.2**: API framework
+- **PostgreSQL / SQLite**: PostgreSQL for Docker, SQLite for local development
 - **Python 3.x**: Runtime environment
 
 ### Frontend
@@ -527,15 +603,28 @@ For support and questions:
 
 ## 📸 Screenshots
 
-> **Note**: Screenshots coming soon! We're working on capturing the best views of the application to help you understand its features.
-
-**Recommended Screenshots to Add:**
-
-- Main Dashboard with account carousel and net worth display
-- Credit Card Management showing credit limits and used credit
-- AI-Powered Bank Statement Upload and Review
-- Financial Projections Chart with historical and forecasted data
-- Transaction Table with filtering capabilities
+<table>
+  <tr>
+    <td width="50%">
+      <strong>Dashboard Overview</strong><br />
+      <img src="docs/screenshots/dashboard-overview.png" alt="Dashboard overview" width="100%" />
+    </td>
+    <td width="50%">
+      <strong>Bank Statement Upload</strong><br />
+      <img src="docs/screenshots/bank-statement-upload.png" alt="Bank statement upload" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>Transactions Ledger</strong><br />
+      <img src="docs/screenshots/transactions-ledger.png" alt="Transactions ledger" width="100%" />
+    </td>
+    <td width="50%">
+      <strong>Financial Reports</strong><br />
+      <img src="docs/screenshots/financial-reports.png" alt="Financial reports" width="100%" />
+    </td>
+  </tr>
+</table>
 
 ---
 

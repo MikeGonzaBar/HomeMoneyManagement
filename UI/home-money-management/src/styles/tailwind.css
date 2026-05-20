@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/* Custom theme configuration */
+@theme {
+  --font-family-sans: 'Inter', sans-serif;
+
+  --color-brand-primary: #4CAF50;
+  --color-brand-secondary: #2E7D32;
+  --color-brand-light: #E8F5E9;
+  --color-expense: #EF4444;
+  --color-income: #10B981;
+  --color-balance: #3B82F6;
+}
+
+/* Define custom color utilities for use in components */
+@layer utilities {
+  .text-brand-primary { color: var(--color-brand-primary); }
+  .text-brand-secondary { color: var(--color-brand-secondary); }
+  .bg-brand-primary { background-color: var(--color-brand-primary); }
+  .bg-brand-secondary { background-color: var(--color-brand-secondary); }
+  .bg-brand-light { background-color: var(--color-brand-light); }
+  .text-expense { color: var(--color-expense); }
+  .text-income { color: var(--color-income); }
+  .text-balance { color: var(--color-balance); }
+  .bg-expense { background-color: var(--color-expense); }
+  .bg-income { background-color: var(--color-income); }
+  .bg-balance { background-color: var(--color-balance); }
+}
+
+/* Custom scrollbar styles */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}

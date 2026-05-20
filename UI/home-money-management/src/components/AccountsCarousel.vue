@@ -47,26 +47,26 @@
                                 :icon="getAccountTypeIcon(acc.account_type)" class="account-type-icon"></v-icon>
                         </v-avatar>
 
-                        <!-- Credit Card Indicator -->
-                        <v-chip
-                            v-if="acc.account_type === 'Crédito' || acc.account_type === 'Credit Card' || acc.account_type === 'Credit'"
-                            size="x-small" color="orange" variant="tonal">
-                            <v-icon size="12" class="me-1">mdi-credit-card</v-icon>
-                            Credit
-                        </v-chip>
+                        <!-- Account Type Chip -->
+                        <template v-if="getAccountTypeChip(acc.account_type)">
+                            <v-chip :color="getAccountTypeChip(acc.account_type)!.color" size="x-small" variant="tonal">
+                                <v-icon size="12" class="me-1"
+                                    :icon="getAccountTypeChip(acc.account_type)!.icon"></v-icon>
+                                {{ getAccountTypeChip(acc.account_type)!.text }}
+                            </v-chip>
+                        </template>
                     </div>
 
                     <!-- Right Side: Account Info and Values -->
                     <div class="account-right flex-grow-1">
                         <!-- Account Name and Type -->
-                        <div class="mb-2">
+                        <div class="mb-2 account-title-wrapper">
                             <h5 :class="[
                                 $vuetify.display.mobile ? 'text-subtitle-2' : 'text-subtitle-1',
-                                'font-weight-bold mb-1'
-                            ]">
+                                'font-weight-bold mb-1 account-title-truncate'
+                            ]" :title="acc.account_name">
                                 {{ acc.account_name }}
                             </h5>
-                            <p class="text-caption text-grey-darken-1 mb-0">{{ acc.account_type }}</p>
                         </div>
 
                         <!-- Balance Information -->
@@ -113,23 +113,6 @@
             </v-card>
         </v-slide-group-item>
 
-        <!-- Add Account Card -->
-        <v-slide-group-item v-slot="{ isSelected, toggle, selectedClass }">
-            <v-card :class="['ma-2 account-card add-account-card', selectedClass]"
-                :height="$vuetify.display.mobile ? 120 : 140" :width="$vuetify.display.mobile ? 280 : 320"
-                @click="toggle" class="smooth-transition hover-lift" variant="outlined">
-                <v-card-text class="pa-4 d-flex flex-column justify-center align-center text-center h-100">
-                    <v-avatar :size="$vuetify.display.mobile ? 32 : ($vuetify.display.mdAndDown ? 36 : 40)" class="mb-3"
-                        color="grey-lighten-3">
-                        <v-icon color="grey-darken-1"
-                            :size="$vuetify.display.mobile ? 20 : ($vuetify.display.mdAndDown ? 22 : 24)">mdi-plus</v-icon>
-                    </v-avatar>
-                    <h4 :class="$vuetify.display.mobile ? 'text-caption' : ($vuetify.display.mdAndDown ? 'text-caption' : 'text-h6')"
-                        class="font-weight-bold text-grey-darken-1">Add Account</h4>
-                    <p class="text-caption text-grey-darken-1 mb-0">Create new account</p>
-                </v-card-text>
-            </v-card>
-        </v-slide-group-item>
     </v-slide-group>
     <v-dialog v-model="newAccountModalVisible" max-width="500px" persistent>
         <v-card class="modern-dialog" rounded="xl">
@@ -283,7 +266,7 @@
 </template>
 
 <script lang="ts">
-import axios from 'axios';
+import axios from '@/services/api';
 // import Vue from 'vue';
 interface Account {
     id: number;
@@ -356,7 +339,7 @@ export default {
 
     }),
     mounted(this: ComponentInstance) {
-        axios.get(`http://localhost:8000/accounts/details/${this.userData.user.username}/0`).then((response: any) => {
+        axios.get(`/accounts/details/${this.userData.user.username}/0`).then((response: any) => {
             this.accounts = response.data;
         });
         this.model = 0;
@@ -415,6 +398,28 @@ export default {
                 default:
                     return 'budget-gradient';
             }
+        },
+
+        getAccountTypeChip(this: ComponentInstance, accountType: string): { text: string; color: string; icon: string } | null {
+            const normalizedType = accountType?.replace(/\s+Account$/i, '').replace(/\s+Card$/i, '').trim() || '';
+            const t = normalizedType.toLowerCase();
+
+            if (['crédito', 'credit card', 'credit'].some(x => t.includes(x) || normalizedType === x)) {
+                return { text: 'Credit', color: 'orange', icon: 'mdi-credit-card' };
+            }
+            if (['débito', 'debit', 'checking', 'savings'].some(x => t.includes(x) || normalizedType === x)) {
+                if (t.includes('savings')) return { text: 'Savings', color: 'blue', icon: 'mdi-piggy-bank' };
+                if (t.includes('checking')) return { text: 'Checking', color: 'blue', icon: 'mdi-bank' };
+                return { text: 'Debit', color: 'blue', icon: 'mdi-wallet-outline' };
+            }
+            if (['efectivo', 'cash'].some(x => t.includes(x) || normalizedType === x)) {
+                return { text: 'Cash', color: 'green', icon: 'mdi-cash-multiple' };
+            }
+            if (t.includes('investment')) return { text: 'Investment', color: 'purple', icon: 'mdi-chart-line' };
+            if (t.includes('loan')) return { text: 'Loan', color: 'amber', icon: 'mdi-bank-transfer' };
+            if (t.includes('mortgage')) return { text: 'Mortgage', color: 'brown', icon: 'mdi-home' };
+            if (t.includes('business')) return { text: 'Business', color: 'teal', icon: 'mdi-briefcase' };
+            return { text: 'Other', color: 'grey', icon: 'mdi-bank' };
         },
 
         getBalanceClass(this: ComponentInstance, balance: number, accountType: string): string {
@@ -513,7 +518,7 @@ export default {
         },
 
         deleteAccount(this: ComponentInstance) {
-            axios.delete(`http://localhost:8000/accounts/delete/${this.userData.user.username}/${this.editAccountId}/`).then((response: any) => {
+            axios.delete(`/accounts/delete/${this.userData.user.username}/${this.editAccountId}/`).then((response: any) => {
                 this.editAccountModalVisible = false;
                 this.accounts.splice(this.editAccountIndex, 1);
                 location.reload();
@@ -522,7 +527,7 @@ export default {
         },
 
         accountTotalUpdated(this: ComponentInstance) {
-            axios.get(`http://localhost:8000/accounts/details/${this.userData.user.username}/0`).then((response: any) => {
+            axios.get(`/accounts/details/${this.userData.user.username}/0`).then((response: any) => {
                 this.accounts = response.data;
             });
         },
@@ -533,8 +538,7 @@ export default {
                 account_type: this.editAccountType,
                 bank: this.editBankName,
                 total: this.editTotal,
-                account_name: this.editNickname,
-                owner: this.userData.user.username
+                account_name: this.editNickname
             }
 
             // Add credit_limit if it's a credit card account
@@ -545,7 +549,7 @@ export default {
                 editedAccount.credit_limit = null;
             }
 
-            axios.patch(`http://localhost:8000/accounts/details/${this.userData.user.username}/${this.editAccountId}/`, editedAccount).then((response: any) => {
+            axios.patch(`/accounts/details/${this.userData.user.username}/${this.editAccountId}/`, editedAccount).then((response: any) => {
                 this.editAccountModalVisible = false;
                 // Update the account in the local array with the response data
                 if (response.data.updated_account) {
@@ -574,6 +578,9 @@ export default {
             // Reset credit limit when closing
             this.editCreditLimit = null;
         },
+        openNewAccountModal(this: ComponentInstance) {
+            this.newAccountModalVisible = true;
+        },
         closeNewAccountModal(this: ComponentInstance) {
             this.newAccountModalVisible = false;
             this.model = 0;
@@ -585,12 +592,11 @@ export default {
             if (this.newAccountType === 'Crédito' || this.newAccountType === 'Credit Card') {
                 this.newTotal = 0.0;
             }
-            axios.post(`http://localhost:8000/accounts/`, {
+            axios.post(`/accounts/`, {
                 account_type: this.newAccountType,
                 bank: this.newBankName,
                 total: this.newTotal,
-                account_name: this.newNickname,
-                owner: this.userData.user.username
+                account_name: this.newNickname
             }).then((response: any) => {
                 this.accounts.push(response.data);
                 this.newAccountModalVisible = false;
@@ -651,9 +657,6 @@ export default {
                 if (val === 0) {
                     this.$emit('allAccountSelected')
                 }
-                else if (val === this.accounts.length + 1) {
-                    this.newAccountModalVisible = !this.newAccountModalVisible;
-                }
                 else {
                     this.$emit('accountSelected', this.accounts[val - 1])
                 }
@@ -667,10 +670,9 @@ export default {
 <style scoped>
 /* Modern Account Cards */
 .account-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
     position: relative;
@@ -711,6 +713,16 @@ export default {
     /* Allow flex shrinking */
 }
 
+.account-title-wrapper {
+    min-width: 0;
+}
+
+.account-title-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .credit-balance-info {
     display: flex;
     flex-direction: column;
@@ -743,24 +755,14 @@ export default {
 }
 
 .account-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
 }
 
 .account-card.selected {
     border: 2px solid #4CAF50;
     box-shadow: 0 8px 30px rgba(76, 175, 80, 0.3);
     transform: translateY(-2px);
-}
-
-.add-account-card {
-    border: 2px dashed #BDBDBD !important;
-    background: rgba(255, 255, 255, 0.7) !important;
-}
-
-.add-account-card:hover {
-    border-color: #4CAF50 !important;
-    background: rgba(76, 175, 80, 0.05) !important;
 }
 
 /* Edit Button */
@@ -953,28 +955,11 @@ export default {
     }
 }
 
-/* Animation for new cards */
-.account-card {
-    animation: slideInUp 0.4s ease-out;
-}
-
-@keyframes slideInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
 /* Modern dialog styling */
 .modern-dialog {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.14);
 }
 
 /* Form field styling */
@@ -989,12 +974,12 @@ export default {
 }
 
 :deep(.v-field:hover) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    transform: none;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 :deep(.v-field--focused) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    transform: none;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
 }
 </style>

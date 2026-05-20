@@ -10,7 +10,7 @@
                     <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2 text-center' : 'pa-8 pb-4 text-center'">
                         <div class="d-flex flex-column align-center">
                             <v-avatar :size="$vuetify.display.mobile ? 60 : 80" class="mb-4 budget-gradient">
-                                <v-img src="@/assets/logo.png" alt="Home Money Management" />
+                                <v-img src="@/assets/logo-192.png" alt="Home Money Management" />
                             </v-avatar>
                             <h1 :class="$vuetify.display.mobile ? 'text-h5' : 'text-h4'"
                                 class="font-weight-bold budget-text-gradient mb-2">Get Started</h1>
@@ -22,12 +22,12 @@
                     <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-8 pt-2'">
                         <!-- Login Form -->
                         <v-form v-if="(this as any).loginFormVisible" @submit.prevent="(this as any).login">
-                            <v-text-field v-model="(this as any).loginUsername" label="Username" variant="outlined"
-                                rounded="lg" prepend-inner-icon="mdi-account"
+                            <v-text-field v-model="(this as any).loginUsername" label="Username" autocomplete="username"
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-account"
                                 :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'" required></v-text-field>
 
                             <v-text-field v-model="(this as any).loginPassword" label="Password" type="password"
-                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock"
+                                autocomplete="current-password" variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock"
                                 :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'" @keyup.enter="(this as any).login"
                                 required></v-text-field>
 
@@ -50,29 +50,29 @@
 
                         <!-- Register Form -->
                         <v-form v-else @submit.prevent="(this as any).register">
-                            <v-text-field v-model="(this as any).registerUsername" label="Username" variant="outlined"
-                                rounded="lg" prepend-inner-icon="mdi-account"
+                            <v-text-field v-model="(this as any).registerUsername" label="Username" autocomplete="username"
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-account"
                                 :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
 
                             <v-row>
                                 <v-col :cols="$vuetify.display.mobile ? 12 : 6">
-                                    <v-text-field v-model="(this as any).registerFirstname" label="First Name"
+                                    <v-text-field v-model="(this as any).registerFirstname" label="First Name" autocomplete="given-name"
                                         variant="outlined" rounded="lg"
                                         :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
                                 </v-col>
                                 <v-col :cols="$vuetify.display.mobile ? 12 : 6">
-                                    <v-text-field v-model="(this as any).registerLastname" label="Last Name"
+                                    <v-text-field v-model="(this as any).registerLastname" label="Last Name" autocomplete="family-name"
                                         variant="outlined" rounded="lg"
                                         :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
                                 </v-col>
                             </v-row>
 
                             <v-text-field v-model="(this as any).registerPassword" label="Password" type="password"
-                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock"
+                                autocomplete="new-password" variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock"
                                 :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
 
                             <v-text-field v-model="(this as any).registerConfirmPassword" label="Confirm Password"
-                                type="password" variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock-check"
+                                type="password" autocomplete="new-password" variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock-check"
                                 @keyup.enter="(this as any).register" :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'"
                                 required></v-text-field>
 
@@ -111,7 +111,8 @@
 </template>
 
 <script lang="ts">
-import axios from 'axios';
+import axios from '@/services/api';
+import { setStoredSession } from '@/services/session';
 export default {
     name: 'LoginRegister',
     data() {
@@ -156,12 +157,13 @@ export default {
             // Show loading state
             (this as any).isLoading = true;
 
-            axios.post(`http://localhost:8000/user/${(this as any).loginUsername}/`, {
+            axios.post('/user/login/', {
+                username_or_email: (this as any).loginUsername,
                 password: (this as any).loginPassword,
             }).then(response => {
                 // Success - user authenticated
                 (this as any).$emit('userDataSent', response.data.user)
-                localStorage.setItem('money_management_user', JSON.stringify(response.data));
+                setStoredSession({ token: response.data.token, user: response.data.user });
                 location.reload();
             }).catch(error => {
                 // Handle authentication errors
@@ -222,15 +224,16 @@ export default {
             // Show loading state
             (this as any).isLoading = true;
 
-            axios.post('http://localhost:8000/user/', {
+            axios.post('/user/register/', {
                 username: (this as any).registerUsername,
                 password: (this as any).registerPassword,
+                password_confirm: (this as any).registerConfirmPassword,
                 first_name: (this as any).registerFirstname,
                 last_name: (this as any).registerLastname
             }).then(response => {
                 // Success - user registered
-                (this as any).$emit('userDataSent', response.data)
-                localStorage.setItem('money_management_user', JSON.stringify(response.data));
+                (this as any).$emit('userDataSent', response.data.user)
+                setStoredSession({ token: response.data.token, user: response.data.user });
                 (this as any).$emit('forceRemount');
             }).catch(error => {
                 // Handle registration errors
@@ -296,10 +299,9 @@ export default {
 }
 
 .modern-auth-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.10);
     animation: slideInUp 0.6s ease-out;
 }
 
@@ -334,6 +336,17 @@ export default {
 :deep(.v-field) {
     border-radius: 12px;
     transition: all 0.3s ease;
+}
+
+/* Prevent the outlined border from visually striking through floating labels. */
+:deep(.v-field--variant-outlined .v-field-label--floating) {
+    background: rgba(255, 255, 255, 0.98);
+    padding: 0 6px;
+    z-index: 2;
+}
+
+:deep(.v-field--variant-outlined .v-field__outline__notch::before) {
+    border-top: 0 !important;
 }
 
 :deep(.v-field__outline) {
@@ -395,13 +408,13 @@ export default {
 
 /* Focus states */
 :deep(.v-field--focused) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    transform: none;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
 }
 
 /* Hover effects for form elements */
 :deep(.v-field:hover) {
-    transform: translateY(-1px);
-    transition: transform 0.2s ease;
+    transform: none;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 </style>

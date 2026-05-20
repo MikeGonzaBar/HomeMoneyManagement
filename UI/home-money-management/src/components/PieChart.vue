@@ -32,36 +32,36 @@
 
 .chart-section {
     flex: 1;
-    min-width: 400px;
+    min-width: 240px;
     background: rgba(255, 255, 255, 0.9);
     backdrop-filter: blur(10px);
     border-radius: 16px;
-    padding: 24px;
+    padding: 16px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
     border: 1px solid rgba(76, 175, 80, 0.1);
 }
 
 .chart-header {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .chart-title {
     color: #2E7D32;
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .chart-subtitle {
     color: #666;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     margin: 0;
 }
 
 .chart-wrapper {
     position: relative;
-    height: 400px;
+    height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -70,11 +70,11 @@
 /* Responsive behavior */
 @media (max-width: 1200px) {
     .chart-section {
-        min-width: 350px;
+        min-width: 220px;
     }
 
     .chart-wrapper {
-        height: 350px;
+        height: 180px;
     }
 }
 
@@ -89,21 +89,21 @@
     }
 
     .chart-wrapper {
-        height: 300px;
+        height: 200px;
     }
 }
 
 @media (max-width: 600px) {
     .chart-section {
-        padding: 16px;
+        padding: 12px;
     }
 
     .chart-wrapper {
-        height: 250px;
+        height: 180px;
     }
 
     .chart-title {
-        font-size: 1.3rem;
+        font-size: 1rem;
     }
 }
 </style>
@@ -112,6 +112,7 @@
 // import * as Vue from 'vue';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Pie } from 'vue-chartjs'
+import { getCategoryColor } from '@/constants/categoryStyles'
 ChartJS.register(ArcElement, Tooltip, Legend)
 interface Transaction {
     id: number;
@@ -134,7 +135,6 @@ interface PieChartComponentInstance {
     reduction(transactionType: string): { [key: string]: number };
     prepareExpenseChartData(): void;
     prepareIncomeChartData(): void;
-    stringToColor(str: string): string;
 }
 
 export default {
@@ -170,10 +170,10 @@ export default {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        padding: 20,
+                        padding: 10,
                         usePointStyle: true,
                         font: {
-                            size: 12
+                            size: 10
                         }
                     }
                 },
@@ -196,10 +196,10 @@ export default {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        padding: 20,
+                        padding: 10,
                         usePointStyle: true,
                         font: {
-                            size: 12
+                            size: 10
                         }
                     }
                 },
@@ -247,7 +247,7 @@ export default {
 
             const labels = Object.keys(dataByType);
             const data = Object.values(dataByType);
-            const backgroundColor = labels.map((label: string) => this.stringToColor(label));
+            const backgroundColor = labels.map((label: string) => getCategoryColor(label));
 
             this.expenseChartData = {
                 labels: labels,
@@ -263,7 +263,7 @@ export default {
             const dataByType = this.reduction('Income');
             const labels = Object.keys(dataByType);
             const data = Object.values(dataByType);
-            const backgroundColor = labels.map((label: string) => this.stringToColor(label));
+            const backgroundColor = labels.map((label: string) => getCategoryColor(label));
 
             this.incomeChartData = {
                 labels: labels,
@@ -274,41 +274,6 @@ export default {
                     }
                 ]
             };
-        },
-        stringToColor(this: PieChartComponentInstance, str: string) {
-            // Budget Buddy color palette - expanded for more categories
-            const colorPalette = [
-                // Green variations (primary theme)
-                '#2E7D32', '#4CAF50', '#8BC34A', '#A5D6A7', '#C8E6C9',
-                // Blue variations
-                '#1976D2', '#2196F3', '#64B5F6', '#90CAF9', '#BBDEFB',
-                // Orange variations
-                '#F57C00', '#FF9800', '#FFB74D', '#FFCC02', '#FFF176',
-                // Purple variations
-                '#7B1FA2', '#9C27B0', '#BA68C8', '#CE93D8', '#E1BEE7',
-                // Teal variations
-                '#00695C', '#009688', '#4DB6AC', '#80CBC4', '#B2DFDB',
-                // Deep orange variations
-                '#D84315', '#FF5722', '#FF7043', '#FF8A65', '#FFAB91',
-                // Red variations
-                '#C62828', '#E53935', '#EF5350', '#E57373', '#FFCDD2',
-                // Indigo variations
-                '#303F9F', '#3F51B5', '#5C6BC0', '#9FA8DA', '#C5CAE9',
-                // Brown variations
-                '#5D4037', '#795548', '#8D6E63', '#A1887F', '#BCAAA4',
-                // Pink variations
-                '#AD1457', '#E91E63', '#EC407A', '#F48FB1', '#F8BBD9'
-            ];
-
-            // Generate a consistent hash from the string
-            let hash = 0;
-            for (let i = 0; i < str.length; i++) {
-                hash = str.charCodeAt(i) + ((hash << 5) - hash);
-            }
-
-            // Use the hash to select a color from our palette
-            const colorIndex = Math.abs(hash) % colorPalette.length;
-            return colorPalette[colorIndex];
         },
     }
 }

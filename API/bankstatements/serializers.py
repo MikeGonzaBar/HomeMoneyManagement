@@ -9,10 +9,11 @@ class BankStatementUploadSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = BankStatement
-        fields = ['file', 'user_id']
+        fields = ['file', 'user_id', 'owner_user']
         extra_kwargs = {
             'file': {'write_only': True},
-            'user_id': {'write_only': True}
+            'user_id': {'write_only': True},
+            'owner_user': {'read_only': True},
         }
     
     def validate_file(self, value):

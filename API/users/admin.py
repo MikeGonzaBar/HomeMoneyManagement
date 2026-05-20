@@ -36,9 +36,9 @@ class UserAdmin(admin.ModelAdmin):
         from transaction.models import Transaction
         from bankstatements.models import BankStatement
         
-        accounts_count = Account.objects.filter(owner=obj.username).count()
-        transactions_count = Transaction.objects.filter(owner_id=str(obj.id)).count()
-        statements_count = BankStatement.objects.filter(user_id=obj.username).count()
+        accounts_count = Account.objects.filter(owner_user=obj).count()
+        transactions_count = Transaction.objects.filter(owner_user=obj).count()
+        statements_count = BankStatement.objects.filter(owner_user=obj).count()
         
         return format_html(
             '<strong>Accounts:</strong> {}<br/>'
@@ -62,7 +62,7 @@ class UserAdmin(admin.ModelAdmin):
         # Add related objects manually since we're using CharField instead of ForeignKey
         for obj in objs:
             # Get related accounts
-            accounts = list(Account.objects.filter(owner=obj.username))
+            accounts = list(Account.objects.filter(owner_user=obj))
             if accounts:
                 if 'account' not in model_count:
                     model_count['account'] = 0
@@ -71,7 +71,7 @@ class UserAdmin(admin.ModelAdmin):
                 deleted_objects.append(('account', 'Account', accounts))
             
             # Get related transactions
-            transactions = list(Transaction.objects.filter(owner_id=str(obj.id)))
+            transactions = list(Transaction.objects.filter(owner_user=obj))
             if transactions:
                 if 'transaction' not in model_count:
                     model_count['transaction'] = 0
@@ -79,7 +79,7 @@ class UserAdmin(admin.ModelAdmin):
                 deleted_objects.append(('transaction', 'Transaction', transactions))
             
             # Get related bank statements
-            statements = list(BankStatement.objects.filter(user_id=obj.username))
+            statements = list(BankStatement.objects.filter(owner_user=obj))
             if statements:
                 if 'bankstatements' not in model_count:
                     model_count['bankstatements'] = 0
@@ -94,19 +94,16 @@ class UserAdmin(admin.ModelAdmin):
         from transaction.models import Transaction
         from bankstatements.models import BankStatement
         
-        username = obj.username
-        user_id = str(obj.id)
-        
         # Delete related bank statements (and their files)
-        statements = BankStatement.objects.filter(user_id=username)
+        statements = BankStatement.objects.filter(owner_user=obj)
         for statement in statements:
             statement.delete()  # This will also delete the file
         
         # Delete related transactions
-        Transaction.objects.filter(owner_id=user_id).delete()
+        Transaction.objects.filter(owner_user=obj).delete()
         
         # Delete related accounts
-        Account.objects.filter(owner=username).delete()
+        Account.objects.filter(owner_user=obj).delete()
         
         # Finally, delete the user
         obj.delete()

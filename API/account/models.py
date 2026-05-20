@@ -8,17 +8,41 @@ class Account(models.Model):
     """
     
     id = models.AutoField(primary_key=True)
-    account_type = models.CharField(max_length=30)
-    bank = models.CharField(max_length=30)
-    total = models.FloatField(default=0.0)
-    account_name = models.CharField(max_length=30)
+    account_type = models.CharField(max_length=50)
+    bank = models.CharField(max_length=80)
+    total = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    account_name = models.CharField(max_length=120)
     owner = models.CharField(max_length=150)
+    owner_user = models.ForeignKey(
+        "users.User",
+        related_name="accounts",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
     
     # Credit card specific fields
-    credit_limit = models.FloatField(null=True, blank=True, help_text="Credit limit for credit card accounts")
+    credit_limit = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Credit limit for credit card accounts",
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["owner_user", "account_name"]),
+            models.Index(fields=["owner"]),
+        ]
     
     def __str__(self):
         return f"{self.account_name} ({self.bank})"
+
+    def save(self, *args, **kwargs):
+        if self.owner_user_id:
+            self.owner = self.owner_user.username
+        super().save(*args, **kwargs)
     
     @property
     def is_credit_card(self):

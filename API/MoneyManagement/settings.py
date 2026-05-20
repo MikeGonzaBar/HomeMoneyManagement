@@ -25,24 +25,52 @@ if env_path.exists():
     load_dotenv(dotenv_path=env_path)
 
 
+def env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_list(name, default):
+    value = os.getenv(name)
+    if not value:
+        return default
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def env_int(name, default):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return int(value)
+
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-99ud5en*zpja0-_8g6t70+ip)-k56)(l20+oh1s$0%-5bps5l9"
+SECRET_KEY = os.getenv(
+    "SECRET_KEY",
+    "django-insecure-99ud5en*zpja0-_8g6t70+ip)-k56)(l20+oh1s$0%-5bps5l9",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env_bool("DEBUG", True)
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS", ["localhost", "127.0.0.1", "0.0.0.0"])
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-]
+CORS_ALLOWED_ORIGINS = env_list(
+    "CORS_ALLOWED_ORIGINS",
+    [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ],
+)
+CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", CORS_ALLOWED_ORIGINS)
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -58,7 +86,24 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True  # Temporary for development
+CORS_ALLOW_ALL_ORIGINS = env_bool("CORS_ALLOW_ALL_ORIGINS", False)
+
+SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", not DEBUG)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", not DEBUG)
+SECURE_HSTS_SECONDS = env_int("SECURE_HSTS_SECONDS", 31536000 if not DEBUG else 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", not DEBUG)
+SECURE_HSTS_PRELOAD = env_bool("SECURE_HSTS_PRELOAD", False)
+
+if not DEBUG:
+    if not os.getenv("SECRET_KEY") or SECRET_KEY.startswith("django-insecure"):
+        raise RuntimeError("SECRET_KEY must be set to a non-development value when DEBUG=False")
+    if not os.getenv("ALLOWED_HOSTS") or not ALLOWED_HOSTS or "*" in ALLOWED_HOSTS:
+        raise RuntimeError("ALLOWED_HOSTS must be explicit when DEBUG=False")
+    if CORS_ALLOW_ALL_ORIGINS:
+        raise RuntimeError("CORS_ALLOW_ALL_ORIGINS must be False when DEBUG=False")
+    if not os.getenv("CORS_ALLOWED_ORIGINS") or not CORS_ALLOWED_ORIGINS:
+        raise RuntimeError("CORS_ALLOWED_ORIGINS must be explicit when DEBUG=False")
 # Application definition
 
 INSTALLED_APPS = [
@@ -74,6 +119,7 @@ INSTALLED_APPS = [
     "account",
     "transaction",
     "bankstatements",
+    "reports",
     # requirements
     "corsheaders",
 ]
@@ -193,7 +239,12 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 
 # Google AI Studio (Gemini API) Configuration
-GOOGLE_AI_API_KEY = os.getenv('GOOGLE_AI_API_KEY', None)
+GOOGLE_AI_API_KEY = (
+    os.getenv("GOOGLE_AI_API_KEY")
+    or os.getenv("GOOGLE_API_KEY")
+    or os.getenv("GEMINI_API_KEY")
+)
+GOOGLE_AI_MODEL = os.getenv("GOOGLE_AI_MODEL", "gemini-2.5-flash")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
@@ -205,6 +256,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Custom Exception Handler
 REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'MoneyManagement.error_handlers.custom_exception_handler',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'users.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_RENDERER_CLASSES': [

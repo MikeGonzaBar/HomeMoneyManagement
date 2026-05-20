@@ -10,9 +10,15 @@ import io
 from typing import Dict, List, Optional, Any
 from django.conf import settings
 from django.core.files.base import ContentFile
-import google.generativeai as genai
+from google import genai as google_genai
 
 logger = logging.getLogger(__name__)
+
+
+def _uploaded_file_state_name(uploaded_file: Any) -> str:
+    """Return a normalized file state name across google-genai package versions."""
+    state = getattr(uploaded_file, 'state', None)
+    return str(getattr(state, 'name', state or '')).upper()
 
 # Try to import PDF libraries for password-protected PDF support
 try:
@@ -62,87 +68,48 @@ def process_bank_statement_with_ai(pdf_file_path: str) -> Dict[str, Any]:
         }
     
     try:
-        # Configure the API
-        genai.configure(api_key=api_key)
-        
-        # Try to find an available model that supports file uploads
-        # Prioritize free-tier friendly models first (Flash models have better free tier limits)
+        # Use the supported Google GenAI SDK. The previous implementation used
+        # the deprecated google-generativeai package and stale model aliases,
+        # which caused confusing Gemini endpoint/model failures.
+        client = google_genai.Client(api_key=api_key)
+        logger.info("Using google-genai SDK for bank statement processing")
+
+        # Prioritize current, file-capable Gemini model IDs. The old code used
+        # aliases such as gemini-flash-latest; the legacy SDK constructor does
+        # not validate model IDs, so those aliases can fail later at generation
+        # time with confusing endpoint/model errors.
         model_names_to_try = [
-            'gemini-flash-latest',            # Free-tier friendly, good balance of performance and cost
-            'gemini-flash-lite-latest',       # Most cost-effective, best free tier limits
-            'gemini-2.5-flash-preview-09-2025',  # What gemini-flash-latest points to
-            'gemini-2.5-flash-lite-preview-09-2025',  # What gemini-flash-lite-latest points to
-            # Fallback to older model names in case newer ones aren't available
+            'gemini-2.5-flash',
+            'gemini-2.5-flash-lite',
+            'gemini-2.0-flash',
+            'gemini-2.0-flash-lite',
+            'gemini-1.5-flash',
+            'gemini-1.5-flash-8b',
             'gemini-1.5-pro',
-            'gemini-1.5-pro-latest', 
-            'gemini-pro',
-            'gemini-3-pro-preview',           # Premium model (may have quota limits on free tier)
-            'models/gemini-flash-latest',      # Try with models/ prefix
-            'models/gemini-flash-lite-latest',
-            'models/gemini-3-pro-preview',
-            'models/gemini-pro'
         ]
-        
-        model = None
         model_name = None
         
-        for name in model_names_to_try:
-            try:
-                model = genai.GenerativeModel(name)
-                model_name = name
-                logger.info(f"Successfully loaded model: {model_name}")
-                break
-            except Exception as e:
-                logger.debug(f"Failed to load model {name}: {str(e)}")
-                continue
-        
-        if model is None:
-            # Last resort: try to list available models
-            try:
-                available_models = genai.list_models()
-                logger.info("Attempting to find available models...")
-                for m in available_models:
-                    model_display_name = m.display_name or m.name
-                    if 'gemini' in model_display_name.lower():
-                        # Extract model name (remove 'models/' prefix if present)
-                        model_id = m.name.replace('models/', '')
-                        try:
-                            model = genai.GenerativeModel(model_id)
-                            model_name = model_id
-                            logger.info(f"Found and using model: {model_name}")
-                            break
-                        except Exception:
-                            continue
-            except Exception as list_error:
-                logger.warning(f"Could not list models: {str(list_error)}")
-        
-        if model is None:
-            raise Exception(
-                "No suitable Gemini model found. "
-                "Please check your API key and ensure you have access to Gemini models. "
-                "Try visiting https://aistudio.google.com/ to verify your API key and available models."
-            )
-        
-        # Define the exact categories available in the UI (must match BankStatementReview.vue)
+        # Canonical categories (single source of truth; must match BankStatementReview.vue and TableData.vue)
+        # Order: income-related, then expense, then transfer-related, then other
         available_categories = [
+            'Salary',
             'Awards',
+            'Investments',
+            'Gifts',
+            'Account Transfer',
+            'Balance Transfer',
+            'Money Transfer',
+            'Transfer',
             'Bills and utilities',
             'Education',
             'Entertainment',
             'Food and drinks',
-            'Gifts',
             'Insurance',
-            'Investments',
             'Loans',
             'Medical',
-            'Others',
-            'Salary',
             'Shopping',
             'Transportation',
-            'Transfer',
-            'Account Transfer',
-            'Money Transfer',
-            'Balance Transfer'
+            'Others',
         ]
         
         # Create the prompt for transaction extraction
@@ -157,7 +124,7 @@ For each transaction, extract:
 
 Also extract:
 - account_name: The name of the bank account
-- account_type: Determine if this is a "Credit Card", "Debit Card", "Checking Account", "Savings Account", or "Other". Look for keywords like "Tarjeta de Crédito", "Credit Card", "Tarjeta de Débito", "Debit Card", "Cuenta de Cheques", "Checking", "Ahorros", "Savings", or similar indicators in the statement.
+- account_type: Use exactly one of: "Checking", "Savings", "Credit Card", "Débito", "Efectivo", "Investment", "Loan", "Mortgage", "Business", "Other". Use "Débito" for debit cards, "Credit Card" for credit cards, "Efectivo" for cash.
 - statement_period: The start and end dates of the statement period (format: YYYY-MM-DD)
 - initial_balance: The initial balance at the start of the statement period. This is CRITICAL for new accounts. Look for terms like "Saldo Inicial", "Saldo Anterior", "Previous Balance", "Opening Balance", "Balance Inicial", "Saldo Previo", or similar in:
   * Summary tables (tablas de resumen)
@@ -230,29 +197,35 @@ Important:
         response = None
         
         try:
-            # Try processing with the selected model, and if quota error, try other models
-            models_to_retry = [model_name] + [name for name in model_names_to_try if name != model_name]
+            # Try processing with an explicitly configured model first, then the
+            # known current Gemini model IDs. This avoids the previous behavior
+            # of trying a None/invalid model before falling back.
+            preferred_model = getattr(settings, "GOOGLE_AI_MODEL", None)
+            models_to_retry = []
+            if preferred_model:
+                models_to_retry.append(preferred_model)
+            models_to_retry.extend(name for name in model_names_to_try if name not in models_to_retry)
             
             for retry_model_name in models_to_retry:
                 try:
-                    # Create model instance for this retry
-                    retry_model = genai.GenerativeModel(retry_model_name)
                     logger.info(f"Attempting to process with model: {retry_model_name}")
-                    
-                    # Upload the file to Gemini
+
                     if uploaded_file is None:
-                        uploaded_file = genai.upload_file(path=pdf_file_path, mime_type='application/pdf')
-                        
-                        # Wait for file to be processed
-                        while uploaded_file.state.name == "PROCESSING":
+                        uploaded_file = client.files.upload(file=pdf_file_path)
+
+                        # Wait for file to be processed, when the API exposes state.
+                        while _uploaded_file_state_name(uploaded_file) == "PROCESSING":
                             time.sleep(2)
-                            uploaded_file = genai.get_file(uploaded_file.name)
-                        
-                        if uploaded_file.state.name == "FAILED":
-                            raise Exception(f"File upload failed: {uploaded_file.state.name}")
-                    
-                    # Generate content with the uploaded file
-                    response = retry_model.generate_content([prompt, uploaded_file])
+                            uploaded_file = client.files.get(name=uploaded_file.name)
+
+                        if _uploaded_file_state_name(uploaded_file) == "FAILED":
+                            raise Exception(f"File upload failed: {_uploaded_file_state_name(uploaded_file)}")
+
+                    response = client.models.generate_content(
+                        model=retry_model_name,
+                        contents=[prompt, uploaded_file]
+                    )
+
                     model_name = retry_model_name  # Update to the model that worked
                     break  # Success! Exit the retry loop
                     
@@ -287,12 +260,14 @@ Important:
             # Clean up the uploaded file if it was created
             if uploaded_file:
                 try:
-                    genai.delete_file(uploaded_file.name)
+                    client.files.delete(name=uploaded_file.name)
                 except Exception:
                     pass  # Ignore cleanup errors
         
         # Extract the text response
-        response_text = response.text.strip()
+        response_text = (getattr(response, 'text', None) or '').strip()
+        if not response_text:
+            raise Exception(f"Gemini returned an empty response using model {model_name}")
         
         # Try to parse JSON from the response
         # Sometimes the AI wraps JSON in markdown code blocks
@@ -392,48 +367,46 @@ Important:
             account_type = account_type.strip()
             account_type_lower = account_type.lower()
             
-            # Mapping for common variations
+            # Canonical account types (match AccountsCarousel.vue / BankStatementReview.vue)
+            # Use Débito (not "Debit Card") and Credit Card / Crédito for consistency
             account_type_mapping = {
                 'savings account': 'Savings',
                 'checking account': 'Checking',
                 'credit card': 'Credit Card',
-                'debit card': 'Debit Card',
+                'debit card': 'Débito',
                 'checking': 'Checking',
                 'savings': 'Savings',
                 'credit': 'Credit Card',
+                'crédito': 'Crédito',
                 'debit': 'Débito',
                 'cash': 'Efectivo',
+                'efectivo': 'Efectivo',
                 'investment': 'Investment',
                 'loan': 'Loan',
                 'mortgage': 'Mortgage',
                 'business': 'Business',
-                'other': 'Other'
+                'other': 'Other',
             }
-            
-            # Check exact match first
+
             if account_type_lower in account_type_mapping:
                 return account_type_mapping[account_type_lower]
-            
-            # Check partial matches
+
             for key, value in account_type_mapping.items():
                 if key in account_type_lower or account_type_lower in key:
                     return value
-            
-            # If it contains "savings", normalize to "Savings"
+
             if 'savings' in account_type_lower:
                 return 'Savings'
-            # If it contains "checking", normalize to "Checking"
             if 'checking' in account_type_lower:
                 return 'Checking'
-            # If it contains "credit", normalize to "Credit Card"
-            if 'credit' in account_type_lower and 'card' in account_type_lower:
+            if 'credit' in account_type_lower or 'crédito' in account_type_lower:
                 return 'Credit Card'
-            # If it contains "debit", normalize to "Débito"
-            if 'debit' in account_type_lower and 'card' in account_type_lower:
+            if 'debit' in account_type_lower:
                 return 'Débito'
-            
-            # Return original if no match found
-            return account_type
+            if 'cash' in account_type_lower or 'efectivo' in account_type_lower:
+                return 'Efectivo'
+
+            return 'Other'
         
         # Validate and normalize the response structure
         raw_account_type = extracted_data.get('account_type', 'Other')

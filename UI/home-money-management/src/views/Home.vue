@@ -14,6 +14,7 @@
 <script lang="ts">
 import LoginRegister from '@/components/LoginRegister.vue'
 import MainPage from '@/components/MainPage.vue'
+import { getStoredSession, type SessionUser } from '@/services/session'
 interface UserData {
   first_name: string,
   id: number,
@@ -23,7 +24,7 @@ interface UserData {
   username: string,
 }
 interface User {
-  user: UserData
+  user: SessionUser
 }
 
 export default {
@@ -39,28 +40,16 @@ export default {
     };
   },
   mounted() {
-    // Get the value of the money_management_user key from localStorage
-    const userDataString = localStorage.getItem('money_management_user');
-
-    if (userDataString !== null) {
-      const parsedUserData = JSON.parse(userDataString);
-
-      // Fix: The localStorage data has structure {user: {...}, valid: true}
-      // We need to extract the inner user object
-      if (parsedUserData.user) {
-        (this as any).userData.user = parsedUserData.user;
-      } else {
-        (this as any).userData.user = parsedUserData;
-      }
-    } else {
-      console.log("money_management_user key not found in local storage");
+    const session = getStoredSession();
+    if (session) {
+      (this as any).userData.user = session.user;
     }
   },
   methods: {
     forceRemount() {
       (this as any).componentKey++;
     },
-    handleUserData(variable: UserData) {
+    handleUserData(variable: SessionUser) {
       (this as any).userData.user = variable;
     }
   }

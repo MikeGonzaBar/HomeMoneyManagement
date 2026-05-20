@@ -43,7 +43,7 @@
                                     class="mb-2">
                                     <template v-slot:item="{ props, item }">
                                         <v-list-item v-bind="props">
-                                            <template v-slot:prepend v-if="item.raw.value !== 'new'">
+                                            <template v-slot:prepend v-if="accountOptionRawValue(item) !== 'new'">
                                                 <v-avatar size="24" class="me-2 bg-primary">
                                                     <v-icon color="white" size="14">mdi-account</v-icon>
                                                 </v-avatar>
@@ -199,7 +199,7 @@
 </template>
 
 <script lang="ts">
-import axios from 'axios';
+import axios from '@/services/api';
 
 interface DetectedTransaction {
     id?: string;
@@ -222,6 +222,7 @@ interface BankStatementData {
         transactions: DetectedTransaction[];
         account_name: string;
         account_type: string;
+        initial_balance?: number | null;
         statement_period?: {
             start: string;
             end: string;
@@ -275,7 +276,9 @@ export default {
                 { title: 'Transfer', value: 'Transfer' }
             ],
             categories: [
+                'Account Transfer',
                 'Awards',
+                'Balance Transfer',
                 'Bills and utilities',
                 'Education',
                 'Entertainment',
@@ -285,24 +288,26 @@ export default {
                 'Investments',
                 'Loans',
                 'Medical',
+                'Money Transfer',
                 'Others',
                 'Salary',
                 'Shopping',
                 'Transportation',
                 'Transfer',
-                'Account Transfer',
-                'Money Transfer',
-                'Balance Transfer',
             ],
+            extractedData: null as BankStatementData['extracted_data'] | null,
             accountTypes: [
+                'Business',
                 'Checking',
-                'Savings',
                 'Credit Card',
+                'Crédito',
+                'Débito',
+                'Efectivo',
                 'Investment',
                 'Loan',
                 'Mortgage',
-                'Business',
-                'Other'
+                'Other',
+                'Savings',
             ]
         }
     },
@@ -334,7 +339,7 @@ export default {
                 accountName = bankStatementData.extracted_data.account_name || '';
                 accountType = bankStatementData.extracted_data.account_type || '';
                 (this as any).statementPeriod = bankStatementData.extracted_data.statement_period || null;
-                (this as any).extractedData = bankStatementData.extracted_data; // Store extracted data
+                this.extractedData = bankStatementData.extracted_data; // Store extracted data
             } else if (bankStatementData.transactions) {
                 // Fallback to old format
                 transactions = bankStatementData.transactions;
@@ -394,8 +399,13 @@ export default {
             (this as any).detectedAccountInfo = { account_name: '', account_type: '' };
             (this as any).newAccount = { name: '', bank: '', account_type: '' };
             (this as any).statementPeriod = null;
-            (this as any).extractedData = null; // Clear extracted data
+            this.extractedData = null; // Clear extracted data
             (this as any).$emit('dialogClosed');
+        },
+
+        accountOptionRawValue(item: { raw?: unknown }): string {
+            const raw = item.raw as { value?: string } | undefined;
+            return raw?.value ?? '';
         },
 
         formatDate(dateString: string): string {
@@ -456,17 +466,16 @@ export default {
                     }
 
                     // Use detected initial_balance if available, otherwise default to 0
-                    const initialBalance = (this as any).extractedData?.initial_balance ?? 0.0;
+                    const initialBalance = this.extractedData?.initial_balance ?? 0.0;
 
                     const accountData = {
                         account_name: (this as any).newAccount.name,
                         account_type: (this as any).newAccount.account_type,
                         bank: (this as any).newAccount.bank || '',
-                        total: initialBalance,  // Changed from 0.0 to use detected initial balance
-                        owner: (this as any).userData.user.username
+                        total: initialBalance
                     };
 
-                    const accountResponse = await axios.post('http://localhost:8000/accounts/', accountData);
+                    const accountResponse = await axios.post('/accounts/', accountData);
                     account = accountResponse.data;
                 } else if ((this as any).selectedAccountId) {
                     // Use selected account
@@ -498,7 +507,7 @@ export default {
 
                 for (let i = 0; i < transactionsToImport.length; i++) {
                     try {
-                        await axios.post('http://localhost:8000/transactions/create/', transactionsToImport[i]);
+                        await axios.post('/transactions/create/', transactionsToImport[i]);
                         successfulImports.push((this as any).selectedTransactions[i]);
                     } catch (error: any) {
                         console.error(`Failed to import transaction ${i + 1}:`, error);
@@ -516,43 +525,14 @@ export default {
                     return; // No transactions imported, no balance update needed
                 }
 
-                // Update account total based on successfully imported transactions
-                // This ensures consistency even if some transactions failed
-                const totalChange = successfulImports.reduce((sum: number, transaction: DetectedTransaction) => {
-                    const amount = parseFloat(transaction.amount.toString());
-                    if (transaction.transaction_type === 'Income') {
-                        return sum + amount;
-                    } else if (transaction.transaction_type === 'Expense') {
-                        return sum - amount;
-                    }
-                    return sum; // Transfer doesn't change total
-                }, 0);
-
-                const currentTotal = account.total || 0;
-                const newTotal = currentTotal + totalChange;
-
-                try {
-                    await axios.patch(`http://localhost:8000/accounts/details/${(this as any).userData.user.username}/${account.id}/`, {
-                        total: newTotal
+                if (failedImports.length > 0) {
+                    const warningMessage = `Imported ${successfulImports.length} of ${transactionsToImport.length} transactions. ${failedImports.length} transaction(s) failed to import.`;
+                    (this as any).$emit('importError', warningMessage);
+                } else {
+                    (this as any).$emit('transactionsImported', {
+                        importedCount: successfulImports.length,
+                        accountUpdated: account
                     });
-
-                    // Handle partial success scenario
-                    if (failedImports.length > 0) {
-                        // Some transactions failed but we updated balance for successful ones
-                        const warningMessage = `Imported ${successfulImports.length} of ${transactionsToImport.length} transactions. ${failedImports.length} transaction(s) failed to import. Account balance has been updated for the successful imports.`;
-                        (this as any).$emit('importError', warningMessage);
-                    } else {
-                        // All transactions imported successfully
-                        (this as any).$emit('transactionsImported', {
-                            importedCount: successfulImports.length,
-                            accountUpdated: { ...account, total: newTotal }
-                        });
-                    }
-                } catch (balanceError: any) {
-                    // Balance update failed - this is a critical error
-                    console.error('Failed to update account balance:', balanceError);
-                    const errorMessage = `Transactions imported but failed to update account balance. Please update manually.`;
-                    (this as any).$emit('importError', errorMessage);
                 }
 
                 (this as any).closeDialog();
@@ -570,9 +550,9 @@ export default {
 <style scoped>
 /* Review dialog specific styles */
 .modern-dialog {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.14);
 }
 
 .close-btn {
@@ -580,8 +560,8 @@ export default {
 }
 
 .close-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
-    transform: scale(1.1);
+    background: #f9fafb;
+    transform: none;
 }
 
 .transactions-review {
@@ -619,19 +599,19 @@ export default {
 }
 
 :deep(.v-data-table__tr:hover) {
-    background: rgba(76, 175, 80, 0.05) !important;
+    background: #f9fafb !important;
 }
 
 :deep(.v-data-table__tr:nth-child(even)) {
-    background: rgba(248, 249, 250, 0.5);
+    background: #ffffff;
 }
 
 :deep(.v-data-table__tr:nth-child(odd)) {
-    background: rgba(255, 255, 255, 0.8);
+    background: #ffffff;
 }
 
 :deep(.v-data-table__td) {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid #f3f4f6;
     padding: 12px 8px;
 }
 
@@ -642,7 +622,7 @@ export default {
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.5px;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    background: #f9fafb;
 }
 
 /* Selection styling */
@@ -690,15 +670,15 @@ export default {
 :deep(.transaction-date-input .v-field--focused),
 :deep(.transaction-category-select .v-field--focused) {
     border-color: #4CAF50;
-    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
 }
 
 /* Account create form styling */
 .account-create-form {
-    background: rgba(255, 255, 255, 0.8);
+    background: #ffffff;
     border-radius: 12px;
     padding: 16px;
-    border: 1px solid rgba(76, 175, 80, 0.2);
+    border: 1px solid rgba(76, 175, 80, 0.35);
     animation: slideDown 0.3s ease-out;
 }
 

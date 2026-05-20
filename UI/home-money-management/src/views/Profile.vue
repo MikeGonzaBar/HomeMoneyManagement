@@ -235,7 +235,8 @@
 </template>
 
 <script lang="ts">
-import axios from 'axios';
+import axios from '@/services/api';
+import { getStoredSession, setStoredSession } from '@/services/session';
 
 interface UserInfo {
     username: string;
@@ -328,25 +329,20 @@ export default {
     },
     methods: {
         loadUserInfo() {
-            // Load user info from localStorage
-            const userDataString = localStorage.getItem('money_management_user');
-            if (userDataString) {
-                const parsedUserData = JSON.parse(userDataString);
-                if (parsedUserData.user) {
-                    (this as any).userInfo = {
-                        username: parsedUserData.user.username,
-                        first_name: parsedUserData.user.first_name,
-                        last_name: parsedUserData.user.last_name
-                    };
-                }
+            const session = getStoredSession();
+            if (session) {
+                (this as any).userInfo = {
+                    username: session.user.username,
+                    first_name: session.user.first_name,
+                    last_name: session.user.last_name
+                };
             }
         },
 
         async savePersonalInfo() {
             (this as any).savingPersonalInfo = true;
             try {
-                const response = await axios.put('http://localhost:8000/user/update-info/', {
-                    username: (this as any).userInfo.username,
+                const response = await axios.put('/user/update-info/', {
                     new_username: (this as any).userInfo.username,
                     first_name: (this as any).userInfo.first_name,
                     last_name: (this as any).userInfo.last_name
@@ -355,16 +351,12 @@ export default {
                 if (response.data.message) {
                     alert('Personal information updated successfully!');
 
-                    // Update localStorage with new user info
-                    const userDataString = localStorage.getItem('money_management_user');
-                    if (userDataString) {
-                        const parsedUserData = JSON.parse(userDataString);
-                        if (parsedUserData.user) {
-                            parsedUserData.user.username = response.data.user.username;
-                            parsedUserData.user.first_name = response.data.user.first_name;
-                            parsedUserData.user.last_name = response.data.user.last_name;
-                            localStorage.setItem('money_management_user', JSON.stringify(parsedUserData));
-                        }
+                    const session = getStoredSession();
+                    if (session) {
+                        setStoredSession({
+                            token: session.token,
+                            user: response.data.user
+                        });
                     }
                 }
             } catch (error: any) {
@@ -386,8 +378,7 @@ export default {
         async changePassword() {
             (this as any).changingPassword = true;
             try {
-                const response = await axios.put('http://localhost:8000/user/change-password/', {
-                    username: (this as any).userInfo.username,
+                const response = await axios.put('/user/change-password/', {
                     current_password: (this as any).passwordData.currentPassword,
                     new_password: (this as any).passwordData.newPassword
                 });
@@ -421,15 +412,10 @@ export default {
         async loadUserFiles() {
             (this as any).loadingFiles = true;
             try {
-                const userDataString = localStorage.getItem('money_management_user');
-                if (userDataString) {
-                    const parsedUserData = JSON.parse(userDataString);
-                    const username = parsedUserData.user?.username;
-
-                    if (username) {
-                        const response = await axios.get(`http://localhost:8000/bank-statements/user/${username}/`);
-                        (this as any).userFiles = response.data.statements || [];
-                    }
+                const session = getStoredSession();
+                if (session?.user.username) {
+                    const response = await axios.get(`/bank-statements/user/${session.user.username}/`);
+                    (this as any).userFiles = response.data.statements || [];
                 }
             } catch (error) {
                 console.error('Error loading user files:', error);
@@ -472,7 +458,7 @@ export default {
 
             (this as any).deletingFile = true;
             try {
-                await axios.delete(`http://localhost:8000/bank-statements/delete/${(this as any).fileToDelete.id}/`);
+                await axios.delete(`/bank-statements/delete/${(this as any).fileToDelete.id}/`);
 
                 // Remove from local list
                 (this as any).userFiles = (this as any).userFiles.filter(
@@ -497,17 +483,18 @@ export default {
 <style scoped>
 .profile-container {
     min-height: 100vh;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    background: #f9fafb;
+    padding: 24px;
 }
 
 .glass-card {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
 .shadow-medium {
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .budget-gradient {
@@ -529,7 +516,7 @@ export default {
 
 .sidebar-item:hover {
     background: rgba(76, 175, 80, 0.1);
-    transform: translateX(4px);
+    transform: none;
 }
 
 .active-sidebar-item {
@@ -538,14 +525,15 @@ export default {
 }
 
 .file-item {
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid #f3f4f6;
     border-radius: 12px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .file-item:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
+    background: #f9fafb;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    transform: none;
 }
 
 .smooth-transition {
@@ -553,8 +541,8 @@ export default {
 }
 
 .hover-lift:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
 }
 
 /* Mobile-specific improvements */

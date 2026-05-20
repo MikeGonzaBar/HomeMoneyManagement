@@ -1,614 +1,737 @@
 <template>
-    <v-container fluid class="pa-0">
-        <!-- Modern Header with Budget Buddy Branding -->
-        <v-app-bar class="budget-header shadow-strong" elevation="0" height="80" fixed>
-            <v-container class="d-flex align-center">
-                <!-- Budget Buddy Logo and Brand -->
-                <div class="d-flex align-center">
-                    <v-avatar :size="$vuetify.display.mobile ? 36 : 48" class="me-3">
-                        <v-img src="@/assets/logo.png" alt="Budget Buddy" />
-                    </v-avatar>
-                    <div class="d-none d-sm-block">
-                        <h2 class="header-title font-weight-bold mb-0">Budget Buddy</h2>
-                        <p class="header-subtitle text-caption mb-0 opacity-90">Smart Money Management</p>
-                    </div>
-                    <!-- Mobile: Just show "BB" -->
-                    <div class="d-block d-sm-none">
-                        <h2 class="header-title font-weight-bold mb-0">BB</h2>
-                    </div>
+  <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+    <!-- Header -->
+    <header class="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-0 z-50">
+      <div class="w-full px-4 sm:px-6 lg:px-10">
+        <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 h-[72px]">
+          <!-- Logo and Brand -->
+          <div class="flex items-center gap-3 min-w-0">
+            <img src="@/assets/logo-192.png" alt="Budget Buddy" class="w-10 h-10 rounded-lg object-contain" />
+            <span class="text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Budget Buddy</span>
+          </div>
+          <!-- Desktop Navigation -->
+          <nav class="hidden md:flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 p-1 shadow-sm">
+            <router-link to="/" class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary shadow-sm">
+              Dashboard
+            </router-link>
+            <router-link to="/transactions"
+              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
+              Transactions
+            </router-link>
+            <router-link to="/reports"
+              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
+              Reports
+            </router-link>
+          </nav>
+          <!-- User Profile -->
+          <div class="flex items-center justify-end gap-3 min-w-0">
+            <button class="bb-icon-button" aria-label="Notifications">
+              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                  stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+              </svg>
+            </button>
+            <div class="flex items-center gap-3 rounded-full border border-gray-100 bg-gray-50 py-1 pl-4 pr-1.5">
+              <div class="text-right hidden sm:block">
+                <p class="text-sm font-semibold text-gray-900 leading-none">{{ userData.user.first_name }} {{
+                  userData.user.last_name }}</p>
+                <p class="text-xs text-gray-500 mt-1">Premium Member</p>
+              </div>
+              <div
+                class="h-9 w-9 rounded-full bg-brand-primary flex items-center justify-center text-white font-semibold cursor-pointer shadow-sm"
+                @click="goToProfile">
+                {{ userData.user.first_name.charAt(0) }}{{ userData.user.last_name.charAt(0) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="w-full">
+      <div class="px-4 sm:px-6 py-6">
+        <!-- Summary Cards -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <!-- Income Card -->
+          <div class="dashboard-summary-card">
+            <div class="dashboard-summary-content">
+              <p class="dashboard-metric-label">Total Income</p>
+              <h3 class="text-3xl font-bold text-income leading-tight mb-2">${{ income.toLocaleString('en-US', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+              }) }}</h3>
+              <span class="text-sm text-green-600 font-medium flex items-center" v-if="incomeChange !== 0">
+                <svg class="w-4 h-4 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path clip-rule="evenodd"
+                    d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L10 10.586 13.586 7H12z"
+                    fill-rule="evenodd"></path>
+                </svg>
+                {{ incomeChange > 0 ? '+' : '' }}{{ incomeChange.toFixed(1) }}% from last month
+              </span>
+            </div>
+            <div class="dashboard-summary-icon bg-green-50 text-income">
+              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M7 11l5-5m0 0l5 5m-5-5v12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+                </path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Expense Card -->
+          <div class="dashboard-summary-card">
+            <div class="dashboard-summary-content">
+              <p class="dashboard-metric-label">Total Expenses</p>
+              <h3 class="text-3xl font-bold text-expense leading-tight mb-2">${{ expense.toLocaleString('en-US', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+              }) }}</h3>
+              <span class="text-sm text-red-600 font-medium flex items-center" v-if="expenseChange !== 0">
+                <svg class="w-4 h-4 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path clip-rule="evenodd"
+                    d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L10 9.414 13.586 13H12z"
+                    fill-rule="evenodd"></path>
+                </svg>
+                {{ expenseChange > 0 ? '+' : '' }}{{ expenseChange.toFixed(1) }}% from last month
+              </span>
+            </div>
+            <div class="dashboard-summary-icon bg-red-50 text-expense">
+              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M17 13l-5 5m0 0l-5-5m5 5V6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+                </path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Net Balance Card -->
+          <div class="dashboard-summary-card">
+            <div class="dashboard-summary-content">
+              <p class="dashboard-metric-label">Net Balance</p>
+              <h3 class="text-3xl font-bold leading-tight mb-2"
+                :class="netBalance >= 0 ? 'text-balance' : 'text-expense'">
+                {{ netBalance >= 0 ? '+' : '' }}${{ Math.abs(netBalance).toLocaleString('en-US', {
+                  minimumFractionDigits:
+                    2, maximumFractionDigits: 2
+                }) }}
+              </h3>
+              <span class="text-sm text-blue-600 font-medium block" v-if="netBalance > 0">Keep it up! Your savings are
+                growing.</span>
+              <span class="text-sm text-gray-500 block" v-else-if="netBalance === 0">Track your expenses to see your
+                balance grow.</span>
+              <span class="text-sm text-red-600 font-medium block" v-else>Consider reducing expenses to improve your
+                balance.</span>
+            </div>
+            <div class="dashboard-summary-icon bg-blue-50 text-balance">
+              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+              </svg>
+            </div>
+          </div>
+        </section>
+
+        <!-- Main Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <!-- Left Column: Accounts and Transactions -->
+          <div class="lg:col-span-8 space-y-8">
+            <!-- Accounts Section -->
+            <section>
+              <div class="dashboard-section-header px-1">
+                <h2 class="dashboard-section-title">My Accounts</h2>
+                <button class="bb-button bb-button-secondary"
+                  @click="openAddAccount">
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                  </svg>
+                  Add Account
+                </button>
+              </div>
+              <div class="custom-scrollbar">
+                <AccountsCarousel ref="accountsCarousel" :userData="userData" @accountSelected="handleAccountSelected"
+                  @allAccountSelected="handleAllAccountSelected" @accountsModified="handleAccountsModified" />
+              </div>
+            </section>
+
+            <!-- Transaction History Section -->
+            <section class="dashboard-panel overflow-hidden">
+              <div class="dashboard-panel-header">
+                <h2 class="dashboard-section-title">Transaction History</h2>
+                <div class="flex items-center gap-3">
+                  <div class="bb-input-shell relative">
+                    <input v-model="searchQuery"
+                      class="bb-input-control with-leading-icon h-11 w-40 md:w-64"
+                      placeholder="Search..." type="text" />
+                    <svg class="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" fill="none"
+                      stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round"
+                        stroke-linejoin="round" stroke-width="2"></path>
+                    </svg>
+                  </div>
                 </div>
+              </div>
+              <div class="p-4">
+                <TableData ref="tableData" :transactions="filteredTransactions" :userData="userData"
+                  :accounts="accounts" @updateAccounts="handleUpdateAccountsMethod"
+                  @updateIncomeExpense="handleUpdateIncomeExpense" />
+              </div>
+            </section>
+          </div>
 
-                <v-spacer></v-spacer>
+          <!-- Right Column: Analytics & Widget -->
+          <aside class="lg:col-span-4 space-y-8">
+            <!-- Spending Analysis Widget -->
+            <section class="dashboard-panel dashboard-analysis-panel">
+              <div class="dashboard-analysis-header">
+                <h2 class="dashboard-section-title">Spending Analysis</h2>
+              </div>
+              <div class="dashboard-analysis-body">
+                <PieChart :transactions="transactions" />
+              </div>
+            </section>
 
-                <!-- Welcome Message - Hidden on mobile -->
-                <div class="text-center me-8 d-none d-lg-block">
-                    <h3 class="welcome-title font-weight-medium mb-0">Welcome back, {{ (this as
-                        any).userData.user.first_name }}!</h3>
-                    <p class="welcome-subtitle text-caption mb-0 opacity-90">Ready to manage your finances?</p>
+            <!-- Bank Statement Upload Widget -->
+            <section class="dashboard-panel dashboard-upload-panel">
+              <div class="dashboard-upload-header">
+                <div class="dashboard-widget-header">
+                  <div
+                    class="w-12 h-12 bg-brand-light rounded-xl flex items-center justify-center text-[#4CAF50] shrink-0">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                        stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="text-base font-semibold text-gray-800">Bank Statement Upload</h3>
+                    <p class="text-sm text-gray-500">Automatically detect transactions from your PDF files</p>
+                  </div>
                 </div>
-
-                <!-- User Menu -->
-                <v-menu>
-                    <template v-slot:activator="{ props }">
-                        <v-btn v-bind="props" variant="outlined" class="user-menu-btn smooth-transition hover-lift"
-                            :size="$vuetify.display.mobile ? 'small' : 'large'">
-                            <v-icon :left="$vuetify.display.smAndUp"
-                                :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-account-circle</v-icon>
-                            <span class="d-none d-sm-inline">{{ (this as any).userData.user.first_name }}</span>
-                            <v-icon :right="$vuetify.display.smAndUp"
-                                :class="$vuetify.display.mobile ? '' : 'ms-2'">mdi-chevron-down</v-icon>
-                        </v-btn>
-                    </template>
-                    <v-list class="modern-menu" rounded="lg">
-                        <v-list-item class="user-profile-section" @click="(this as any).goToProfile">
-                            <template v-slot:prepend>
-                                <v-avatar size="40" class="budget-gradient me-3">
-                                    <v-icon color="white" size="20">mdi-account</v-icon>
-                                </v-avatar>
-                            </template>
-                            <v-list-item-title class="text-h6 font-weight-bold text-grey-darken-3">
-                                {{ (this as any).userData.user.first_name }} {{ (this as any).userData.user.last_name }}
-                            </v-list-item-title>
-                            <v-list-item-subtitle class="text-grey-darken-1">{{ (this as any).userData.user.username
-                                }}</v-list-item-subtitle>
-                        </v-list-item>
-                        <v-divider class="my-2 bg-grey-lighten-2"></v-divider>
-                        <v-list-item @click="(this as any).goToProfile" class="profile-item">
-                            <template v-slot:prepend>
-                                <v-avatar size="32" class="bg-blue-lighten-4 me-3">
-                                    <v-icon color="blue-darken-2" size="18">mdi-account-edit</v-icon>
-                                </v-avatar>
-                            </template>
-                            <v-list-item-title class="text-blue-darken-2 font-weight-medium">Profile
-                                Settings</v-list-item-title>
-                        </v-list-item>
-                        <v-list-item @click="(this as any).triggerLogOut" class="logout-item">
-                            <template v-slot:prepend>
-                                <v-avatar size="32" class="bg-red-lighten-4 me-3">
-                                    <v-icon color="red-darken-2" size="18">mdi-logout</v-icon>
-                                </v-avatar>
-                            </template>
-                            <v-list-item-title class="text-red-darken-2 font-weight-medium">Logout</v-list-item-title>
-                        </v-list-item>
-                    </v-list>
-                </v-menu>
-            </v-container>
-        </v-app-bar>
-
-        <!-- Main Content with proper spacing for fixed header -->
-        <div class="main-content" style="margin-top: 80px;">
-            <v-container fluid :class="$vuetify.display.mobile ? 'pa-3' : 'pa-6'">
-                <!-- Account Cards Section -->
-                <v-card class="mb-6 glass-card shadow-medium" rounded="xl">
-                    <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
-                        <h3 :class="$vuetify.display.mobile ? 'text-h5' : 'text-h4'"
-                            class="budget-text-gradient font-weight-bold">Your Accounts</h3>
-                        <p class="text-grey-darken-1 mb-0" :class="$vuetify.display.mobile ? 'text-caption' : ''">Manage
-                            and
-                            track all your financial accounts</p>
-                    </v-card-title>
-                    <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
-                        <AccountsCarousel ref="accountsCarousel" :userData="(this as any).userData"
-                            @accountSelected="(this as any).handleAccountSelected"
-                            @allAccountSelected="(this as any).handleAllAccountSelected"
-                            @accountsModified="(this as any).handleAccountsModified" />
-                    </v-card-text>
-                </v-card>
-
-                <!-- Date Picker and Income/Expense Overview -->
-                <v-row class="mb-6">
-                    <v-col cols="12" :lg="$vuetify.display.mobile ? 12 : 3">
-                        <v-card class="glass-card shadow-medium" :class="$vuetify.display.mobile ? '' : 'h-100'"
-                            rounded="xl">
-                            <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
-                                <h4 :class="$vuetify.display.mobile ? 'text-h6' : 'text-h5'"
-                                    class="budget-text-gradient font-weight-bold">Time Period</h4>
-                                <p class="text-grey-darken-1 mb-0 text-caption">Select your analysis period</p>
-                            </v-card-title>
-                            <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
-                                <DatePicker :userData="(this as any).userData"
-                                    @dateSelected="(this as any).handleDatePicked" />
-                            </v-card-text>
-                        </v-card>
-                    </v-col>
-                    <v-col cols="12" :lg="$vuetify.display.mobile ? 12 : 9">
-                        <v-card class="glass-card shadow-medium" :class="$vuetify.display.mobile ? 'mt-4' : 'h-100'"
-                            rounded="xl">
-                            <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
-                                <h4 :class="$vuetify.display.mobile ? 'text-h6' : 'text-h5'"
-                                    class="budget-text-gradient font-weight-bold">Financial Overview</h4>
-                                <p class="text-grey-darken-1 mb-0 text-caption">Your income and expenses summary</p>
-                            </v-card-title>
-                            <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
-                                <IncomeExpense :transactions="(this as any).transactions" />
-                            </v-card-text>
-                        </v-card>
-                    </v-col>
-                </v-row>
-
-                <!-- Transactions and Analytics -->
-                <v-row class="mb-6">
-                    <v-col cols="12" :lg="$vuetify.display.mobile ? 12 : 8">
-                        <v-card class="glass-card shadow-medium" :class="$vuetify.display.mobile ? '' : 'h-100'"
-                            rounded="xl">
-                            <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
-                                <h4 :class="$vuetify.display.mobile ? 'text-h6' : 'text-h5'"
-                                    class="budget-text-gradient font-weight-bold">Transaction History</h4>
-                                <p class="text-grey-darken-1 mb-0 text-caption">Track and manage your financial
-                                    transactions</p>
-                            </v-card-title>
-                            <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
-                                <TableData :transactions="(this as any).transactions" :userData="(this as any).userData"
-                                    :accounts="(this as any).accounts"
-                                    @updateAccounts="(this as any).handleUpdateAccountsMethod"
-                                    @updateIncomeExpense="(this as any).handleUpdateIncomeExpense" />
-                            </v-card-text>
-                        </v-card>
-                    </v-col>
-                    <v-col cols="12" :lg="$vuetify.display.mobile ? 12 : 4">
-                        <v-card class="glass-card shadow-medium" :class="$vuetify.display.mobile ? 'mt-4' : 'h-100'"
-                            rounded="xl">
-                            <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2' : 'pa-6 pb-2'">
-                                <h4 :class="$vuetify.display.mobile ? 'text-h6' : 'text-h5'"
-                                    class="budget-text-gradient font-weight-bold">Spending Analysis</h4>
-                                <p class="text-grey-darken-1 mb-0 text-caption">Visual breakdown of your expenses</p>
-                            </v-card-title>
-                            <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-6 pt-2'">
-                                <PieChart :transactions="(this as any).transactions" />
-                            </v-card-text>
-                        </v-card>
-                    </v-col>
-                </v-row>
-
-                <!-- Bank Statement Upload Section -->
-                <v-row class="mb-6">
-                    <v-col cols="12">
-                        <BankStatementUpload :userData="(this as any).userData"
-                            @statementProcessed="(this as any).handleStatementProcessed"
-                            @uploadError="(this as any).handleUploadError" />
-                    </v-col>
-                </v-row>
-
-                <!-- Transaction History Chart Section -->
-                <v-row>
-                    <v-col cols="12">
-                        <Projections :transactions="(this as any).transactions" :accounts="(this as any).accounts" />
-                    </v-col>
-                </v-row>
-            </v-container>
+              </div>
+              <div class="dashboard-upload-body">
+                <BankStatementUpload :userData="userData" @statementProcessed="handleStatementProcessed"
+                  @uploadError="handleUploadError" />
+              </div>
+            </section>
+          </aside>
         </div>
 
-        <!-- Bank Statement Review Dialog -->
-        <BankStatementReview ref="bankStatementReview" :userData="(this as any).userData"
-            :accounts="(this as any).accounts" @transactionsImported="(this as any).handleTransactionsImported"
-            @importError="(this as any).handleImportError" />
-    </v-container>
+        <!-- Financial Performance Chart -->
+        <section class="dashboard-panel financial-performance-panel mt-8 w-full">
+          <div class="dashboard-panel-header compact financial-performance-header">
+            <div>
+              <h2 class="dashboard-section-title">Financial Performance</h2>
+              <p class="text-sm text-gray-500">Track your income and balance over the past year</p>
+            </div>
+            <v-select v-model="chartPeriod" :items="chartPeriodOptions" density="compact" variant="outlined"
+              rounded="lg" hide-details class="chart-period-select financial-period-select shrink-0 text-sm"></v-select>
+          </div>
+          <Projections :transactions="transactions" :accounts="accounts" />
+        </section>
+      </div>
+    </main>
+
+    <!-- Bank Statement Review Dialog -->
+    <BankStatementReview ref="bankStatementReview" :userData="userData" :accounts="accounts"
+      @transactionsImported="handleTransactionsImported" @importError="handleImportError" />
+  </div>
 </template>
 
 <script lang="ts">
-
 import AccountsCarousel from '@/components/AccountsCarousel.vue'
-import DatePicker from '@/components/DatePicker.vue';
-import IncomeExpense from '@/components/IncomeExpense.vue';
-import TableData from '@/components/TableData.vue';
-import PieChart from '@/components/PieChart.vue';
-import Projections from '@/components/Projections.vue';
-import BankStatementUpload from '@/components/BankStatementUpload.vue';
-import BankStatementReview from '@/components/BankStatementReview.vue';
-import axios from 'axios';
-// import * as Vue from 'vue';
+import TableData from '@/components/TableData.vue'
+import PieChart from '@/components/PieChart.vue'
+import Projections from '@/components/Projections.vue'
+import BankStatementUpload from '@/components/BankStatementUpload.vue'
+import BankStatementReview from '@/components/BankStatementReview.vue'
+import axios from '@/services/api'
+
 interface AccountsCarousel {
-    accountTotalUpdated: () => void;
+  accountTotalUpdated: () => void;
+  openNewAccountModal: () => void;
 }
+
 interface DateObject {
-    month: number;
-    year: number;
+  month: number;
+  year: number;
 }
+
 interface Account {
-    id: number;
-    account_type: string;
-    bank: string;
-    total: number;
-    account_name: string;
+  id: number;
+  account_type: string;
+  bank: string;
+  total: number;
+  account_name: string;
 }
+
 interface Transaction {
-    id: number;
-    transaction_type: string,
-    category: string,
-    date: string,
-    title: string,
-    total: number,
-    owner_id: string,
-    account_id: string,
+  id: number;
+  transaction_type: string;
+  category: string;
+  date: string;
+  title: string;
+  total: number;
+  owner_id: string;
+  account_id: string;
 }
+
 interface Data {
-    accountSelected: null | Account;
-    month: number;
-    year: number;
-    transactions: Transaction[];
-    accounts: Account[];
+  accountSelected: null | Account;
+  month: number;
+  year: number;
+  transactions: Transaction[];
+  accounts: Account[];
+  income: number;
+  expense: number;
+  incomeChange: number;
+  expenseChange: number;
+  searchQuery: string;
+  chartPeriod: string;
+  chartPeriodOptions: Array<{ title: string; value: string }>;
+  showAddAccountDialog: boolean;
+  showNewTransactionDialog: boolean;
 }
+
 export default {
-    name: 'MainPage',
-    props: {
-        userData: {
-            type: Object,
-            required: true
-        }
-    },
-    data: (): Data => ({
-        accountSelected: null,
-        month: 0,
-        year: 0,
-        transactions: [],
-        accounts: []
-
-    }),
-    mounted() {
-        const currentDate = new Date();
-        (this as any).month = currentDate.getMonth();
-        (this as any).year = currentDate.getFullYear();
-        (this as any).getTransactions();
-    },
-    components: { AccountsCarousel, DatePicker, IncomeExpense, TableData, PieChart, Projections, BankStatementUpload, BankStatementReview },
-    methods: {
-        triggerLogOut() {
-            localStorage.removeItem('money_management_user');
-            location.reload();
-        },
-        goToProfile() {
-            (this as any).$router.push('/profile');
-        },
-        handleUpdateIncomeExpense() {
-            (this as any).getTransactions();
-        },
-        handleUpdateAccountsMethod() {
-            ((this as any).$refs.accountsCarousel as AccountsCarousel).accountTotalUpdated();
-        },
-        handleDatePicked(date: DateObject) {
-            (this as any).month = date.month;
-            (this as any).year = date.year;
-            (this as any).getTransactions();
-        },
-        handleAllAccountSelected(acc: Object) {
-            (this as any).accountSelected = null;
-        },
-        handleAccountSelected(acc: Account) {
-            (this as any).accountSelected = acc;
-            (this as any).getTransactions();
-        },
-        handleAccountsModified(accs: Array<Account>) {
-            (this as any).accounts = accs;
-        },
-        getTransactions() {
-            // Fetch all transactions (month=0, year=0) so the chart has access to last 12 months of data
-            // The table component will filter by month/year for display
-            if ((this as any).accountSelected === null) {
-                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.username}/0/0/0`)
-                    .then((response) => {
-                        (this as any).transactions = response.data;
-                    })
-                    .catch((error) => {
-                        console.log('ERROR', error);
-                    })
-            }
-            else {
-                axios.get(`http://localhost:8000/transactions/retrieve/${(this as any).userData.user.username}/${(this as any).accountSelected.id}/0/0`)
-                    .then((response) => {
-                        (this as any).transactions = response.data;
-                    })
-                    .catch((error) => {
-                        console.log('ERROR', error);
-                    })
-            }
-
-        },
-        handleStatementProcessed(bankStatementData: any) {
-            // Handle the uploaded bank statement
-            if (bankStatementData.status === 'uploaded') {
-                // Show success message and file details
-                console.log('Bank statement uploaded successfully:', bankStatementData.file_details);
-
-                // Check if there's a processing error
-                if (bankStatementData.file_details.processing_status === 'failed') {
-                    alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded but processing failed.\n\nPlease try again or process manually.`);
-                } else {
-                    alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded successfully!\n\nFile size: ${bankStatementData.file_details.file_size_display}\nStatus: ${bankStatementData.file_details.processing_status}`);
-                }
-            } else if (bankStatementData.status === 'processed' && bankStatementData.extracted_data) {
-                // Open review dialog with extracted transactions
-                (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
-            } else {
-                // Handle other types of processed data
-                (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
-            }
-        },
-        handleUploadError(errorMessage: string) {
-            // Handle upload errors - show user-friendly error message
-            console.error('Upload error:', errorMessage);
-            alert(`Upload Error: ${errorMessage}`);
-        },
-        handleTransactionsImported(data: any) {
-            // Refresh transactions and accounts after import
-            (this as any).getTransactions();
-            (this as any).handleUpdateAccountsMethod();
-            console.log(`Successfully imported ${data.importedCount} transactions`);
-        },
-        handleImportError(errorMessage: string) {
-            // Handle import errors
-            console.error('Import error:', errorMessage);
-        }
+  name: 'MainPage',
+  components: {
+    AccountsCarousel,
+    TableData,
+    PieChart,
+    Projections,
+    BankStatementUpload,
+    BankStatementReview
+  },
+  props: {
+    userData: {
+      type: Object,
+      required: true
     }
+  },
+  data(): Data {
+    return {
+      accountSelected: null,
+      month: 0,
+      year: 0,
+      transactions: [],
+      accounts: [],
+      income: 0,
+      expense: 0,
+      incomeChange: 0,
+      expenseChange: 0,
+      searchQuery: '',
+      chartPeriod: '12',
+      chartPeriodOptions: [
+        { title: 'Last 12 Months', value: '12' },
+        { title: 'Last 6 Months', value: '6' },
+        { title: 'Year to Date', value: 'ytd' }
+      ],
+      showAddAccountDialog: false,
+      showNewTransactionDialog: false
+    }
+  },
+  computed: {
+    netBalance(): number {
+      return (this as any).income - (this as any).expense;
+    },
+    filteredTransactions(): Transaction[] {
+      if (!(this as any).searchQuery) {
+        return (this as any).transactions;
+      }
+      const query = (this as any).searchQuery.toLowerCase();
+      return (this as any).transactions.filter((t: Transaction) =>
+        t.title.toLowerCase().includes(query) ||
+        t.category.toLowerCase().includes(query)
+      );
+    }
+  },
+  mounted() {
+    const currentDate = new Date();
+    (this as any).month = currentDate.getMonth() + 1;
+    (this as any).year = currentDate.getFullYear();
+    (this as any).getAccounts();
+    (this as any).getTransactions();
+  },
+  methods: {
+    goToProfile() {
+      (this as any).$router.push('/profile');
+    },
+    handleUpdateIncomeExpense() {
+      (this as any).getTransactions();
+    },
+    handleUpdateAccountsMethod() {
+      ((this as any).$refs.accountsCarousel as AccountsCarousel).accountTotalUpdated();
+    },
+    openAddAccount() {
+      ((this as any).$refs.accountsCarousel as AccountsCarousel).openNewAccountModal();
+    },
+    handleDatePicked(date: DateObject) {
+      (this as any).month = date.month;
+      (this as any).year = date.year;
+      (this as any).getTransactions();
+    },
+    handleAllAccountSelected() {
+      (this as any).accountSelected = null;
+      (this as any).getTransactions();
+    },
+    handleAccountSelected(acc: Account) {
+      (this as any).accountSelected = acc;
+      (this as any).getTransactions();
+    },
+    handleAccountsModified(accs: Array<Account>) {
+      (this as any).accounts = accs;
+    },
+    calculateIncomeAndExpense() {
+      if (!(this as any).transactions || (this as any).transactions.length === 0) {
+        (this as any).income = 0;
+        (this as any).expense = 0;
+        (this as any).incomeChange = 0;
+        (this as any).expenseChange = 0;
+        return;
+      }
+
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth(); // 0-11
+      const currentYear = currentDate.getFullYear();
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+      // Current month transactions - properly parse dates
+      const currentTransactions = (this as any).transactions.filter((t: Transaction) => {
+        if (!t.date) return false;
+        const tDate = new Date(t.date);
+        // Check if date is valid
+        if (isNaN(tDate.getTime())) return false;
+        return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
+      });
+
+      // Last month transactions
+      const lastMonthTransactions = (this as any).transactions.filter((t: Transaction) => {
+        if (!t.date) return false;
+        const tDate = new Date(t.date);
+        if (isNaN(tDate.getTime())) return false;
+        return tDate.getMonth() === lastMonth && tDate.getFullYear() === lastMonthYear;
+      });
+
+      // Calculate current month - sum all income transactions
+      (this as any).income = currentTransactions
+        .filter((t: Transaction) => t.transaction_type === 'Income')
+        .reduce((acc: number, t: Transaction) => acc + (Number(t.total) || 0), 0);
+
+      // Calculate current month expenses - use absolute value
+      (this as any).expense = currentTransactions
+        .filter((t: Transaction) => t.transaction_type === 'Expense')
+        .reduce((acc: number, t: Transaction) => acc + Math.abs(Number(t.total) || 0), 0);
+
+      // Calculate last month for comparison
+      const lastMonthIncome = lastMonthTransactions
+        .filter((t: Transaction) => t.transaction_type === 'Income')
+        .reduce((acc: number, t: Transaction) => acc + (Number(t.total) || 0), 0);
+
+      const lastMonthExpense = lastMonthTransactions
+        .filter((t: Transaction) => t.transaction_type === 'Expense')
+        .reduce((acc: number, t: Transaction) => acc + Math.abs(Number(t.total) || 0), 0);
+
+      // Calculate percentage changes
+      (this as any).incomeChange = lastMonthIncome > 0
+        ? (((this as any).income - lastMonthIncome) / lastMonthIncome) * 100
+        : ((this as any).income > 0 && lastMonthIncome === 0) ? 100 : 0;
+
+      (this as any).expenseChange = lastMonthExpense > 0
+        ? (((this as any).expense - lastMonthExpense) / lastMonthExpense) * 100
+        : ((this as any).expense > 0 && lastMonthExpense === 0) ? 100 : 0;
+    },
+    getTransactions() {
+      // Fetch all transactions (month=0, year=0) so the chart has access to last 12 months of data
+      if ((this as any).accountSelected === null) {
+        axios.get(`/transactions/retrieve/${(this as any).userData.user.username}/0/0/0`)
+          .then((response) => {
+            (this as any).transactions = response.data;
+            (this as any).calculateIncomeAndExpense();
+          })
+          .catch((error) => {
+            console.log('ERROR', error);
+          });
+      } else {
+        axios.get(`/transactions/retrieve/${(this as any).userData.user.username}/${(this as any).accountSelected.id}/0/0`)
+          .then((response) => {
+            (this as any).transactions = response.data;
+            (this as any).calculateIncomeAndExpense();
+          })
+          .catch((error) => {
+            console.log('ERROR', error);
+          });
+      }
+      // Also fetch accounts
+      (this as any).getAccounts();
+    },
+    getAccounts() {
+      axios.get(`/accounts/details/${(this as any).userData.user.username}/0`)
+        .then((response) => {
+          (this as any).accounts = response.data;
+        })
+        .catch((error) => {
+          console.log('ERROR fetching accounts:', error);
+        });
+    },
+    handleStatementProcessed(bankStatementData: any) {
+      if (bankStatementData.status === 'uploaded') {
+        console.log('Bank statement uploaded successfully:', bankStatementData.file_details);
+        if (bankStatementData.file_details.processing_status === 'failed') {
+          alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded but processing failed.\n\nPlease try again or process manually.`);
+        } else {
+          alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded successfully!\n\nFile size: ${bankStatementData.file_details.file_size_display}\nStatus: ${bankStatementData.file_details.processing_status}`);
+        }
+      } else if (bankStatementData.status === 'processed' && bankStatementData.extracted_data) {
+        (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
+      } else {
+        (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
+      }
+    },
+    handleUploadError(errorMessage: string) {
+      console.error('Upload error:', errorMessage);
+      alert(`Upload Error: ${errorMessage}`);
+    },
+    handleTransactionsImported(data: any) {
+      (this as any).getTransactions();
+      (this as any).handleUpdateAccountsMethod();
+      console.log(`Successfully imported ${data.importedCount} transactions`);
+    },
+    handleImportError(errorMessage: string) {
+      console.error('Import error:', errorMessage);
+    }
+  }
 }
 </script>
 
 <style scoped>
-/* Modern Main Page Styles */
-.main-content {
-    min-height: calc(100vh - 80px);
-    background: transparent;
+.dashboard-panel,
+.dashboard-summary-card {
+  background: #ffffff;
+  border: 1px solid #f3f4f6;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
-/* Custom card hover effects */
-.glass-card:hover {
-    transform: translateY(-2px);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.dashboard-summary-card {
+  display: flex;
+  align-items: stretch;
+  gap: 1.5rem;
+  justify-content: space-between;
+  min-height: 9rem;
+  padding: 1.5rem;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .main-content {
-        margin-top: 70px !important;
-    }
-
-    .v-app-bar {
-        height: 70px !important;
-    }
+.dashboard-summary-content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
 }
 
-/* Animation for smooth page transitions */
-.main-content {
-    animation: fadeInUp 0.6s ease-out;
+.dashboard-summary-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  border-radius: 0.75rem;
+  height: 4rem;
+  padding: 1rem;
+  width: 4rem;
 }
 
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.dashboard-section-header,
+.dashboard-panel-header,
+.dashboard-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
-/* Custom gradient text for better readability */
-.budget-text-gradient {
-    background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-weight: 600;
+.dashboard-panel-header {
+  flex-wrap: wrap;
+  border-bottom: 1px solid #f3f4f6;
+  margin-bottom: 0;
+  padding: 1.5rem;
 }
 
-/* Enhanced glassmorphism for cards */
-.glass-card {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+.dashboard-panel-header.compact {
+  border-bottom: 0;
+  margin-bottom: 1.5rem;
+  padding: 0;
 }
 
-/* Budget gradient for header */
-.budget-gradient {
-    background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 50%, #8BC34A 100%);
-    position: relative;
-    overflow: hidden;
+.dashboard-widget-header {
+  justify-content: flex-start;
+  margin-bottom: 1.5rem;
 }
 
-/* Header background */
-.budget-header {
-    background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 50%, #8BC34A 100%) !important;
-    position: relative;
-    overflow: hidden;
+.dashboard-analysis-panel {
+  padding: 1rem;
 }
 
-
-.budget-gradient::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
-    animation: shimmer 3s infinite;
+.dashboard-analysis-header {
+  padding: 0.5rem 0.5rem 1rem;
 }
 
-@keyframes shimmer {
-    0% {
-        transform: translateX(-100%);
-    }
-
-    100% {
-        transform: translateX(100%);
-    }
+.dashboard-analysis-body {
+  padding: 0.25rem;
 }
 
-/* Modern User Menu */
-.modern-menu {
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(76, 175, 80, 0.2);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-    min-width: 240px;
-    padding: 8px 0;
+.dashboard-analysis-body :deep(.chart-container) {
+  gap: 1rem;
 }
 
-.modern-menu .v-list-item {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border-radius: 8px;
-    margin: 4px 8px;
+.dashboard-analysis-body :deep(.chart-section) {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
-.modern-menu .user-profile-section {
-    background: linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, rgba(139, 195, 74, 0.05) 100%);
-    border: 1px solid rgba(76, 175, 80, 0.1);
+.dashboard-upload-panel {
+  border-color: #dcfce7;
+  margin-top: 1rem;
+  padding: 1rem;
 }
 
-.modern-menu .user-profile-section:hover {
-    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(139, 195, 74, 0.1) 100%);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+.dashboard-upload-header {
+  padding: 0.5rem 0.5rem 1rem;
 }
 
-.modern-menu .profile-item:hover {
-    background: rgba(33, 150, 243, 0.1);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+.dashboard-upload-header .dashboard-widget-header {
+  margin-bottom: 0;
 }
 
-.modern-menu .logout-item:hover {
-    background: rgba(244, 67, 54, 0.1);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.2);
+.dashboard-upload-body {
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 0.875rem;
+  padding: 0.75rem;
 }
 
-.modern-menu .logout-item:active {
-    background: rgba(244, 67, 54, 0.2);
-    transform: translateY(0);
+.financial-performance-panel {
+  padding: 1.5rem;
 }
 
-/* Enhanced divider */
-.modern-menu .v-divider {
-    border-color: rgba(76, 175, 80, 0.2);
-    margin: 12px 16px;
+.dashboard-panel-header.compact.financial-performance-header {
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding: 0.25rem 0.25rem 1.25rem;
 }
 
-/* Avatar styling */
-.modern-menu .v-avatar {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.financial-period-select {
+  margin-top: 0.125rem;
 }
 
-/* Text styling */
-.modern-menu .v-list-item-title {
-    font-weight: 600;
-    letter-spacing: 0.3px;
+.financial-period-select :deep(.v-field) {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  min-height: 2.75rem;
 }
 
-.modern-menu .v-list-item-subtitle {
-    font-size: 0.8rem;
-    opacity: 0.8;
+.financial-period-select :deep(.v-field__input) {
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-height: 2.75rem;
+  padding-bottom: 0;
+  padding-left: 1rem;
+  padding-top: 0;
 }
 
-/* User Menu Button Styling */
-.user-menu-btn {
-    border: 2px solid rgba(255, 255, 255, 0.3) !important;
-    background: rgba(255, 255, 255, 0.1) !important;
-    backdrop-filter: blur(10px);
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    color: white !important;
+.financial-period-select :deep(.v-field__append-inner) {
+  padding-top: 0.625rem;
 }
 
-.user-menu-btn .v-btn__content {
-    color: white !important;
+@media (min-width: 1024px) {
+  .dashboard-analysis-panel {
+    padding: 1.25rem;
+  }
+
+  .dashboard-analysis-header {
+    padding: 0.75rem 0.75rem 1.25rem;
+  }
+
+  .dashboard-analysis-body {
+    padding: 0.25rem;
+  }
+
+  .dashboard-upload-panel {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+  }
+
+  .dashboard-upload-header {
+    padding: 0.75rem 0.75rem 1.25rem;
+  }
+
+  .dashboard-upload-body {
+    padding: 1rem;
+  }
+
+  .financial-performance-panel {
+    padding: 2rem;
+  }
+
+  .dashboard-panel-header.compact.financial-performance-header {
+    padding: 0.25rem 0.5rem 1.5rem;
+  }
 }
 
-.user-menu-btn .v-icon {
-    color: white !important;
+.dashboard-section-title {
+  color: #1f2937;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  margin: 0;
 }
 
-.user-menu-btn:hover {
-    border-color: rgba(255, 255, 255, 0.6) !important;
-    background: rgba(255, 255, 255, 0.2) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-    color: white !important;
+.dashboard-metric-label {
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  margin-bottom: 0.5rem;
 }
 
-.user-menu-btn:hover .v-btn__content {
-    color: white !important;
+.chart-period-select {
+  width: fit-content;
+  max-width: 180px;
 }
 
-.user-menu-btn:hover .v-icon {
-    color: white !important;
+.chart-period-select :deep(.v-field) {
+  min-width: 0;
 }
 
-.user-menu-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
+@media (max-width: 640px) {
+  .dashboard-analysis-body :deep(.chart-container) {
+    flex-direction: column;
+  }
 
-/* Header Text Styling */
-.header-title {
-    color: white !important;
-    font-size: 1.5rem;
-    font-weight: 700;
-}
+  .dashboard-analysis-body :deep(.chart-section) {
+    min-width: 100%;
+  }
 
-.header-subtitle {
-    color: rgba(255, 255, 255, 0.9) !important;
-}
+  .financial-period-select {
+    margin-top: 0;
+    max-width: none;
+    width: 100%;
+  }
 
-.welcome-title {
-    color: white !important;
-    font-size: 1.1rem;
-    font-weight: 500;
-}
+  .dashboard-summary-card {
+    gap: 1rem;
+    min-height: auto;
+    padding: 1.25rem;
+  }
 
-.welcome-subtitle {
-    color: rgba(255, 255, 255, 0.9) !important;
-}
-
-/* Mobile-specific styles */
-@media (max-width: 600px) {
-    .budget-header {
-        height: 64px !important;
-    }
-
-    .main-content {
-        margin-top: 64px !important;
-    }
-
-    .header-title {
-        font-size: 1.2rem !important;
-    }
-
-    .glass-card {
-        margin-bottom: 16px !important;
-    }
-
-    .v-card-title h3,
-    .v-card-title h4 {
-        line-height: 1.2 !important;
-    }
-
-    .v-card-text {
-        padding: 16px !important;
-    }
-
-    .v-card-title {
-        padding: 16px 16px 8px 16px !important;
-    }
-
-    /* Reduce spacing between sections on mobile */
-    .mb-6 {
-        margin-bottom: 24px !important;
-    }
-
-    /* Make user menu button more compact */
-    .user-menu-btn {
-        min-width: auto !important;
-        padding: 0 12px !important;
-    }
-
-    /* Ensure proper text wrapping */
-    .budget-text-gradient {
-        word-break: break-word;
-    }
+  .dashboard-summary-icon {
+    height: 3.5rem;
+    padding: 0.875rem;
+    width: 3.5rem;
+  }
 }
 </style>

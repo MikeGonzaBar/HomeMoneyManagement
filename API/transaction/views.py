@@ -1,183 +1,104 @@
-import json
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import render
+from django.core.exceptions import ValidationError
 from django.db import models
-from rest_framework import generics
+from rest_framework import generics, status
+from rest_framework.response import Response
+
 from .models import Transaction
 from .serializers import TransactionSerializer
+from .services import (
+    create_transaction,
+    delete_transaction,
+    transaction_payload,
+    update_transaction,
+)
+
+
+def _route_user_matches(request, route_user):
+    if route_user != request.user.username:
+        return Response({"error": "Cannot access another user's transactions"}, status=status.HTTP_403_FORBIDDEN)
+    return None
+
+
+def _validation_response(exc):
+    messages = getattr(exc, "messages", None)
+    return Response(
+        {"error": messages[0] if messages else str(exc)},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
 
 
 class TransactionCreate(generics.CreateAPIView):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
 
-    def post(self, request: HttpRequest) -> HttpResponse:
-        data = json.loads(request.body)
+    def post(self, request):
         try:
-            # Create transaction with support for transfers
-            transaction_data = {
-                'transaction_type': data.get('transaction_type'),
-                'category': data.get('category'),
-                'date': data.get('date'),
-                'title': data.get('title'),
-                'total': data.get('total', 0.0),
-                'owner_id': data.get('owner_id'),
-                'account_id': data.get('account_id'),
-                'from_account_id': data.get('from_account_id'),
-                'to_account_id': data.get('to_account_id')
-            }
-            
-            transaction = Transaction.objects.create(**transaction_data)
-            
-            # Update account balances for transfers
-            if transaction.transaction_type == 'Transfer':
-                self._update_transfer_balances(transaction)
-            response = {
-                "id": transaction.id,
-                "transaction_type": transaction.transaction_type,
-                "category": transaction.category,
-                "date": transaction.date,
-                "title": transaction.title,
-                "total": transaction.total,
-                "owner_id": transaction.owner_id,
-                "account_id": transaction.account_id,
-                "from_account_id": transaction.from_account_id,
-                "to_account_id": transaction.to_account_id,
-                "status": "transaction saved"
-            }
-            status = 201
-        except Exception as e:
-            response = {"error": "Failed to create transaction", "details": str(e)}
-            status = 400
-        
-        return HttpResponse(
-            json.dumps(response, default=str),
-            status=status,
-            content_type="application/json",
-        )
-    
-    def _update_transfer_balances(self, transaction):
-        """Update account balances for transfer transactions."""
-        from account.models import Account
-        
-        try:
-            # Update source account (subtract amount)
-            if transaction.from_account_id:
-                from_account = Account.objects.get(id=transaction.from_account_id)
-                from_account.total -= transaction.total
-                from_account.save()
-            
-            # Update destination account (add amount)
-            if transaction.to_account_id:
-                to_account = Account.objects.get(id=transaction.to_account_id)
-                to_account.total += transaction.total
-                to_account.save()
-                
-        except Account.DoesNotExist:
-            # Handle case where account doesn't exist
-            pass
+            item = create_transaction(request.user, request.data)
+        except ValidationError as exc:
+            return _validation_response(exc)
+        except Exception as exc:
+            return Response(
+                {"error": "Failed to create transaction", "details": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        response = transaction_payload(item)
+        response["status"] = "transaction saved"
+        return Response(response, status=status.HTTP_201_CREATED)
 
 
 class TransactionRetrieve(generics.RetrieveAPIView):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
 
-    def get(
-        self, request: HttpRequest, user: str, account_id: str, month: int, year: int
-    ) -> HttpResponse:
-        try:
-            # Get transactions with filters
-            base_query = Transaction.objects.filter(owner_id=user)
-            
-            if account_id != "0":
-                # For transfers, include transactions where this account is either source or destination
-                base_query = base_query.filter(
-                    models.Q(account_id=account_id) |  # Regular income/expense
-                    models.Q(from_account_id=account_id) |  # Transfer from this account
-                    models.Q(to_account_id=account_id)  # Transfer to this account
-                )
-            
-            if month != 0 and year != 0:
-                base_query = base_query.filter(date__month=month, date__year=year)
-            elif month != 0:
-                base_query = base_query.filter(date__month=month)
-            elif year != 0:
-                base_query = base_query.filter(date__year=year)
-            
-            response = []
-            for transaction in base_query:
-                response.append({
-                    "id": transaction.id,
-                    "transaction_type": transaction.transaction_type,
-                    "category": transaction.category,
-                    "date": transaction.date,
-                    "title": transaction.title,
-                    "total": transaction.total,
-                    "owner_id": transaction.owner_id,
-                    "account_id": transaction.account_id,
-                    "from_account_id": transaction.from_account_id,
-                    "to_account_id": transaction.to_account_id
-                })
-        except Exception as e:
-            response = {"error": "Failed to get transactions", "details": str(e)}
-        
-        return HttpResponse(
-            json.dumps(response, default=str),
-            status=200,
-            content_type="application/json",
-        )
+    def get(self, request, user: str, account_id: str, month: int, year: int):
+        mismatch = _route_user_matches(request, user)
+        if mismatch:
+            return mismatch
+
+        base_query = Transaction.objects.filter(owner_user=request.user)
+
+        if account_id != "0":
+            base_query = base_query.filter(
+                models.Q(account_fk_id=account_id)
+                | models.Q(from_account_fk_id=account_id)
+                | models.Q(to_account_fk_id=account_id)
+            )
+
+        if month != 0 and year != 0:
+            base_query = base_query.filter(date__month=month, date__year=year)
+        elif month != 0:
+            base_query = base_query.filter(date__month=month)
+        elif year != 0:
+            base_query = base_query.filter(date__year=year)
+
+        return Response([transaction_payload(item) for item in base_query.order_by("date", "id")])
 
 
 class TransactionUpdate(generics.UpdateAPIView):
-    def patch(self, request: HttpRequest, transaction_id: str) -> HttpResponse:
-        data = json.loads(request.body)
+    serializer_class = TransactionSerializer
+
+    def patch(self, request, transaction_id: str):
         try:
-            transaction = Transaction.objects.get(id=transaction_id)
-            for key, value in data.items():
-                if hasattr(transaction, key):
-                    setattr(transaction, key, value)
-            transaction.save()
-            response = {
-                "success": "Transaction updated successfully",
-                "updated_transaction": {
-                    "id": transaction.id,
-                    "transaction_type": transaction.transaction_type,
-                    "category": transaction.category,
-                    "date": transaction.date,
-                    "title": transaction.title,
-                    "total": transaction.total,
-                    "owner_id": transaction.owner_id,
-                    "account_id": transaction.account_id
-                }
-            }
+            item = update_transaction(request.user, transaction_id, request.data)
         except Transaction.DoesNotExist:
-            response = {"error": "Transaction not found"}
-        except Exception as e:
-            response = {"error": "Failed to update transaction", "details": str(e)}
-        
-        return HttpResponse(
-            json.dumps(response, default=str),
-            status=200,
-            content_type="application/json",
+            return Response({"error": "Transaction not found"}, status=status.HTTP_404_NOT_FOUND)
+        except ValidationError as exc:
+            return _validation_response(exc)
+
+        return Response(
+            {"success": "Transaction updated successfully", "updated_transaction": transaction_payload(item)},
+            status=status.HTTP_200_OK,
         )
 
 
 class TransactionDelete(generics.DestroyAPIView):
-    def delete(self, request, transaction_id: str) -> HttpResponse:
+    def delete(self, request, transaction_id: str):
         try:
-            transaction = Transaction.objects.get(id=transaction_id)
-            transaction.delete()
-            response = {"status": "transaction deleted"}
-            status = 200
+            payload = delete_transaction(request.user, transaction_id)
         except Transaction.DoesNotExist:
-            response = {"error": "transaction not found"}
-            status = 400
-        except Exception as e:
-            response = {"error": "Failed to delete transaction", "details": str(e)}
-            status = 400
-        
-        return HttpResponse(
-            json.dumps(response, default=str),
-            status=status,
-            content_type="application/json",
-        )
+            return Response({"error": "transaction not found"}, status=status.HTTP_404_NOT_FOUND)
+        except ValidationError as exc:
+            return _validation_response(exc)
+
+        return Response({"status": "transaction deleted", "deleted_transaction": payload}, status=status.HTTP_200_OK)

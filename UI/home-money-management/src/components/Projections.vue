@@ -12,19 +12,16 @@
 
         <!-- Controls Section -->
         <div class="controls-section">
-            <v-row>
-                <v-col cols="12" md="6">
-                    <v-select v-model="selectedAccount" :items="accountOptions" label="Account Filter"
-                        variant="outlined" rounded="lg" prepend-inner-icon="mdi-account"
-                        @update:model-value="updateChart"></v-select>
-                </v-col>
-                <v-col cols="12" md="6">
-                    <v-btn color="primary" variant="outlined" rounded="lg" @click="refreshChart" :loading="isLoading">
-                        <v-icon left>mdi-refresh</v-icon>
-                        Refresh
-                    </v-btn>
-                </v-col>
-            </v-row>
+            <div class="projection-controls-toolbar">
+                <v-select v-model="selectedAccount" :items="accountOptions" aria-label="Account Filter"
+                    variant="outlined" density="compact" hide-details rounded="lg" prepend-inner-icon="mdi-account"
+                    class="projection-control-select" @update:model-value="updateChart"></v-select>
+                <v-btn color="primary" variant="outlined" rounded="lg" height="44" class="projection-refresh-button"
+                    @click="refreshChart" :loading="isLoading">
+                    <v-icon start>mdi-refresh</v-icon>
+                    Refresh
+                </v-btn>
+            </div>
         </div>
 
         <!-- Chart Section -->
@@ -79,11 +76,10 @@
 .projections-container {
     width: 100%;
     padding: 24px;
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(10px);
+    background: #ffffff;
     border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(76, 175, 80, 0.1);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    border: 1px solid #f3f4f6;
 }
 
 .projections-header {
@@ -103,13 +99,60 @@
     margin-bottom: 32px;
 }
 
+.projection-controls-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.projection-control-select {
+    flex: 0 1 240px;
+    max-width: 240px;
+    min-width: 220px;
+}
+
+.projection-refresh-button {
+    min-width: 132px;
+    text-transform: none;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+
+:deep(.projection-control-select .v-field) {
+    background: #ffffff;
+    border-radius: 12px;
+    height: 44px;
+    min-height: 44px;
+}
+
+:deep(.projection-control-select .v-field__input) {
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 600;
+    min-height: 44px;
+    padding-bottom: 0;
+    padding-top: 0;
+}
+
+:deep(.projection-control-select .v-field__prepend-inner) {
+    padding-top: 10px;
+}
+
+.projection-refresh-button :deep(.v-btn__content) {
+    align-items: center;
+    gap: 6px;
+}
+
 .chart-section {
     margin-bottom: 24px;
 }
 
 .projections-card {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(10px);
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    box-shadow: none !important;
 }
 
 .chart-wrapper {
@@ -174,6 +217,12 @@
 
     .legend-item {
         justify-content: flex-start;
+    }
+
+    .projection-control-select,
+    .projection-refresh-button {
+        max-width: none;
+        width: 100%;
     }
 }
 </style>
@@ -241,7 +290,8 @@ export default {
             required: true
         }
     },
-    data: (): Partial<ProjectionsComponentInstance> => ({
+    data() {
+        return {
         selectedAccount: 'all',
         isLoading: false,
         monthlyData: [],
@@ -260,7 +310,7 @@ export default {
                     display: false
                 },
                 tooltip: {
-                    mode: 'index',
+                    mode: 'index' as const,
                     intersect: false,
                     callbacks: {
                         label: function (context: any) {
@@ -294,12 +344,13 @@ export default {
                 }
             },
             interaction: {
-                mode: 'nearest',
-                axis: 'x',
+                mode: 'nearest' as const,
+                axis: 'x' as const,
                 intersect: false
             }
         }
-    }),
+        };
+    },
     mounted() {
         this.initializeAccountOptions();
         this.updateChart();

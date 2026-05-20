@@ -11,11 +11,9 @@ import 'vuetify/styles'
 // Composables
 import { createVuetify } from 'vuetify'
 
-import {
-  VDataTable,
-} from "vuetify/labs/VDataTable";
-
 // https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
+// VDataTable is automatically imported via vite-plugin-vuetify's autoImport feature
+// No manual registration needed when autoImport: true is set in vite.config.ts
 export default createVuetify({
   theme: {
     defaultTheme: 'light',
@@ -57,9 +55,6 @@ export default createVuetify({
         },
       },
     },
-  },
-  components: {
-    VDataTable,
   },
   defaults: {
     VCard: {

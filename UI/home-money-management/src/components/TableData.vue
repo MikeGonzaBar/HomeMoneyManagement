@@ -5,12 +5,7 @@
             :loading="false">
             <template v-slot:top>
                 <div class="table-header">
-                    <div class="d-flex align-center justify-space-between pa-4">
-                        <div>
-                            <p class="text-caption text-grey-darken-1 mb-0">{{ (this as any).internalTransactions.length
-                            }}
-                                transactions found</p>
-                        </div>
+                    <div class="d-flex align-center justify-end pa-4">
                         <v-dialog v-model="(this as any).dialog" :max-width="$vuetify.display.mobile ? '95%' : '600px'"
                             persistent>
                             <template v-slot:activator="{ props }">
@@ -69,7 +64,8 @@
                                         <v-row>
                                             <v-col cols="12" md="6">
                                                 <v-select v-model="editedItem.account_id" label="Account"
-                                                    :items="internalAccounts" variant="outlined" rounded="lg"
+                                                    :items="internalAccounts" item-title="title" item-value="value"
+                                                    variant="outlined" rounded="lg"
                                                     prepend-inner-icon="mdi-bank"></v-select>
                                             </v-col>
                                             <v-col cols="12" md="6">
@@ -126,31 +122,40 @@
 
             <!-- Custom row styling -->
             <template v-slot:item.transaction_type="{ item }">
-                <v-chip :color="item.transaction_type === 'Income' ? 'success' : 'error'" size="small" variant="tonal"
+                <v-chip :color="asTransaction(item).transaction_type === 'Income' ? 'success' : 'error'" size="small" variant="tonal"
                     class="font-weight-medium">
-                    <v-icon :icon="item.transaction_type === 'Income' ? 'mdi-trending-up' : 'mdi-trending-down'"
+                    <v-icon :icon="asTransaction(item).transaction_type === 'Income' ? 'mdi-trending-up' : 'mdi-trending-down'"
                         size="16" class="me-1"></v-icon>
-                    {{ item.transaction_type }}
+                    {{ asTransaction(item).transaction_type }}
                 </v-chip>
             </template>
 
             <template v-slot:item.total="{ item }">
                 <span class="font-weight-bold"
-                    :class="item.transaction_type === 'Income' ? 'text-success' : 'text-error'">
-                    {{ item.transaction_type === 'Income' ? '+' : '-' }}${{ Math.abs(item.total).toLocaleString() }}
+                    :class="asTransaction(item).transaction_type === 'Income' ? 'text-success' : 'text-error'">
+                    {{ asTransaction(item).transaction_type === 'Income' ? '+' : '-' }}${{ Math.abs(asTransaction(item).total).toLocaleString() }}
                 </span>
             </template>
 
+            <template v-slot:item.category="{ item }">
+                <div class="d-flex align-center">
+                    <v-avatar :color="getCategoryStyle(asTransaction(item).category).color" size="28" rounded class="me-2">
+                        <v-icon :icon="getCategoryStyle(asTransaction(item).category).icon" size="14" color="white"></v-icon>
+                    </v-avatar>
+                    <span class="text-body-2">{{ asTransaction(item).category }}</span>
+                </div>
+            </template>
+
             <template v-slot:item.date="{ item }">
-                <span class="text-body-2">{{ formatDate(item.date) }}</span>
+                <span class="text-body-2">{{ formatDate(asTransaction(item).date) }}</span>
             </template>
 
             <template v-slot:item.actions="{ item }">
                 <div class="d-flex align-center">
-                    <v-btn icon size="small" variant="text" color="primary" @click="editItem(item)" class="me-1">
+                    <v-btn icon size="small" variant="text" color="primary" @click="editItem(asTransaction(item))" class="me-1">
                         <v-icon size="18">mdi-pencil</v-icon>
                     </v-btn>
-                    <v-btn icon size="small" variant="text" color="error" @click="deleteItem(item)">
+                    <v-btn icon size="small" variant="text" color="error" @click="deleteItem(asTransaction(item))">
                         <v-icon size="18">mdi-delete</v-icon>
                     </v-btn>
                 </div>
@@ -173,8 +178,9 @@
 </template>
 
 <script lang="ts">
-import axios from 'axios';
-// import * as Vue from 'vue';
+import axios from '@/services/api';
+import { getCategoryStyle as getCategoryStyleUtil } from '@/constants/categoryStyles';
+import { toMoneyNumber } from '@/services/money';
 
 interface Transaction {
     id: number;
@@ -214,7 +220,7 @@ export default {
     data() {
         return {
             internalTransactions: [] as Transaction[],
-            internalAccounts: [] as String[],
+            internalAccounts: [] as Array<{ title: string; value: string }>,
             dialog: false,
             dialogDelete: false,
             headers: [
@@ -264,7 +270,9 @@ export default {
                 transaction_type: '',
             } as Transaction,
             categories: [
+                'Account Transfer',
                 'Awards',
+                'Balance Transfer',
                 'Bills and utilities',
                 'Education',
                 'Entertainment',
@@ -274,10 +282,12 @@ export default {
                 'Investments',
                 'Loans',
                 'Medical',
+                'Money Transfer',
                 'Others',
                 'Salary',
                 'Shopping',
                 'Transportation',
+                'Transfer',
             ],
         }
     },
@@ -306,11 +316,10 @@ export default {
             handler(newVal: Transaction[]) {
                 (this as any).internalTransactions = []
                 newVal.forEach((transaction: Transaction) => {
-                    let tempTransaction = transaction
-                    if (transaction.transaction_type === 'Expense') {
-                        tempTransaction.total = -transaction.total
-                    }
-                    (this as any).internalTransactions.push(tempTransaction)
+                    (this as any).internalTransactions.push({
+                        ...transaction,
+                        total: Math.abs(toMoneyNumber(transaction.total))
+                    })
                 })
             }
         },
@@ -325,7 +334,10 @@ export default {
             handler(newVal: Account[]) {
                 (this as any).internalAccounts = []
                 newVal.forEach((account: Account) => {
-                    (this as any).internalAccounts.push(account.account_name)
+                    (this as any).internalAccounts.push({
+                        title: account.account_name,
+                        value: String(account.id)
+                    })
                 })
             }
         },
@@ -336,6 +348,9 @@ export default {
     },
     emits: ['updateAccounts', 'updateIncomeExpense'],
     methods: {
+        asTransaction(item: unknown): Transaction {
+            return item as Transaction;
+        },
         formatDate(dateString: string): string {
             const date = new Date(dateString);
             return date.toLocaleDateString('en-US', {
@@ -343,6 +358,9 @@ export default {
                 month: 'short',
                 day: 'numeric'
             });
+        },
+        getCategoryStyle(category: string) {
+            return getCategoryStyleUtil(category);
         },
 
         editItem(item: Transaction) {
@@ -367,24 +385,12 @@ export default {
 
         deleteItemConfirm() {
             let idToDelete = (this as any).editedItem.id;
-            let account_id = (this as any).editedItem.account_id;
-            let account = (this as any).accounts.find((account: Account) => account.id === Number(account_id));
-            let new_total = account!.total + (-1 * ((this as any).editedItem.total));
-            axios.delete(`http://localhost:8000/transactions/delete/${idToDelete}/`)
+            axios.delete(`/transactions/delete/${idToDelete}/`)
                 .then((response: any) => {
                     (this as any).internalTransactions.splice((this as any).editedIndex, 1);
-                    axios.patch(`http://localhost:8000/accounts/details/${(this as any).userData.user.username}/${account_id}/`, {
-                        "total": new_total,
-                    })
-                        .then((patchResponse: any) => {
-                            (this as any).$emit('updateAccounts');
-                            (this as any).$emit('updateIncomeExpense');
-
-                            (this as any).closeDelete();
-                        })
-                        .catch((patchError: any) => {
-                            console.log(patchError);
-                        });
+                    (this as any).$emit('updateAccounts');
+                    (this as any).$emit('updateIncomeExpense');
+                    (this as any).closeDelete();
                 })
                 .catch((error: any) => {
                     console.log(error);
@@ -404,18 +410,6 @@ export default {
                         ; (this as any).editedIndex = -1
                 })
         },
-        getDiff(oldTransaction: Transaction): number {
-            let diff = 0;
-            if (oldTransaction.transaction_type === (this as any).editedItem.transaction_type) {
-                diff = Number((this as any).editedItem.total) - Math.abs(oldTransaction.total);
-            } else {
-                diff = Math.abs(oldTransaction.total) + Number((this as any).editedItem.total);
-                if (oldTransaction.transaction_type === 'Income' && (this as any).editedItem.transaction_type === 'Expense') {
-                    diff *= -1;
-                }
-            }
-            return diff;
-        },
         saveTransaction() {
             if ((this as any).editedIndex > -1) {
                 let oldTransaction = (this as any).internalTransactions[(this as any).editedIndex];
@@ -423,56 +417,24 @@ export default {
                     (this as any).close();
                     return;
                 }
-                let diff = (this as any).getDiff(oldTransaction);
-
-                let account_id = (this as any).editedItem.account_id;
-                let account = (this as any).accounts.find((account: Account) => account.id === Number(account_id));
-                let new_total = account!.total + diff;
 
                 Object.assign((this as any).internalTransactions[(this as any).editedIndex], (this as any).editedItem)
-                axios.patch(`http://localhost:8000/transactions/update/${(this as any).editedItem.id}/`, (this as any).editedItem)
+                axios.patch(`/transactions/update/${(this as any).editedItem.id}/`, (this as any).editedItem)
                     .then((response: any) => {
-                        axios.patch(`http://localhost:8000/accounts/details/${(this as any).userData.user.username}/${account_id}/`, {
-                            "total": new_total,
-                        })
-                            .then((patchResponse: any) => {
-                                console.log(patchResponse);
-                                (this as any).$emit('updateAccounts');
-                                (this as any).$emit('updateIncomeExpense');
-                            })
-                            .catch((patchError: any) => {
-                                console.log(patchError);
-                            });
+                        (this as any).internalTransactions[(this as any).editedIndex] = response.data.updated_transaction;
+                        (this as any).$emit('updateAccounts');
+                        (this as any).$emit('updateIncomeExpense');
                     })
                     .catch((error: any) => {
                         console.log(error);
                     });
             } else {
                 (this as any).editedItem.owner_id = (this as any).userData.user.username
-                let account_name = (this as any).editedItem.account_id;
-                let account = (this as any).accounts.find((account: Account) => account.account_name === account_name);
-                let account_id = account ? account.id : null;
-                (this as any).editedItem.account_id = String(account_id)
-                let new_total = account!.total
-                if ((this as any).editedItem.transaction_type === 'Expense') {
-                    new_total -= Number((this as any).editedItem.total)
-                } else {
-                    new_total += Number((this as any).editedItem.total)
-                }
-
-                axios.post('http://localhost:8000/transactions/create/', (this as any).editedItem)
+                axios.post('/transactions/create/', (this as any).editedItem)
                     .then((response: any) => {
                         (this as any).internalTransactions.push(response.data)
-                        axios.patch(`http://localhost:8000/accounts/details/${(this as any).userData.user.username}/${account_id}/`, {
-                            "total": new_total,
-                        })
-                            .then((patchResponse: any) => {
-                                (this as any).$emit('updateAccounts');
-                                (this as any).$emit('updateIncomeExpense');
-                            })
-                            .catch((patchError: any) => {
-                                console.log(patchError);
-                            });
+                        (this as any).$emit('updateAccounts');
+                        (this as any).$emit('updateIncomeExpense');
                     })
                     .catch((error: any) => {
                         console.log(error)
@@ -497,16 +459,15 @@ export default {
 }
 
 .table-header {
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background: #ffffff;
+    border-bottom: 1px solid #f3f4f6;
 }
 
 /* Modern dialog styling */
 .modern-dialog {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #ffffff;
+    border: 1px solid #f3f4f6;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.14);
 }
 
 /* Data table custom styling */
@@ -517,16 +478,16 @@ export default {
 :deep(.v-data-table__wrapper) {
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: none;
 }
 
 :deep(.v-data-table-header) {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1) !important;
+    background: #f9fafb;
+    border-bottom: 1px solid #f3f4f6 !important;
 }
 
 :deep(.v-data-table-footer) {
-    border-top: 1px solid rgba(0, 0, 0, 0.1) !important;
+    border-top: 1px solid #f3f4f6 !important;
     border-bottom: none !important;
 }
 
@@ -571,27 +532,27 @@ export default {
 }
 
 :deep(.v-data-table__tr:hover) {
-    background: rgba(76, 175, 80, 0.05) !important;
-    transform: scale(1.01);
+    background: #f9fafb !important;
+    transform: none;
 }
 
 :deep(.v-data-table__tr:nth-child(even)) {
-    background: rgba(248, 249, 250, 0.5);
+    background: #ffffff;
 }
 
 :deep(.v-data-table__tr:nth-child(odd)) {
-    background: rgba(255, 255, 255, 0.8);
+    background: #ffffff;
 }
 
 :deep(.v-data-table__td) {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid #f3f4f6;
     padding: 16px 12px;
 }
 
 /* Pagination styling */
 :deep(.v-data-table-footer) {
-    background: rgba(255, 255, 255, 0.9);
-    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    background: #ffffff;
+    border-top: 1px solid #f3f4f6;
     padding: 16px 24px;
 }
 
@@ -773,32 +734,14 @@ export default {
     }
 }
 
-/* Animation for table rows */
-:deep(.v-data-table__tr) {
-    animation: slideInRow 0.3s ease-out;
-}
-
-@keyframes slideInRow {
-    from {
-        opacity: 0;
-        transform: translateX(-20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
 /* Loading state */
 :deep(.v-data-table__loading) {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(10px);
+    background: #ffffff;
 }
 
 /* Empty state styling */
 :deep(.v-data-table__empty-wrapper) {
-    background: rgba(255, 255, 255, 0.8);
+    background: #ffffff;
     border-radius: 16px;
     margin: 16px;
 }
