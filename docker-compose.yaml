@@ -2,7 +2,8 @@ services:
   postgres:
     hostname: postgres
     container_name: money-management-postgres
-    image: postgres:15-alpine
+    build: ./docker/postgres
+    image: homemoneymanagement-postgres:15.18-alpine3.23-gosu
     environment:
       POSTGRES_DB: "${POSTGRES_DB:-moneymanagement}"
       POSTGRES_USER: "${POSTGRES_USER:-postgres}"

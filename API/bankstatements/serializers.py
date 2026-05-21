@@ -47,6 +47,9 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
     
     file_size_display = serializers.SerializerMethodField()
     upload_date_display = serializers.SerializerMethodField()
+    review_batch_id = serializers.SerializerMethodField()
+    review_batch_status = serializers.SerializerMethodField()
+    review_candidate_count = serializers.SerializerMethodField()
     
     class Meta:
         model = BankStatement
@@ -59,7 +62,10 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
             'upload_date_display',
             'processed',
             'processing_status',
-            'error_message'
+            'error_message',
+            'review_batch_id',
+            'review_batch_status',
+            'review_candidate_count',
         ]
         read_only_fields = fields
     
@@ -70,3 +76,18 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
     def get_upload_date_display(self, obj):
         """Return formatted upload date."""
         return obj.upload_date.strftime('%Y-%m-%d %H:%M:%S')
+
+    def get_review_batch(self, obj):
+        return obj.import_batches.order_by('-created_at').first()
+
+    def get_review_batch_id(self, obj):
+        batch = self.get_review_batch(obj)
+        return batch.id if batch else None
+
+    def get_review_batch_status(self, obj):
+        batch = self.get_review_batch(obj)
+        return batch.status if batch else None
+
+    def get_review_candidate_count(self, obj):
+        batch = self.get_review_batch(obj)
+        return batch.candidates.count() if batch else 0

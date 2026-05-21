@@ -120,6 +120,9 @@ INSTALLED_APPS = [
     "transaction",
     "bankstatements",
     "reports",
+    "budgets",
+    "recurring",
+    "alerts",
     # requirements
     "corsheaders",
 ]

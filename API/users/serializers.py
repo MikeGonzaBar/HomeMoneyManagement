@@ -18,9 +18,10 @@ class UserSerializer(serializers.ModelSerializer):
             "password",
             "password_confirm",
             "first_name",
-            "last_name"
+            "last_name",
+            "theme_preference",
         )
-        read_only_fields = ("id",)
+        read_only_fields = ("id", "theme_preference")
         extra_kwargs = {
             "username": {"required": True},
             "first_name": {"required": True},
@@ -69,6 +70,7 @@ class UserResponseSerializer(serializers.ModelSerializer):
             "id",
             "username",
             "first_name",
-            "last_name"
+            "last_name",
+            "theme_preference",
         )
         read_only_fields = fields

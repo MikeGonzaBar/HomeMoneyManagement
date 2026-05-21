@@ -1,14 +1,15 @@
 # MoneyManagement Backend
 
-This Django REST API powers Budget Buddy's users, accounts, transactions, bank statements, and reports. All application data endpoints require DRF-style opaque token authentication.
+This Django REST API powers Budget Buddy's users, accounts, transactions, budgets, recurring transactions, bank statements, reports, and in-app alerts. All application data endpoints require DRF-style opaque token authentication.
 
 ## Requirements
 
 ```text
-Django == 4.2.24
+Django == 4.2.30
 djangorestframework == 3.15.2
 django-cors-headers == 4.2.0
 psycopg2-binary == 2.9.9
+setuptools >= 75.0.0
 google-genai >= 1.0.0
 python-dotenv >= 1.0.0
 pypdf >= 3.0.0
@@ -38,7 +39,8 @@ Register and login return the same response shape:
     "id": 1,
     "username": "john_doe",
     "first_name": "John",
-    "last_name": "Doe"
+    "last_name": "Doe",
+    "theme_preference": "system"
   }
 }
 ```
@@ -100,7 +102,15 @@ gunicorn --bind 0.0.0.0:8000 --workers=4 MoneyManagement.wsgi:application
 - Income increases the selected account balance.
 - Expense decreases the selected account balance.
 - Transfer decreases the source account and increases the destination account.
+- Transfer transactions require different source and destination accounts.
+- Transfers are not counted as income or expense in reports.
 - Credit-card balances use the same signed movement semantics as the UI's available-credit model.
+- Budgets are monthly and scoped to the authenticated user.
+- Recurring rules generate due occurrences; real transactions are created only when an occurrence is posted.
+- Import review candidates can be imported, skipped, or linked to an existing transaction.
+- Import batch commits are idempotent; already processed candidates are ignored on repeat commits.
+- Alerts are owner-scoped and in-app only.
+- User preferences currently include `theme_preference`: `system`, `light`, or `dark`.
 
 Legacy string fields such as `owner`, `owner_id`, `account_id`, `from_account_id`, `to_account_id`, and `user_id` are still populated for compatibility, but new integrity is anchored by foreign keys.
 
@@ -116,6 +126,8 @@ Legacy string fields such as `owner`, `owner_id`, `account_id`, `from_account_id
 | `GET` | `/user/profile/` | Yes | Return the authenticated user profile. |
 | `PUT` | `/user/update-info/` | Yes | Update the authenticated user's username/name. |
 | `PUT` | `/user/change-password/` | Yes | Change the authenticated user's password. |
+| `GET` | `/user/preferences/` | Yes | Return persisted user preferences. |
+| `PUT` | `/user/preferences/` | Yes | Update persisted preferences such as `theme_preference`. |
 | `GET` | `/user/detail/<username>/` | Yes | Return details only for the token user. |
 | `DELETE` | `/user/detail/<username>/` | Yes | Delete only the token user's account after password confirmation. |
 
@@ -178,6 +190,56 @@ Transfer payload:
 }
 ```
 
+### Budgets
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/budgets/?month=YYYY-MM` | List budgets for the token user and month. |
+| `POST` | `/budgets/` | Create an owned monthly budget. |
+| `GET` | `/budgets/<id>/` | Retrieve one owned budget. |
+| `PATCH` | `/budgets/<id>/` | Update one owned budget. |
+| `DELETE` | `/budgets/<id>/` | Delete one owned budget. |
+| `GET` | `/budgets/summary/?month=YYYY-MM` | Return summary rows with calculated spend, remaining, percent used, and status. |
+
+Budget payload:
+
+```json
+{
+  "month": "2026-05",
+  "scope": "category",
+  "category": "Groceries",
+  "limit_amount": 450
+}
+```
+
+Use `"scope": "overall"` with `"category": null` for an overall monthly budget.
+
+### Recurring Transactions
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/recurring-transactions/` | List recurring rules for the token user. |
+| `POST` | `/recurring-transactions/` | Create a recurring income, expense, or transfer rule. |
+| `GET` | `/recurring-transactions/<id>/` | Retrieve one owned recurring rule. |
+| `PATCH` | `/recurring-transactions/<id>/` | Update one owned recurring rule. |
+| `DELETE` | `/recurring-transactions/<id>/` | Delete one owned recurring rule. |
+| `GET` | `/recurring-transactions/due/?through=YYYY-MM-DD` | Generate/list due occurrences through a date. |
+| `POST` | `/recurring-transactions/due/<occurrence_id>/post/` | Confirm and post a due occurrence as a real transaction. |
+| `POST` | `/recurring-transactions/due/<occurrence_id>/skip/` | Skip a due occurrence. |
+
+Recurring rules use the same transaction template fields as manual transactions plus:
+
+```json
+{
+  "frequency": "monthly",
+  "interval": 1,
+  "start_date": "2026-05-01",
+  "next_due_date": "2026-06-01",
+  "end_date": null,
+  "active": true
+}
+```
+
 ### Bank Statements
 
 | Method | Path | Description |
@@ -186,8 +248,13 @@ Transfer payload:
 | `GET` | `/bank-statements/user/<user_id>/` | List statements for the token user. |
 | `GET` | `/bank-statements/details/<statement_id>/` | Get one owned statement. |
 | `DELETE` | `/bank-statements/delete/<statement_id>/` | Delete one owned statement. |
+| `GET` | `/bank-statements/import-batches/<id>/` | Retrieve an owned persisted import review batch. |
+| `PATCH` | `/bank-statements/import-candidates/<id>/` | Set a candidate decision: import, skip, or link to an existing transaction. |
+| `POST` | `/bank-statements/import-batches/<id>/commit/` | Idempotently commit candidate decisions. |
 
-Upload form data accepts `pdf_file` and optional `password`. Any submitted `user_id` is ignored as authority.
+Upload form data accepts `pdf_file` and optional `password`. Any submitted `user_id` is ignored as authority. Upload responses still include extracted data for compatibility and also return a `review_batch_id` for reconciliation.
+
+Candidate matching detects possible duplicates by owner, account, date, amount, normalized title, and transaction type. The client can import new transactions, skip rows, or link candidates to existing transactions.
 
 ### Reports
 
@@ -195,8 +262,40 @@ Upload form data accepts `pdf_file` and optional `password`. Any submitted `user
 | --- | --- | --- |
 | `GET` | `/reports/analytics/<username>/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` | KPIs, chart data, net worth, categories, and insights for the token user. |
 | `GET` | `/reports/insights/<username>/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD` | Smart insight payload for the token user. |
+| `GET` | `/reports/forecast/<username>/?months=6` | Cashflow forecast for up to 12 months. |
 
 If `GOOGLE_AI_API_KEY` is configured, report insights use Gemini. Otherwise the API returns deterministic data-driven fallback insights.
+
+Forecasting uses current balances, confirmed real transactions through today, active recurring transactions for future known items, monthly category budgets where configured, and trailing 3-month category averages where no budget or recurring data exists.
+
+### Alerts
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/alerts/` | List non-dismissed alerts for the token user. |
+| `POST` | `/alerts/refresh/` | Regenerate budget, recurring, forecast, and import-review alerts. |
+| `PATCH` | `/alerts/<id>/read/` | Mark an owned alert as read. |
+| `PATCH` | `/alerts/<id>/dismiss/` | Dismiss an owned alert. |
+
+V1 alert types cover budget 80%/100% thresholds, recurring due/overdue items, forecasted negative balances within 30 days, and import candidates with possible duplicate matches.
+
+## Container And Dependency Security
+
+The current Docker stack uses Alpine 3.23-based runtime images:
+
+- API: `python:3.12.13-alpine3.23`
+- UI builder: `node:lts-alpine3.23`
+- UI runtime: `nginx:stable-alpine3.23`
+- Database: `postgres:15.18-alpine3.23` with locally built `gosu`
+
+Before broad testing or release, run:
+
+```bash
+docker compose build
+docker run --rm -v "${PWD}:/repo" -w /repo/UI/home-money-management node:lts-alpine3.23 npm audit --audit-level=high
+```
+
+The latest hardening pass verified 0 high/critical findings for the API image, UI image, Postgres image, API `requirements.txt`, and UI `package-lock.json` via Trivy.
 
 ## Regression Commands
 

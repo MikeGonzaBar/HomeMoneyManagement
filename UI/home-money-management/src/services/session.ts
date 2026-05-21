@@ -3,6 +3,7 @@ export interface SessionUser {
   username: string
   first_name: string
   last_name: string
+  theme_preference?: 'system' | 'light' | 'dark'
 }
 
 export interface StoredSession {

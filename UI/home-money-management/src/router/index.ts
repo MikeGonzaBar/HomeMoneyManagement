@@ -21,6 +21,16 @@ const routes = [
     component: () => import(/* webpackChunkName: "transactions" */ '@/views/Transactions.vue'),
   },
   {
+    path: '/budgets',
+    name: 'Budgets',
+    component: () => import(/* webpackChunkName: "budgets" */ '@/views/Budgets.vue'),
+  },
+  {
+    path: '/recurring',
+    name: 'Recurring',
+    component: () => import(/* webpackChunkName: "recurring" */ '@/views/Recurring.vue'),
+  },
+  {
     path: '/reports',
     name: 'Reports',
     component: () => import(/* webpackChunkName: "reports" */ '@/views/Reports.vue'),

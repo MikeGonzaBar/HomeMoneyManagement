@@ -14,6 +14,15 @@ class User(models.Model):
     password = models.CharField(max_length=128)
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
+    theme_preference = models.CharField(
+        max_length=10,
+        choices=[
+            ("system", "System"),
+            ("light", "Light"),
+            ("dark", "Dark"),
+        ],
+        default="system",
+    )
 
     def __str__(self):
         return f"{self.username}"

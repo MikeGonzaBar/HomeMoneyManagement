@@ -15,18 +15,19 @@
             <router-link to="/transactions" class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
             Transactions
           </router-link>
+            <router-link to="/budgets" class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
+            Budgets
+          </router-link>
+            <router-link to="/recurring" class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
+            Recurring
+          </router-link>
             <router-link to="/reports" class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary shadow-sm">
             Reports
           </router-link>
           </nav>
           <div class="flex items-center justify-end gap-3 min-w-0">
-            <button class="bb-icon-button relative" aria-label="Notifications">
-          <svg class="h-6 w-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-          </svg>
-          <span class="absolute top-2 right-2 w-2 h-2 bg-brand-primary rounded-full border-2 border-white"></span>
-        </button>
+            <AlertCenter />
+            <ThemeToggle />
             <div class="flex items-center gap-3 rounded-full border border-gray-100 bg-gray-50 py-1 pl-4 pr-1.5">
               <div class="text-right hidden sm:block">
                 <p class="text-sm font-semibold text-gray-900 leading-none">{{ userData.user?.first_name }} {{ userData.user?.last_name }}</p>
@@ -113,6 +114,24 @@
 
       <!-- Main Grid -->
       <div class="reports-main-grid">
+        <div class="reports-card reports-chart-card lg:col-span-3">
+          <div class="reports-card-header">
+            <div>
+              <h3 class="text-lg font-bold text-gray-900">Cashflow Forecast</h3>
+              <p class="text-sm text-gray-500">Next {{ forecast?.months || 6 }} months using recurring items, budgets, and history</p>
+            </div>
+          </div>
+          <div class="forecast-strip">
+            <article v-for="month in forecastMonths" :key="month.month" class="forecast-month">
+              <p class="forecast-label">{{ month.month }}</p>
+              <p class="forecast-net" :class="month.expected_net < 0 ? 'negative' : ''">
+                {{ month.expected_net >= 0 ? '+' : '' }}${{ month.expected_net.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+              </p>
+              <p class="forecast-meta">In ${{ month.expected_income.toLocaleString('en-US', { maximumFractionDigits: 0 }) }} · Out ${{ month.expected_expenses.toLocaleString('en-US', { maximumFractionDigits: 0 }) }}</p>
+            </article>
+          </div>
+        </div>
+
         <!-- Income vs Expenses Bar Chart -->
         <div class="reports-card reports-chart-card lg:col-span-2">
           <div class="reports-card-header">
@@ -182,9 +201,9 @@
               <p class="text-sm text-gray-500">Variable costs trend analysis</p>
             </div>
             <div class="flex flex-wrap items-center gap-4 text-xs font-bold">
-              <div v-for="(c, i) in categoryLegend" :key="c" class="flex items-center gap-1.5">
-                <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: categoryColors[i % categoryColors.length] }"></span>
-                <span>{{ c }}</span>
+              <div v-for="c in categoryLegend" :key="c" class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full reports-legend-dot" :style="{ backgroundColor: getReportCategoryColor(c) }"></span>
+                <span class="reports-legend-text">{{ c }}</span>
               </div>
             </div>
           </div>
@@ -198,12 +217,12 @@
                 <div
                   v-for="(amt, cat) in m.categories"
                   :key="cat"
-                  class="w-full min-h-[2px] rounded-t transition-all hover:opacity-90"
-                  :style="{ height: categoryBarHeight(m, cat), backgroundColor: getCategoryColor(cat) }"></div>
+                  class="w-full min-h-[2px] rounded-t transition-all hover:opacity-90 reports-stacked-segment"
+                  :style="{ height: categoryBarHeight(m, cat), backgroundColor: getReportCategoryColor(cat) }"></div>
               </div>
             </div>
             <div class="flex px-2 pb-1 gap-1">
-              <span v-for="m in spendingByCategory" :key="m.month" class="flex-1 text-[10px] font-medium text-gray-400 text-center">{{ m.label }}</span>
+              <span v-for="m in spendingByCategory" :key="m.month" class="flex-1 reports-chart-month-label text-center">{{ m.label }}</span>
             </div>
           </div>
         </div>
@@ -220,7 +239,7 @@
               <div class="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
                 <div
                   class="h-full rounded-full transition-all"
-                  :style="{ width: topCategoryWidth(tc), backgroundColor: getCategoryColor(tc.category) }"></div>
+                  :style="{ width: topCategoryWidth(tc), backgroundColor: getReportCategoryColor(tc.category) }"></div>
               </div>
             </div>
             <p v-if="topCategories.length === 0" class="text-sm text-gray-500">No expense data for this period.</p>
@@ -306,6 +325,60 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
+.forecast-strip {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.forecast-month {
+  background: var(--bb-surface-soft, #f9fafb);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.forecast-month::before {
+  background: var(--bb-metric-positive, #10b981);
+  content: '';
+  display: block;
+  height: 100%;
+  left: 0;
+  opacity: 0.72;
+  position: absolute;
+  top: 0;
+  width: 3px;
+}
+
+.forecast-month > * {
+  position: relative;
+}
+
+.forecast-label,
+.forecast-meta {
+  color: var(--bb-text-muted, #6b7280);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.forecast-net {
+  color: var(--bb-metric-positive, #10b981);
+  font-size: 1.2rem;
+  font-weight: 900;
+  margin: 0.35rem 0;
+}
+
+.forecast-net.negative {
+  color: var(--bb-metric-negative, #ef4444);
+}
+
+.forecast-month:has(.forecast-net.negative)::before {
+  background: var(--bb-metric-negative, #ef4444);
+}
+
 .reports-card {
   background: #ffffff;
   border: 1px solid #f3f4f6;
@@ -354,8 +427,8 @@
 }
 
 .reports-stacked-chart {
-  background: #f9fafb;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface-soft, #f9fafb);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 0.875rem;
   display: flex;
   flex-direction: column;
@@ -363,6 +436,38 @@
   overflow: hidden;
   position: relative;
   width: 100%;
+}
+
+.reports-stacked-chart::before {
+  background-image: linear-gradient(to top, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+  background-size: 100% 25%;
+  content: '';
+  inset: 0 0 1.5rem;
+  pointer-events: none;
+  position: absolute;
+}
+
+.reports-stacked-segment {
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.14);
+  position: relative;
+  z-index: 1;
+}
+
+.reports-legend-dot {
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.reports-legend-text,
+.reports-chart-month-label {
+  color: var(--bb-text-muted, #9ca3af);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.reports-chart-month-label {
+  font-size: 0.625rem;
+  line-height: 1rem;
 }
 
 .reports-insights-card {

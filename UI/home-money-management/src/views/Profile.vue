@@ -91,6 +91,18 @@
 
                         <v-divider class="my-6"></v-divider>
 
+                        <h6 class="font-weight-bold mb-4">Appearance</h6>
+                        <div class="d-flex flex-wrap align-center gap-3 mb-6">
+                            <v-select v-model="themePreference" :items="themeOptions" label="Theme"
+                                variant="outlined" rounded="lg" hide-details class="theme-select"></v-select>
+                            <v-btn color="primary" variant="outlined" rounded="lg" :loading="savingTheme"
+                                @click="saveThemePreference">
+                                Save Theme
+                            </v-btn>
+                        </div>
+
+                        <v-divider class="my-6"></v-divider>
+
                         <!-- Change Password Section -->
                         <h6 class="font-weight-bold mb-4">Change Password</h6>
                         <v-form ref="passwordForm" v-model="passwordFormValid">
@@ -192,6 +204,12 @@
                                                 {{ file.processing_status }}
                                             </v-chip>
 
+                                            <v-btn v-if="file.review_batch_id && file.review_batch_status === 'review'"
+                                                color="primary" variant="tonal" size="small" rounded="lg"
+                                                class="me-2" @click="continueReview(file)">
+                                                Review
+                                            </v-btn>
+
                                             <!-- Delete Button -->
                                             <v-btn icon="mdi-delete" color="red" variant="text" size="small"
                                                 @click="confirmDeleteFile(file)" class="smooth-transition"></v-btn>
@@ -237,11 +255,13 @@
 <script lang="ts">
 import axios from '@/services/api';
 import { getStoredSession, setStoredSession } from '@/services/session';
+import { applyDocumentTheme, type ThemePreference } from '@/services/theme';
 
 interface UserInfo {
     username: string;
     first_name: string;
     last_name: string;
+    theme_preference?: ThemePreference;
 }
 
 interface PasswordData {
@@ -260,6 +280,9 @@ interface UserFile {
     processed: boolean;
     processing_status: string;
     error_message: string | null;
+    review_batch_id?: number | null;
+    review_batch_status?: string | null;
+    review_candidate_count?: number;
 }
 
 export default {
@@ -280,6 +303,13 @@ export default {
             } as UserInfo,
             personalFormValid: false,
             savingPersonalInfo: false,
+            themePreference: 'system' as ThemePreference,
+            savingTheme: false,
+            themeOptions: [
+                { title: 'Use system setting', value: 'system' },
+                { title: 'Light', value: 'light' },
+                { title: 'Dark', value: 'dark' }
+            ],
 
             // Password Change
             passwordData: {
@@ -334,8 +364,10 @@ export default {
                 (this as any).userInfo = {
                     username: session.user.username,
                     first_name: session.user.first_name,
-                    last_name: session.user.last_name
+                    last_name: session.user.last_name,
+                    theme_preference: session.user.theme_preference
                 };
+                (this as any).themePreference = session.user.theme_preference || 'system';
             }
         },
 
@@ -409,6 +441,25 @@ export default {
             }
         },
 
+        async saveThemePreference() {
+            (this as any).savingTheme = true;
+            try {
+                const response = await axios.put('/user/preferences/', {
+                    theme_preference: (this as any).themePreference
+                });
+                applyDocumentTheme((this as any).themePreference);
+                const session = getStoredSession();
+                if (session && response.data?.user) {
+                    setStoredSession({ token: session.token, user: response.data.user });
+                }
+            } catch (error) {
+                console.error('Error saving theme preference:', error);
+                alert('Failed to save theme preference. Please try again.');
+            } finally {
+                (this as any).savingTheme = false;
+            }
+        },
+
         async loadUserFiles() {
             (this as any).loadingFiles = true;
             try {
@@ -437,6 +488,11 @@ export default {
         goToUpload() {
             // Navigate back to home page where upload component is
             (this as any).$router.push('/');
+        },
+
+        continueReview(file: UserFile) {
+            if (!file.review_batch_id) return;
+            (this as any).$router.push({ path: '/', query: { reviewBatch: file.review_batch_id.toString() } });
         },
 
         getStatusColor(status: string) {

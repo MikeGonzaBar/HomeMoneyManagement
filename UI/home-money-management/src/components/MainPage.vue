@@ -18,6 +18,14 @@
               class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
               Transactions
             </router-link>
+            <router-link to="/budgets"
+              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
+              Budgets
+            </router-link>
+            <router-link to="/recurring"
+              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
+              Recurring
+            </router-link>
             <router-link to="/reports"
               class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
               Reports
@@ -25,14 +33,8 @@
           </nav>
           <!-- User Profile -->
           <div class="flex items-center justify-end gap-3 min-w-0">
-            <button class="bb-icon-button" aria-label="Notifications">
-              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-              </svg>
-            </button>
+            <AlertCenter />
+            <ThemeToggle />
             <div class="flex items-center gap-3 rounded-full border border-gray-100 bg-gray-50 py-1 pl-4 pr-1.5">
               <div class="text-right hidden sm:block">
                 <p class="text-sm font-semibold text-gray-900 leading-none">{{ userData.user.first_name }} {{
@@ -131,6 +133,89 @@
               </svg>
             </div>
           </div>
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <article class="dashboard-panel dashboard-budget-panel p-5">
+            <div class="dashboard-panel-header compact">
+              <div>
+                <h2 class="dashboard-section-title">Budget Snapshot</h2>
+                <p class="text-sm text-gray-500">Current month progress</p>
+              </div>
+              <router-link to="/budgets" class="bb-button bb-button-secondary">Manage</router-link>
+            </div>
+            <div class="budget-snapshot-body">
+              <div v-if="budgetSummary.overall" class="budget-overall-summary">
+                <div class="budget-widget-row">
+                  <div>
+                    <p class="text-sm font-semibold text-gray-700">Overall budget</p>
+                    <p class="text-xs text-gray-500">{{ budgetSummary.overall.percent_used }}% used</p>
+                  </div>
+                  <strong :class="budgetSummary.overall.remaining_amount < 0 ? 'text-expense' : 'text-income'">
+                    ${{ budgetSummary.overall.remaining_amount.toLocaleString('en-US', { minimumFractionDigits: 2 }) }} left
+                  </strong>
+                </div>
+                <div class="budget-progress-track" aria-hidden="true">
+                  <div
+                    class="budget-progress-fill"
+                    :class="{ warning: budgetSummary.overall.status === 'warning', exceeded: budgetSummary.overall.status === 'exceeded' }"
+                    :style="{ width: `${Math.min(Number(budgetSummary.overall.percent_used) || 0, 100)}%` }"
+                  ></div>
+                </div>
+              </div>
+              <div v-for="item in budgetSummary.over_budget" :key="item.id" class="budget-widget-row warning">
+                <span>{{ item.category || 'Overall' }}</span>
+                <strong>{{ item.percent_used }}%</strong>
+              </div>
+              <div v-if="!budgetSummary.overall && budgetSummary.over_budget.length === 0" class="budget-empty-state">
+                <div class="budget-empty-icon">
+                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 8c-2.8 0-5 1.12-5 2.5S9.2 13 12 13s5-1.12 5-2.5S14.8 8 12 8z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                    <path d="M7 10.5v4C7 15.88 9.2 17 12 17s5-1.12 5-2.5v-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                    <path d="M7 14.5v2C7 17.88 9.2 19 12 19s5-1.12 5-2.5v-2" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                  </svg>
+                </div>
+                <div class="budget-empty-copy">
+                  <p class="budget-empty-title">No budget set for this month</p>
+                  <p class="budget-empty-text">Create an overall or category budget to track monthly spending.</p>
+                </div>
+                <router-link to="/budgets" class="bb-button bb-button-primary budget-empty-action">Create Budget</router-link>
+              </div>
+            </div>
+          </article>
+
+          <article class="dashboard-panel dashboard-due-panel p-5">
+            <div class="dashboard-panel-header compact">
+              <div>
+                <h2 class="dashboard-section-title">Due Soon</h2>
+                <p class="text-sm text-gray-500">Recurring items awaiting confirmation</p>
+              </div>
+              <router-link to="/recurring" class="bb-button bb-button-secondary">Review</router-link>
+            </div>
+            <div class="due-soon-body">
+              <div v-for="item in dueSoon.slice(0, 3)" :key="item.occurrence_id" class="budget-widget-row">
+                <div>
+                  <p class="text-sm font-semibold text-gray-700">{{ item.title }}</p>
+                  <p class="text-xs text-gray-500">{{ item.due_date }} · {{ item.transaction_type }}</p>
+                </div>
+                <strong>${{ item.total.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</strong>
+              </div>
+              <div v-if="dueSoon.length === 0" class="due-empty-state">
+                <div class="due-empty-icon">
+                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 7V3m8 4V3M5 11h14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                    <path d="M6 5h12a2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                    <path d="M9 15l2 2 4-5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                  </svg>
+                </div>
+                <div class="due-empty-copy">
+                  <p class="due-empty-title">No recurring items due</p>
+                  <p class="due-empty-text">Upcoming bills, income, and transfers will appear here when they need confirmation.</p>
+                </div>
+                <router-link to="/recurring" class="bb-button bb-button-primary due-empty-action">Create Recurring</router-link>
+              </div>
+            </div>
+          </article>
         </section>
 
         <!-- Main Layout -->
@@ -246,6 +331,8 @@ import PieChart from '@/components/PieChart.vue'
 import Projections from '@/components/Projections.vue'
 import BankStatementUpload from '@/components/BankStatementUpload.vue'
 import BankStatementReview from '@/components/BankStatementReview.vue'
+import AlertCenter from '@/components/AlertCenter.vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 import axios from '@/services/api'
 
 interface AccountsCarousel {
@@ -292,6 +379,9 @@ interface Data {
   chartPeriodOptions: Array<{ title: string; value: string }>;
   showAddAccountDialog: boolean;
   showNewTransactionDialog: boolean;
+  budgetSummary: any;
+  dueSoon: any[];
+  openedReviewBatchId: string | null;
 }
 
 export default {
@@ -302,7 +392,9 @@ export default {
     PieChart,
     Projections,
     BankStatementUpload,
-    BankStatementReview
+    BankStatementReview,
+    AlertCenter,
+    ThemeToggle
   },
   props: {
     userData: {
@@ -329,7 +421,10 @@ export default {
         { title: 'Year to Date', value: 'ytd' }
       ],
       showAddAccountDialog: false,
-      showNewTransactionDialog: false
+      showNewTransactionDialog: false,
+      budgetSummary: { overall: null, over_budget: [], warnings: [], categories: [] },
+      dueSoon: [],
+      openedReviewBatchId: null
     }
   },
   computed: {
@@ -353,6 +448,8 @@ export default {
     (this as any).year = currentDate.getFullYear();
     (this as any).getAccounts();
     (this as any).getTransactions();
+    (this as any).getBudgetSummary();
+    (this as any).getDueSoon();
   },
   methods: {
     goToProfile() {
@@ -471,10 +568,44 @@ export default {
       axios.get(`/accounts/details/${(this as any).userData.user.username}/0`)
         .then((response) => {
           (this as any).accounts = response.data;
+          (this as any).openReviewBatchFromRoute();
         })
         .catch((error) => {
           console.log('ERROR fetching accounts:', error);
         });
+    },
+    openReviewBatchFromRoute() {
+      const reviewBatch = (this as any).$route?.query?.reviewBatch;
+      if (!reviewBatch || (this as any).openedReviewBatchId === reviewBatch) return;
+      (this as any).openedReviewBatchId = reviewBatch;
+      axios.get(`/bank-statements/import-batches/${reviewBatch}/`)
+        .then((response) => {
+          (this as any).$refs.bankStatementReview.openDialog({
+            review_batch_id: response.data.id,
+            import_batch: response.data
+          });
+        })
+        .catch((error) => {
+          console.log('ERROR loading import batch:', error);
+          alert('Unable to load that import review batch.');
+        });
+    },
+    getBudgetSummary() {
+      const month = new Date().toISOString().slice(0, 7);
+      axios.get('/budgets/summary/', { params: { month } })
+        .then((response) => {
+          (this as any).budgetSummary = response.data;
+        })
+        .catch((error) => console.log('ERROR fetching budget summary:', error));
+    },
+    getDueSoon() {
+      const through = new Date();
+      through.setDate(through.getDate() + 3);
+      axios.get('/recurring-transactions/due/', { params: { through: through.toISOString().slice(0, 10) } })
+        .then((response) => {
+          (this as any).dueSoon = (response.data || []).filter((item: any) => item.status === 'due');
+        })
+        .catch((error) => console.log('ERROR fetching due recurring transactions:', error));
     },
     handleStatementProcessed(bankStatementData: any) {
       if (bankStatementData.status === 'uploaded') {
@@ -542,6 +673,167 @@ export default {
   height: 4rem;
   padding: 1rem;
   width: 4rem;
+}
+
+.dashboard-budget-panel {
+  min-height: 12rem;
+  padding: 1.5rem !important;
+}
+
+.dashboard-due-panel {
+  min-height: 12rem;
+  padding: 1.5rem !important;
+}
+
+.dashboard-budget-panel .dashboard-panel-header.compact,
+.dashboard-due-panel .dashboard-panel-header.compact {
+  margin-bottom: 1.25rem;
+  padding: 0.25rem 0.25rem 0;
+}
+
+.budget-snapshot-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.25rem;
+}
+
+.due-soon-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.25rem;
+}
+
+.budget-overall-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.budget-widget-row {
+  align-items: center;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.85rem 0;
+}
+
+.budget-widget-row:first-of-type {
+  border-top: 0;
+}
+
+.budget-widget-row.warning {
+  color: #ef4444;
+}
+
+.budget-progress-track {
+  background: #e5e7eb;
+  border-radius: 9999px;
+  height: 0.55rem;
+  overflow: hidden;
+}
+
+.budget-progress-fill {
+  background: #10b981;
+  border-radius: inherit;
+  height: 100%;
+  min-width: 0.35rem;
+}
+
+.budget-progress-fill.warning {
+  background: #f59e0b;
+}
+
+.budget-progress-fill.exceeded {
+  background: #ef4444;
+}
+
+.budget-empty-state {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(232, 245, 233, 0.92), rgba(240, 253, 244, 0.56));
+  border: 1px solid rgba(76, 175, 80, 0.24);
+  border-radius: 0.875rem;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 7rem;
+  padding: 1.25rem;
+}
+
+.budget-empty-icon {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(76, 175, 80, 0.24);
+  border-radius: 0.75rem;
+  color: #2e7d32;
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.budget-empty-title {
+  color: var(--bb-text-strong, #1f2937);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  margin: 0 0 0.2rem;
+}
+
+.budget-empty-text {
+  color: var(--bb-text-muted, #6b7280);
+  font-size: 0.875rem;
+  line-height: 1.35rem;
+  margin: 0;
+}
+
+.budget-empty-action {
+  justify-self: end;
+}
+
+.due-empty-state {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(219, 234, 254, 0.58));
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 0.875rem;
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  min-height: 7rem;
+  padding: 1.25rem;
+}
+
+.due-empty-icon {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 0.75rem;
+  color: #2563eb;
+  display: flex;
+  height: 2.75rem;
+  justify-content: center;
+  width: 2.75rem;
+}
+
+.due-empty-title {
+  color: var(--bb-text-strong, #1f2937);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  margin: 0 0 0.2rem;
+}
+
+.due-empty-text {
+  color: var(--bb-text-muted, #6b7280);
+  font-size: 0.875rem;
+  line-height: 1.35rem;
+  margin: 0;
+}
+
+.due-empty-action {
+  justify-self: end;
 }
 
 .dashboard-section-header,
@@ -683,7 +975,7 @@ export default {
 }
 
 .dashboard-section-title {
-  color: #1f2937;
+  color: var(--bb-text-strong, #1f2937);
   font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.5rem;
@@ -691,7 +983,7 @@ export default {
 }
 
 .dashboard-metric-label {
-  color: #6b7280;
+  color: var(--bb-text-muted, #6b7280);
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.25rem;
@@ -732,6 +1024,28 @@ export default {
     height: 3.5rem;
     padding: 0.875rem;
     width: 3.5rem;
+  }
+
+  .budget-empty-state {
+    align-items: flex-start;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .budget-empty-action {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .due-empty-state {
+    align-items: flex-start;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .due-empty-action {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    width: 100%;
   }
 }
 </style>

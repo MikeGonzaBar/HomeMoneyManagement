@@ -2,6 +2,8 @@ import axios from '@/services/api';
 import { defineComponent } from 'vue';
 import { getCategoryColor } from '@/constants/categoryStyles';
 import { getStoredSession } from '@/services/session';
+import AlertCenter from '@/components/AlertCenter.vue';
+import ThemeToggle from '@/components/ThemeToggle.vue';
 
 interface AnalyticsData {
   start_date: string;
@@ -25,14 +27,52 @@ interface AnalyticsData {
 }
 
 const CATEGORY_CHART_COLORS = ['#4CAF50', '#8b5cf6', '#06b6d4', '#f59e0b', '#6366f1'];
+const DARK_CATEGORY_COLORS: Record<string, string> = {
+  'Salary': '#86efac',
+  'Awards': '#fbbf24',
+  'Investments': '#93c5fd',
+  'Gifts': '#f9a8d4',
+  'Account Transfer': '#c4b5fd',
+  'Balance Transfer': '#a5b4fc',
+  'Money Transfer': '#818cf8',
+  'Transfer': '#93c5fd',
+  'Bills and utilities': '#fdba74',
+  'Education': '#5eead4',
+  'Entertainment': '#67e8f9',
+  'Food and drinks': '#fca5a5',
+  'Insurance': '#cbd5e1',
+  'Loans': '#fca5a5',
+  'Medical': '#fb7185',
+  'Shopping': '#d8b4fe',
+  'Transportation': '#6ee7b7',
+  'Others': '#94a3b8',
+  'Income': '#86efac',
+  'Restaurants': '#fbbf24',
+  'Gas': '#60a5fa',
+  'Rent/Mortgage': '#c4b5fd',
+  'Groceries': '#86efac',
+  'Utilities': '#fcd34d',
+  'Gym': '#f9a8d4',
+};
+const DARK_FALLBACK_COLORS = ['#94a3b8', '#67e8f9', '#a7f3d0', '#fde68a', '#f0abfc', '#bfdbfe', '#fecaca'];
+
+function fallbackDarkCategoryColor(category: string): string {
+  let hash = 0;
+  for (let i = 0; i < category.length; i += 1) {
+    hash = (hash * 31 + category.charCodeAt(i)) >>> 0;
+  }
+  return DARK_FALLBACK_COLORS[hash % DARK_FALLBACK_COLORS.length] || '#94a3b8';
+}
 
 export default defineComponent({
   name: 'Reports',
+  components: { AlertCenter, ThemeToggle },
   data() {
     return {
       userData: { user: {} } as any,
       searchQuery: '' as string,
       analytics: null as AnalyticsData | null,
+      forecast: null as any,
       dateStart: '' as string,
       dateEnd: '' as string,
       showDateMenu: false as boolean,
@@ -146,6 +186,9 @@ export default defineComponent({
     smartInsights(): { message: string; tags: string[] } {
       return this.analytics?.smart_insights ?? { message: 'Loading your financial insights...', tags: [] };
     },
+    forecastMonths(): any[] {
+      return this.forecast?.forecast ?? [];
+    },
   },
   mounted() {
     const session = getStoredSession();
@@ -155,6 +198,7 @@ export default defineComponent({
       return;
     }
     this.fetchAnalytics();
+    this.fetchForecast();
   },
   methods: {
     fetchAnalytics() {
@@ -174,6 +218,14 @@ export default defineComponent({
         })
         .catch((err) => console.error('Reports fetch error:', err));
     },
+    fetchForecast() {
+      const username = this.userData?.user?.username;
+      if (!username) return;
+      axios
+        .get(`/reports/forecast/${username}/`, { params: { months: 6 } })
+        .then((res) => { this.forecast = res.data; })
+        .catch((err) => console.error('Forecast fetch error:', err));
+    },
     barHeight(val: number): string {
       const max = this.maxChartVal;
       const pct = max > 0 ? (val / max) * 100 : 0;
@@ -189,7 +241,10 @@ export default defineComponent({
       const max = this.maxTopCategory;
       return `${(tc.amount / max) * 100}%`;
     },
-    getCategoryColor,
+    getReportCategoryColor(category: string): string {
+      const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('app-dark');
+      return isDark ? (DARK_CATEGORY_COLORS[category] || fallbackDarkCategoryColor(category)) : getCategoryColor(category);
+    },
     applyDateRange() {
       this.showDateMenu = false;
       this.fetchAnalytics();

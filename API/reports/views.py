@@ -1,7 +1,8 @@
 """
 Reports API - Financial analytics and smart insights.
 """
-from datetime import datetime, timedelta
+from calendar import monthrange
+from datetime import date, datetime, timedelta
 from collections import defaultdict
 from rest_framework import status
 from rest_framework.response import Response
@@ -358,3 +359,117 @@ class ReportsInsights(APIView):
                 dict(curr_cat), dict(prev_cat),
             )
         return Response(insights, status=status.HTTP_200_OK)
+
+
+def _add_months(value, months):
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(value.day, monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def _month_start(value):
+    return value.replace(day=1)
+
+
+def build_forecast(user, months=6):
+    from budgets.models import Budget
+    from recurring.models import RecurringTransaction
+    from recurring.services import advance_date
+
+    months = max(1, min(int(months or 6), 12))
+    today = date.today()
+    start_month = _month_start(today)
+    accounts = list(Account.objects.filter(owner_user=user).order_by("id"))
+    balances = {account.id: float(account.total) for account in accounts}
+    results = []
+
+    trailing_start = today - timedelta(days=90)
+    trailing_transactions = Transaction.objects.filter(
+        owner_user=user,
+        date__gte=trailing_start,
+        date__lt=today,
+    ).exclude(transaction_type="Transfer")
+    trailing_income, trailing_expense = _aggregate_income_expense(trailing_transactions)
+    avg_income = trailing_income / 3 if trailing_income else 0.0
+    avg_expense = trailing_expense / 3 if trailing_expense else 0.0
+
+    recurring_rules = list(RecurringTransaction.objects.filter(owner_user=user, active=True))
+
+    for offset in range(months):
+        month = _add_months(start_month, offset)
+        month_end = date(month.year, month.month, monthrange(month.year, month.month)[1])
+        recurring_income = 0.0
+        recurring_expense = 0.0
+
+        for rule in recurring_rules:
+            due = rule.next_due_date
+            if due < month:
+                while due < month:
+                    due = advance_date(due, rule.frequency, rule.interval)
+            while due <= month_end and (not rule.end_date or due <= rule.end_date):
+                amount = float(rule.total)
+                if rule.transaction_type == "Income":
+                    recurring_income += amount
+                    if rule.account_fk_id in balances:
+                        balances[rule.account_fk_id] += amount
+                elif rule.transaction_type == "Expense":
+                    recurring_expense += amount
+                    if rule.account_fk_id in balances:
+                        balances[rule.account_fk_id] -= amount
+                elif rule.transaction_type == "Transfer":
+                    if rule.from_account_fk_id in balances:
+                        balances[rule.from_account_fk_id] -= amount
+                    if rule.to_account_fk_id in balances:
+                        balances[rule.to_account_fk_id] += amount
+                due = advance_date(due, rule.frequency, rule.interval)
+
+        budgets = Budget.objects.filter(owner_user=user, month=month)
+        budgeted_expense = sum(float(item.limit_amount) for item in budgets if item.scope == Budget.SCOPE_CATEGORY)
+        overall = next((item for item in budgets if item.scope == Budget.SCOPE_OVERALL), None)
+        if budgeted_expense == 0 and overall:
+            budgeted_expense = float(overall.limit_amount)
+
+        expected_income = recurring_income if recurring_income > 0 else avg_income
+        expected_expense = max(recurring_expense, budgeted_expense, avg_expense)
+        results.append(
+            {
+                "month": month.strftime("%Y-%m"),
+                "expected_income": round(expected_income, 2),
+                "expected_expenses": round(expected_expense, 2),
+                "expected_net": round(expected_income - expected_expense, 2),
+                "recurring_income": round(recurring_income, 2),
+                "recurring_expenses": round(recurring_expense, 2),
+                "budgeted_expenses": round(budgeted_expense, 2),
+                "historical_income_fallback": round(avg_income, 2),
+                "historical_expense_fallback": round(avg_expense, 2),
+                "account_balances": [
+                    {
+                        "account_id": account.id,
+                        "account_name": account.account_name,
+                        "balance": round(balances.get(account.id, 0.0), 2),
+                    }
+                    for account in accounts
+                ],
+            }
+        )
+    return {
+        "start_month": start_month.strftime("%Y-%m"),
+        "months": months,
+        "forecast": results,
+    }
+
+
+class ReportsForecast(APIView):
+    """GET /reports/forecast/<username>/?months=6"""
+
+    def get(self, request, username: str):
+        mismatch = _forbid_other_user(request, username)
+        if mismatch:
+            return mismatch
+        try:
+            months = int(request.GET.get("months", 6))
+        except ValueError:
+            return Response({"error": "months must be a number"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(build_forecast(request.user, months), status=status.HTTP_200_OK)

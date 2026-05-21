@@ -17,6 +17,7 @@ def _user_payload(user):
         "username": user.username,
         "first_name": user.first_name,
         "last_name": user.last_name,
+        "theme_preference": user.theme_preference,
     }
 
 
@@ -200,6 +201,33 @@ def change_password(request):
         key=getattr(request.auth, "key", None)
     ).update(revoked_at=timezone.now())
     return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def user_preferences(request):
+    """Read or update authenticated user preferences."""
+
+    user = request.user
+    if request.method == "GET":
+        return Response({"theme_preference": user.theme_preference, "user": _user_payload(user)})
+
+    theme = request.data.get("theme_preference", user.theme_preference)
+    if theme not in {"system", "light", "dark"}:
+        return Response(
+            {"error": "theme_preference must be system, light, or dark"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    user.theme_preference = theme
+    user.save(update_fields=["theme_preference"])
+    return Response(
+        {
+            "message": "Preferences updated successfully",
+            "theme_preference": theme,
+            "user": _user_payload(user),
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["POST"])

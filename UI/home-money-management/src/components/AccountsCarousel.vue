@@ -13,10 +13,10 @@
                     </v-avatar>
                     <h5 :class="$vuetify.display.mobile ? 'text-subtitle-2' : ($vuetify.display.mdAndDown ? 'text-subtitle-1' : 'text-h6')"
                         class="font-weight-bold mb-0 budget-text-gradient">All Accounts</h5>
-                    <p class="text-caption text-grey-darken-1 mb-0">Net Worth</p>
+                    <p class="text-caption account-muted-text mb-0">Net Worth</p>
                     <h6 :class="[
                         $vuetify.display.mobile ? 'text-h6' : ($vuetify.display.mdAndDown ? 'text-h6' : 'text-h5'),
-                        total >= 0 ? 'text-success' : 'text-error',
+                        total >= 0 ? 'account-amount-positive' : 'account-amount-negative',
                         'font-weight-bold mb-0'
                     ]">
                         ${{ total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
@@ -49,7 +49,8 @@
 
                         <!-- Account Type Chip -->
                         <template v-if="getAccountTypeChip(acc.account_type)">
-                            <v-chip :color="getAccountTypeChip(acc.account_type)!.color" size="x-small" variant="tonal">
+                            <v-chip :color="getAccountTypeChip(acc.account_type)!.color" size="x-small" variant="tonal"
+                                class="account-type-chip">
                                 <v-icon size="12" class="me-1"
                                     :icon="getAccountTypeChip(acc.account_type)!.icon"></v-icon>
                                 {{ getAccountTypeChip(acc.account_type)!.text }}
@@ -74,20 +75,20 @@
                             class="credit-balance-info">
                             <!-- Credit Card: Used / Available -->
                             <div class="d-flex justify-space-between align-center mb-1">
-                                <span class="text-caption text-grey-darken-1">Used:</span>
-                                <span class="text-subtitle-2 font-weight-bold text-orange-darken-2">
+                                <span class="text-caption account-muted-text">Used:</span>
+                                <span class="text-subtitle-2 font-weight-bold account-amount-warning">
                                     ${{ getUsedCredit(acc).toLocaleString() }}
                                 </span>
                             </div>
                             <div class="d-flex justify-space-between align-center mb-1">
-                                <span class="text-caption text-grey-darken-1">Available:</span>
-                                <span class="text-subtitle-2 font-weight-bold text-success">
+                                <span class="text-caption account-muted-text">Available:</span>
+                                <span class="text-subtitle-2 font-weight-bold account-amount-positive">
                                     ${{ acc.total.toLocaleString() }}
                                 </span>
                             </div>
                             <div class="d-flex justify-space-between align-center">
-                                <span class="text-caption text-grey-darken-1">Limit:</span>
-                                <span class="text-caption font-weight-medium text-grey-darken-2">
+                                <span class="text-caption account-muted-text">Limit:</span>
+                                <span class="text-caption font-weight-medium account-amount-muted">
                                     ${{ getCreditLimit(acc).toLocaleString() }}
                                 </span>
                             </div>
@@ -429,16 +430,16 @@ export default {
             if (normalizedType === 'Crédito' || normalizedType === 'Credit Card' || normalizedType === 'Credit') {
                 // For credit cards: positive = good (available credit), negative = bad (debt)
                 if (balance >= 0) {
-                    return 'text-success';
+                    return 'account-amount-positive';
                 } else {
-                    return 'text-error';
+                    return 'account-amount-negative';
                 }
             } else {
                 // For cash/debit: positive = good, negative = bad
                 if (balance >= 0) {
-                    return 'text-success';
+                    return 'account-amount-positive';
                 } else {
-                    return 'text-error';
+                    return 'account-amount-negative';
                 }
             }
         },
@@ -466,13 +467,13 @@ export default {
             const normalizedType = accountType.replace(/\s+Account$/i, '').trim();
 
             if (normalizedType === 'Crédito' || normalizedType === 'Credit Card' || normalizedType === 'Credit') {
-                return 'text-orange-darken-2';
+                return 'account-balance-label account-balance-label--credit';
             } else if (normalizedType === 'Débito' || normalizedType === 'Checking' || normalizedType === 'Savings') {
-                return 'text-blue-darken-2';
+                return 'account-balance-label account-balance-label--asset';
             } else if (normalizedType === 'Efectivo' || normalizedType === 'Cash') {
-                return 'text-green-darken-2';
+                return 'account-balance-label account-balance-label--cash';
             }
-            return 'text-grey-darken-1';
+            return 'account-balance-label';
         },
 
         getCreditLimit(this: ComponentInstance, account: any): number {
@@ -670,9 +671,16 @@ export default {
 <style scoped>
 /* Modern Account Cards */
 .account-card {
-    background: #ffffff;
-    border: 1px solid #f3f4f6;
+    --account-accent-blue: #1565c0;
+    --account-accent-orange: #c2410c;
+    --account-accent-green: #15803d;
+    --account-amount-positive: #15803d;
+    --account-amount-negative: #dc2626;
+    --account-amount-warning: #c2410c;
+    background: var(--bb-surface, #ffffff);
+    border: 1px solid var(--bb-border-soft, #f3f4f6);
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    color: var(--bb-text-strong, #1f2937);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
     position: relative;
@@ -718,9 +726,61 @@ export default {
 }
 
 .account-title-truncate {
+    color: var(--bb-text-strong, #1f2937);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.account-muted-text {
+    color: var(--bb-text-muted, #6b7280) !important;
+}
+
+.account-balance-label {
+    color: var(--bb-text-muted, #6b7280) !important;
+    font-weight: 700;
+}
+
+.account-balance-label--asset {
+    color: var(--account-accent-blue) !important;
+}
+
+.account-balance-label--credit {
+    color: var(--account-accent-orange) !important;
+}
+
+.account-balance-label--cash {
+    color: var(--account-accent-green) !important;
+}
+
+.account-amount-positive {
+    color: var(--account-amount-positive) !important;
+}
+
+.account-amount-negative {
+    color: var(--account-amount-negative) !important;
+}
+
+.account-amount-warning {
+    color: var(--account-amount-warning) !important;
+}
+
+.account-amount-muted {
+    color: var(--bb-text-muted, #6b7280) !important;
+}
+
+.account-type-chip {
+    border: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+    font-weight: 700;
+}
+
+.account-type-chip :deep(.v-chip__content),
+.account-type-chip :deep(.v-icon) {
+    color: inherit !important;
+}
+
+.account-type-chip :deep(.v-chip__underlay) {
+    opacity: 0.12;
 }
 
 .credit-balance-info {
@@ -760,7 +820,7 @@ export default {
 }
 
 .account-card.selected {
-    border: 2px solid #4CAF50;
+    border: 2px solid #4CAF50 !important;
     box-shadow: 0 8px 30px rgba(76, 175, 80, 0.3);
     transform: translateY(-2px);
 }
@@ -823,7 +883,7 @@ export default {
 /* Custom scrollbar for slide group */
 .v-slide-group__content {
     scrollbar-width: thin;
-    scrollbar-color: #4CAF50 #f1f1f1;
+    scrollbar-color: #4CAF50 var(--bb-surface-soft, #f1f1f1);
 }
 
 .v-slide-group__content::-webkit-scrollbar {
@@ -831,7 +891,7 @@ export default {
 }
 
 .v-slide-group__content::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: var(--bb-surface-soft, #f1f1f1);
     border-radius: 3px;
 }
 
@@ -957,9 +1017,10 @@ export default {
 
 /* Modern dialog styling */
 .modern-dialog {
-    background: #ffffff;
-    border: 1px solid #f3f4f6;
+    background: var(--bb-surface, #ffffff);
+    border: 1px solid var(--bb-border-soft, #f3f4f6);
     box-shadow: 0 18px 44px rgba(15, 23, 42, 0.14);
+    color: var(--bb-text-strong, #1f2937);
 }
 
 /* Form field styling */

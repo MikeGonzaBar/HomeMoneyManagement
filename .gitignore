@@ -63,3 +63,6 @@ UI/home-money-management/npm-audit-report.txt
 
 # Ignore local visual QA output
 visual-review-screenshots/
+
+# Ignore local vulnerability scan artifacts
+.codex-scan/

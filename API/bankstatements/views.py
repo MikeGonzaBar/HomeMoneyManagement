@@ -10,6 +10,13 @@ import logging
 
 from .models import BankStatement
 from .serializers import BankStatementUploadSerializer, BankStatementResponseSerializer
+from .reconciliation import (
+    batch_payload,
+    candidate_payload,
+    commit_batch,
+    create_import_batch,
+    update_candidate,
+)
 from .services import extract_transactions_from_pdf, is_pdf_password_protected, decrypt_pdf_file
 
 logger = logging.getLogger(__name__)
@@ -208,6 +215,12 @@ def upload_bank_statement(request):
         
         # Add extracted transaction data if available
         if extracted_data:
+            review_batch = None
+            if not extracted_data.get('error'):
+                try:
+                    review_batch = create_import_batch(bank_statement, extracted_data)
+                except Exception as e:
+                    logger.error(f"Error creating import review batch: {str(e)}", exc_info=True)
             response_data['extracted_data'] = {
                 'transactions': extracted_data.get('transactions', []),
                 'account_name': extracted_data.get('account_name'),
@@ -216,6 +229,9 @@ def upload_bank_statement(request):
                 'initial_balance': extracted_data.get('initial_balance'),  # Add this line
                 'processing_error': extracted_data.get('error')
             }
+            if review_batch:
+                response_data['review_batch_id'] = review_batch.id
+                response_data['import_batch'] = batch_payload(review_batch)
         
         return Response(response_data, status=status.HTTP_200_OK)
         
@@ -326,3 +342,39 @@ def delete_bank_statement(request, statement_id):
             'error': 'Failed to delete bank statement',
             'message': f'An error occurred: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def get_import_batch(request, batch_id):
+    try:
+        batch = request.user.bank_statement_import_batches.get(id=batch_id)
+        return Response(batch_payload(batch), status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({
+            'error': 'Import batch not found',
+            'message': str(e)
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['PATCH'])
+def update_import_candidate(request, candidate_id):
+    try:
+        candidate = update_candidate(request.user, candidate_id, request.data)
+        return Response({'candidate': candidate_payload(candidate)}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({
+            'error': 'Failed to update import candidate',
+            'message': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def commit_import_batch(request, batch_id):
+    try:
+        result = commit_batch(request.user, batch_id, request.data)
+        return Response(result, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({
+            'error': 'Failed to commit import batch',
+            'message': str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)

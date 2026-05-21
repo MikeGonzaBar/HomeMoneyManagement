@@ -11,6 +11,7 @@ urlpatterns = [
     # Profile management endpoints
     path("update-info/", views.update_user_info, name="update_user_info"),
     path("change-password/", views.change_password, name="change_password"),
+    path("preferences/", views.user_preferences, name="user_preferences"),
     
     # Backward compatibility endpoints
     path("", views.UserRegistrationView.as_view(), name="user_register_legacy"),

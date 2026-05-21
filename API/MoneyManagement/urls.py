@@ -23,4 +23,7 @@ urlpatterns = [
     path("transactions/", include("transaction.urls")),
     path("bank-statements/", include("bankstatements.urls")),
     path("reports/", include("reports.urls")),
+    path("budgets/", include("budgets.urls")),
+    path("recurring-transactions/", include("recurring.urls")),
+    path("alerts/", include("alerts.urls")),
 ]

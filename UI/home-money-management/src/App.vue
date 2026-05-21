@@ -5,7 +5,13 @@
 </template>
 
 <script lang="ts" setup>
-//
+import { onMounted } from 'vue'
+import { getStoredSession } from '@/services/session'
+import { applyDocumentTheme } from '@/services/theme'
+
+onMounted(() => {
+  applyDocumentTheme(getStoredSession()?.user.theme_preference ?? 'system')
+})
 </script>
 
 <style>
@@ -16,8 +22,282 @@
   font-family: 'Inter', sans-serif;
 }
 
+:root {
+  --bb-text-strong: #1f2937;
+  --bb-text-muted: #6b7280;
+  --bb-surface: #ffffff;
+  --bb-surface-soft: #f9fafb;
+  --bb-border-soft: #f3f4f6;
+  --bb-row-hover: #f9fafb;
+  --bb-metric-limit: #111827;
+  --bb-metric-spent: #be123c;
+  --bb-metric-positive: #047857;
+  --bb-metric-negative: #dc2626;
+  --bb-metric-card-bg: #ffffff;
+}
+
+.app-dark {
+  --bb-text-strong: #f8fafc;
+  --bb-text-muted: #cbd5e1;
+  --bb-surface: #111827;
+  --bb-surface-soft: #172033;
+  --bb-border-soft: #1f2937;
+  --bb-row-hover: #1f2937;
+  --bb-metric-limit: #f8fafc;
+  --bb-metric-spent: #fda4af;
+  --bb-metric-positive: #86efac;
+  --bb-metric-negative: #fca5a5;
+  --bb-metric-card-bg: linear-gradient(180deg, rgba(23, 32, 51, 0.96), rgba(17, 24, 39, 0.96));
+}
+
 .v-application {
   background: #f9fafb !important;
+}
+
+.app-dark .v-application,
+.app-dark body {
+  background: #0f172a !important;
+  color: #e5e7eb;
+}
+
+.app-dark .bg-white,
+.app-dark .bg-white\/95,
+.app-dark .glass-card,
+.app-dark .dashboard-panel,
+.app-dark .dashboard-summary-card,
+.app-dark .reports-card,
+.app-dark .transactions-filter-panel,
+.app-dark .transactions-total-card,
+.app-dark .v-card {
+  background-color: #111827 !important;
+  border-color: #1f2937 !important;
+  color: #f8fafc !important;
+}
+
+.app-dark .bg-gray-50 {
+  background-color: #0f172a !important;
+}
+
+.app-dark .border-gray-100,
+.app-dark .border-gray-200 {
+  border-color: #1f2937 !important;
+}
+
+.app-dark .text-gray-900,
+.app-dark .text-gray-800,
+.app-dark .text-gray-700 {
+  color: #f8fafc !important;
+}
+
+.app-dark .text-gray-600,
+.app-dark .text-gray-500,
+.app-dark .text-gray-400,
+.app-dark .text-grey-darken-1,
+.app-dark .text-grey-darken-2 {
+  color: #cbd5e1 !important;
+}
+
+.app-dark .bb-input-shell,
+.app-dark .bb-button-muted,
+.app-dark .bb-button-secondary,
+.app-dark .bb-icon-button,
+.app-dark .bb-page-button,
+.app-dark .v-field {
+  background: #1f2937 !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+.app-dark .bb-input-control,
+.app-dark .v-field__input,
+.app-dark input {
+  color: #f8fafc !important;
+}
+
+.app-dark .v-overlay-container .v-list,
+.app-dark .table-header,
+.app-dark thead tr,
+.app-dark tbody tr:hover,
+.app-dark .transactions-total-footer,
+.app-dark footer {
+  background: #111827 !important;
+  border-color: #1f2937 !important;
+}
+
+.app-dark .v-application .budget-widget-row {
+  border-top-color: #1f2937;
+}
+
+.app-dark .v-application .budget-progress-track {
+  background: #1f2937;
+}
+
+.app-dark .v-application .budget-empty-state {
+  background: linear-gradient(135deg, rgba(20, 83, 45, 0.28), rgba(31, 41, 55, 0.64));
+  border-color: rgba(74, 222, 128, 0.22);
+}
+
+.app-dark .v-application .budget-empty-icon {
+  background: #1f2937;
+  border-color: rgba(74, 222, 128, 0.24);
+  color: #86efac;
+}
+
+.app-dark .v-application .due-empty-state {
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.26), rgba(31, 41, 55, 0.64));
+  border-color: rgba(96, 165, 250, 0.24);
+}
+
+.app-dark .v-application .due-empty-icon {
+  background: #1f2937;
+  border-color: rgba(96, 165, 250, 0.26);
+  color: #93c5fd;
+}
+
+.app-dark .v-application .budget-month-shell {
+  background: #1f2937;
+  border-color: #334155;
+}
+
+.app-dark .v-application .budget-month-input {
+  color-scheme: dark;
+}
+
+.app-dark .v-application .budget-month-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.75;
+}
+
+.app-dark .v-application .metric-card {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.app-dark .v-application .reports-stacked-chart {
+  background: linear-gradient(180deg, rgba(23, 32, 51, 0.96), rgba(17, 24, 39, 0.96));
+  border-color: #1f2937;
+}
+
+.app-dark .v-application .forecast-month {
+  background: rgba(23, 32, 51, 0.72);
+  border-color: #1f2937;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+
+.app-dark .v-application .reports-stacked-chart::before {
+  background-image: linear-gradient(to top, rgba(203, 213, 225, 0.08) 1px, transparent 1px);
+}
+
+.app-dark .v-application .reports-stacked-segment {
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.18), 0 1px 0 rgba(15, 23, 42, 0.2);
+}
+
+.app-dark .v-application .reports-legend-dot {
+  box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.16) !important;
+}
+
+.app-dark .v-application .due-panel {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.app-dark .v-application .due-panel .empty-state,
+.app-dark .v-application .due-item {
+  background: rgba(23, 32, 51, 0.72);
+}
+
+.app-dark .v-application .projection-refresh-button,
+.app-dark .v-application .due-refresh-button {
+  background: #172033 !important;
+  border-color: rgba(134, 239, 172, 0.28) !important;
+  color: #86efac !important;
+}
+
+.app-dark .v-application .alert-title,
+.app-dark .v-application .alert-item-title {
+  color: #f8fafc;
+}
+
+.app-dark .v-application .alert-subtitle,
+.app-dark .v-application .alert-item-message,
+.app-dark .v-application .alert-empty {
+  color: #cbd5e1;
+}
+
+.app-dark .v-application .alert-item {
+  background: #111827;
+  border-color: #1f2937;
+}
+
+.app-dark .v-application .v-btn.due-refresh-button.v-btn--variant-outlined {
+  background: #172033 !important;
+  border-color: rgba(134, 239, 172, 0.28) !important;
+  color: #86efac !important;
+}
+
+.app-dark .v-application .projection-refresh-button .v-icon,
+.app-dark .v-application .projection-refresh-button .v-btn__content,
+.app-dark .v-application .due-refresh-button .v-icon,
+.app-dark .v-application .due-refresh-button .v-btn__content {
+  color: inherit !important;
+}
+
+.app-dark .v-application .account-card {
+  --account-accent-blue: #93c5fd;
+  --account-accent-orange: #fdba74;
+  --account-accent-green: #86efac;
+  --account-amount-positive: #86efac;
+  --account-amount-negative: #fca5a5;
+  --account-amount-warning: #fdba74;
+}
+
+.app-dark .v-application .account-card.selected {
+  border-color: #86efac !important;
+  box-shadow: 0 8px 30px rgba(74, 222, 128, 0.18) !important;
+}
+
+.app-dark .v-application .account-balance-label--asset,
+.app-dark .v-application .account-type-chip.text-blue {
+  color: #93c5fd !important;
+}
+
+.app-dark .v-application .account-balance-label--credit,
+.app-dark .v-application .account-type-chip.text-orange {
+  color: #fdba74 !important;
+}
+
+.app-dark .v-application .account-balance-label--cash,
+.app-dark .v-application .account-type-chip.text-green,
+.app-dark .v-application .account-amount-positive {
+  color: #86efac !important;
+}
+
+.app-dark .v-application .account-amount-negative {
+  color: #fca5a5 !important;
+}
+
+.app-dark .v-application .account-amount-warning {
+  color: #fdba74 !important;
+}
+
+.app-dark .v-application .account-type-chip {
+  background: rgba(15, 23, 42, 0.28) !important;
+  border-color: color-mix(in srgb, currentColor 34%, transparent);
+}
+
+.app-dark .v-application .account-type-chip.text-purple {
+  color: #d8b4fe !important;
+}
+
+.app-dark .v-application .account-type-chip.text-amber,
+.app-dark .v-application .account-type-chip.text-brown {
+  color: #fde68a !important;
+}
+
+.app-dark .v-application .account-type-chip.text-teal {
+  color: #5eead4 !important;
+}
+
+.app-dark .v-application .account-type-chip.text-grey {
+  color: #cbd5e1 !important;
 }
 
 /* Custom scrollbar */
@@ -78,7 +358,7 @@
 
 .budget-text-gradient {
   background: none;
-  color: #1f2937;
+  color: var(--bb-text-strong, #1f2937);
   -webkit-background-clip: text;
   -webkit-text-fill-color: currentColor;
   background-clip: text;
@@ -255,6 +535,17 @@
 .v-application .v-btn--variant-outlined:not(.text-error):not(.text-red):not([class*="text-red"]):hover {
   background: #f0fdf4;
   border-color: #4CAF50 !important;
+}
+
+.app-dark .v-application .v-btn.due-refresh-button.v-btn--variant-outlined:not(.text-error):not(.text-red):not([class*="text-red"]) {
+  background: #172033 !important;
+  border-color: rgba(134, 239, 172, 0.28) !important;
+  color: #86efac !important;
+}
+
+.app-dark .v-application .v-btn.due-refresh-button.v-btn--variant-outlined:not(.text-error):not(.text-red):not([class*="text-red"]):hover {
+  background: #1f2937 !important;
+  border-color: rgba(134, 239, 172, 0.44) !important;
 }
 
 .v-application .v-btn--variant-outlined.text-error,

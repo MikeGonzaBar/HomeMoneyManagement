@@ -178,6 +178,8 @@ export default {
                             message: response.data.message,
                             file_details: response.data.file_details,
                             extracted_data: response.data.extracted_data,
+                            review_batch_id: response.data.review_batch_id,
+                            import_batch: response.data.import_batch,
                             status: 'processed'
                         });
                     } else {

@@ -12,4 +12,9 @@ urlpatterns = [
         views.ReportsInsights.as_view(),
         name="reports_insights",
     ),
+    path(
+        "forecast/<str:username>/",
+        views.ReportsForecast.as_view(),
+        name="reports_forecast",
+    ),
 ]

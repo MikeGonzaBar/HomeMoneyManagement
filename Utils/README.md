@@ -2,6 +2,8 @@
 
 This directory contains utility scripts and tools for the Home Money Management project.
 
+The current test data scripts seed account and transaction data for `testUser`. They do not seed budgets, recurring rules, statement import review batches, or alerts; create those through the UI or API when testing the newer product areas.
+
 ## Structure
 
 ```text
@@ -66,6 +68,8 @@ Before running any test data scripts:
 1. **Django environment must be set up**
 2. **`testUser` must exist** in the database
 3. **Database migrations must be applied**
+
+When adding or modernizing seed data, keep both the legacy string ownership fields and the owner/account foreign keys aligned so authenticated owner-scoped API views can read the generated data.
 
 ### Create Test User
 

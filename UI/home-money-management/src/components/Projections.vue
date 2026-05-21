@@ -76,10 +76,11 @@
 .projections-container {
     width: 100%;
     padding: 24px;
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
     border-radius: 16px;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
-    border: 1px solid #f3f4f6;
+    border: 1px solid var(--bb-border-soft, #f3f4f6);
+    color: var(--bb-text-strong, #1f2937);
 }
 
 .projections-header {
@@ -92,7 +93,7 @@
     align-items: center;
     justify-content: center;
     margin-bottom: 8px;
-    color: #2E7D32;
+    color: #4CAF50;
 }
 
 .controls-section {
@@ -121,10 +122,17 @@
 }
 
 :deep(.projection-control-select .v-field) {
-    background: #ffffff;
+    background: var(--bb-surface-soft, #ffffff);
+    border-color: var(--bb-border-soft, #f3f4f6);
     border-radius: 12px;
     height: 44px;
     min-height: 44px;
+}
+
+.projection-refresh-button {
+    background: var(--bb-surface-soft, #ffffff) !important;
+    border-color: rgba(76, 175, 80, 0.35) !important;
+    color: #2E7D32 !important;
 }
 
 :deep(.projection-control-select .v-field__input) {
@@ -150,9 +158,10 @@
 }
 
 .projections-card {
-    background: #ffffff;
-    border: 1px solid #f3f4f6;
+    background: var(--bb-surface, #ffffff);
+    border: 1px solid var(--bb-border-soft, #f3f4f6);
     box-shadow: none !important;
+    color: var(--bb-text-strong, #1f2937);
 }
 
 .chart-wrapper {
@@ -192,14 +201,14 @@
 
 .legend-text {
     font-size: 0.9rem;
-    color: #666;
+    color: var(--bb-text-muted, #6b7280);
 }
 
 .explanation-text {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #666;
+    color: var(--bb-text-muted, #6b7280);
     font-size: 0.9rem;
     font-style: italic;
     padding: 8px 0;
@@ -273,6 +282,14 @@ interface ProjectionsComponentInstance {
     refreshChart(): void;
     generateChartData(): void;
     getHistoricalData(): MonthlyData[];
+    getChartTheme(): {
+        textColor: string;
+        mutedColor: string;
+        gridColor: string;
+        tooltipBackground: string;
+        tooltipText: string;
+    };
+    buildChartOptions(): any;
 }
 
 export default {
@@ -389,6 +406,85 @@ export default {
             }, 500);
         },
 
+        getChartTheme() {
+            const isDark = document.documentElement.classList.contains('app-dark');
+            return {
+                textColor: isDark ? '#f8fafc' : '#1f2937',
+                mutedColor: isDark ? '#cbd5e1' : '#6b7280',
+                gridColor: isDark ? 'rgba(203, 213, 225, 0.16)' : 'rgba(107, 114, 128, 0.16)',
+                tooltipBackground: isDark ? '#111827' : '#ffffff',
+                tooltipText: isDark ? '#f8fafc' : '#1f2937'
+            };
+        },
+
+        buildChartOptions(this: ProjectionsComponentInstance) {
+            const theme = this.getChartTheme();
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index' as const,
+                        intersect: false,
+                        backgroundColor: theme.tooltipBackground,
+                        titleColor: theme.tooltipText,
+                        bodyColor: theme.tooltipText,
+                        borderColor: theme.gridColor,
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function (context: any) {
+                                const label = context.dataset.label || '';
+                                const value = context.parsed.y;
+                                const sign = value >= 0 ? '+' : '';
+                                return `${label}: ${sign}$${Math.abs(value).toLocaleString()}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Month',
+                            color: theme.mutedColor
+                        },
+                        ticks: {
+                            color: theme.mutedColor
+                        },
+                        grid: {
+                            color: theme.gridColor
+                        }
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: 'Amount ($)',
+                            color: theme.mutedColor
+                        },
+                        ticks: {
+                            color: theme.mutedColor,
+                            callback: function (value: any) {
+                                return '$' + value.toLocaleString();
+                            }
+                        },
+                        grid: {
+                            color: theme.gridColor
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest' as const,
+                    axis: 'x' as const,
+                    intersect: false
+                }
+            };
+        },
+
         getHistoricalData(this: ProjectionsComponentInstance): MonthlyData[] {
             const historicalData: MonthlyData[] = [];
             const currentDate = new Date();
@@ -501,6 +597,7 @@ export default {
                 labels,
                 datasets
             };
+            this.chartOptions = this.buildChartOptions();
         }
     }
 }

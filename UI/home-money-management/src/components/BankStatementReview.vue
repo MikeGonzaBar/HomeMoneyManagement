@@ -162,6 +162,30 @@
                                 hide-details class="transaction-category-select"></v-select>
                         </template>
 
+                        <!-- Match Column -->
+                        <template v-slot:item.matches="{ item }">
+                            <v-menu v-if="item.possible_matches?.length" location="bottom">
+                                <template v-slot:activator="{ props }">
+                                    <v-chip v-bind="props" color="warning" variant="tonal" size="small">
+                                        {{ item.possible_matches.length }} match{{ item.possible_matches.length !== 1 ? 'es' : '' }}
+                                    </v-chip>
+                                </template>
+                                <v-list density="compact" class="match-menu">
+                                    <v-list-item v-for="match in item.possible_matches" :key="match.id"
+                                        @click="linkToExisting(item, match)">
+                                        <v-list-item-title>{{ match.title }}</v-list-item-title>
+                                        <v-list-item-subtitle>
+                                            {{ formatDate(match.date) }} • ${{ Number(match.total).toFixed(2) }}
+                                        </v-list-item-subtitle>
+                                    </v-list-item>
+                                </v-list>
+                            </v-menu>
+                            <v-chip v-else-if="item.linked_transaction_id" color="success" variant="tonal" size="small">
+                                Linked
+                            </v-chip>
+                            <v-chip v-else color="grey" variant="tonal" size="small">New</v-chip>
+                        </template>
+
                         <!-- Actions Column -->
                         <template v-slot:item.actions="{ item }">
                             <v-btn icon size="small" variant="text" color="error" @click="removeTransaction(item)">
@@ -203,12 +227,16 @@ import axios from '@/services/api';
 
 interface DetectedTransaction {
     id?: string;
+    candidate_id?: number;
     title: string;
     amount: number;
     date: string;
     category: string;
     transaction_type: 'Income' | 'Expense' | 'Transfer';
     account_name?: string;
+    possible_matches?: TransactionMatch[];
+    linked_transaction_id?: number | null;
+    status?: 'pending' | 'imported' | 'skipped' | 'linked';
 }
 
 interface AccountInfo {
@@ -217,7 +245,33 @@ interface AccountInfo {
     account_type: string;
 }
 
+interface TransactionMatch {
+    id: number;
+    title: string;
+    transaction_type: string;
+    category: string;
+    date: string;
+    total: number;
+    account_id?: string | null;
+    from_account_id?: string | null;
+    to_account_id?: string | null;
+}
+
+interface ImportBatch {
+    id: number;
+    detected_account_name?: string;
+    detected_account_type?: string;
+    initial_balance?: number | null;
+    statement_period?: {
+        start: string | null;
+        end: string | null;
+    };
+    candidates: DetectedTransaction[];
+}
+
 interface BankStatementData {
+    review_batch_id?: number;
+    import_batch?: ImportBatch;
     extracted_data?: {
         transactions: DetectedTransaction[];
         account_name: string;
@@ -262,12 +316,15 @@ export default {
             statementPeriod: null as { start: string; end: string } | null,
             editableTransactions: [] as DetectedTransaction[],
             selectedTransactions: [] as DetectedTransaction[],
+            reviewBatchId: null as number | null,
+            removedCandidateIds: [] as number[],
             headers: [
                 { title: 'Type', key: 'transaction_type', sortable: false, width: '120px' },
                 { title: 'Description', key: 'title', sortable: false, width: '200px' },
                 { title: 'Amount', key: 'amount', sortable: false, width: '120px' },
                 { title: 'Date', key: 'date', sortable: false, width: '140px' },
                 { title: 'Category', key: 'category', sortable: false, width: '160px' },
+                { title: 'Matches', key: 'matches', sortable: false, width: '120px' },
                 { title: 'Actions', key: 'actions', sortable: false, width: '80px' },
             ],
             transactionTypes: [
@@ -333,8 +390,37 @@ export default {
             let transactions: DetectedTransaction[] = [];
             let accountName = '';
             let accountType = '';
+            const importBatch = bankStatementData.import_batch || ((bankStatementData as any).candidates ? bankStatementData as any : null);
 
-            if (bankStatementData.extracted_data) {
+            (this as any).reviewBatchId = bankStatementData.review_batch_id || importBatch?.id || null;
+            (this as any).removedCandidateIds = [];
+
+            if (importBatch) {
+                transactions = (importBatch.candidates || []).map((candidate: any) => ({
+                    id: `candidate-${candidate.id}`,
+                    candidate_id: candidate.id,
+                    title: candidate.title,
+                    amount: candidate.amount,
+                    date: candidate.date,
+                    category: candidate.category,
+                    transaction_type: candidate.transaction_type,
+                    possible_matches: candidate.possible_matches || [],
+                    linked_transaction_id: candidate.linked_transaction_id,
+                    status: candidate.status
+                }));
+                accountName = importBatch.detected_account_name || '';
+                accountType = importBatch.detected_account_type || '';
+                (this as any).statementPeriod = importBatch.statement_period?.start || importBatch.statement_period?.end
+                    ? importBatch.statement_period
+                    : null;
+                this.extractedData = {
+                    transactions,
+                    account_name: accountName,
+                    account_type: accountType,
+                    initial_balance: importBatch.initial_balance ?? null,
+                    statement_period: (this as any).statementPeriod || undefined
+                };
+            } else if (bankStatementData.extracted_data) {
                 transactions = bankStatementData.extracted_data.transactions || [];
                 accountName = bankStatementData.extracted_data.account_name || '';
                 accountType = bankStatementData.extracted_data.account_type || '';
@@ -400,6 +486,8 @@ export default {
             (this as any).newAccount = { name: '', bank: '', account_type: '' };
             (this as any).statementPeriod = null;
             this.extractedData = null; // Clear extracted data
+            (this as any).reviewBatchId = null;
+            (this as any).removedCandidateIds = [];
             (this as any).$emit('dialogClosed');
         },
 
@@ -442,6 +530,9 @@ export default {
         },
 
         removeTransaction(transaction: DetectedTransaction) {
+            if (transaction.candidate_id) {
+                (this as any).removedCandidateIds.push(transaction.candidate_id);
+            }
             const index = (this as any).editableTransactions.findIndex((t: DetectedTransaction) => t.id === transaction.id);
             if (index > -1) {
                 (this as any).editableTransactions.splice(index, 1);
@@ -451,6 +542,36 @@ export default {
             if (selectedIndex > -1) {
                 (this as any).selectedTransactions.splice(selectedIndex, 1);
             }
+        },
+
+        linkToExisting(transaction: DetectedTransaction, match: TransactionMatch) {
+            transaction.linked_transaction_id = match.id;
+            transaction.status = 'linked';
+            transaction.possible_matches = [];
+            const selected = (this as any).selectedTransactions;
+            if (!selected.some((item: DetectedTransaction) => item.id === transaction.id)) {
+                selected.push(transaction);
+            }
+        },
+
+        candidatePatchPayload(transaction: DetectedTransaction, accountId: number | string, statusValue: string) {
+            const payload: any = {
+                title: transaction.title,
+                transaction_type: transaction.transaction_type,
+                category: transaction.category,
+                date: transaction.date,
+                amount: parseFloat(transaction.amount.toString()),
+                status: statusValue
+            };
+            if (transaction.linked_transaction_id) {
+                payload.linked_transaction_id = transaction.linked_transaction_id;
+            } else if (transaction.transaction_type === 'Transfer') {
+                payload.from_account_id = (transaction as any).from_account_id || accountId;
+                payload.to_account_id = (transaction as any).to_account_id || accountId;
+            } else {
+                payload.account_id = accountId;
+            }
+            return payload;
         },
 
         async importTransactions() {
@@ -487,6 +608,53 @@ export default {
 
                 if (!account || !account.id) {
                     (this as any).$emit('importError', 'Account not found or could not be created.');
+                    return;
+                }
+
+                if ((this as any).reviewBatchId) {
+                    const selectedKeys = new Set(
+                        (this as any).selectedTransactions.map((transaction: DetectedTransaction) =>
+                            transaction.candidate_id || transaction.id
+                        )
+                    );
+                    const patchPromises = (this as any).editableTransactions
+                        .filter((transaction: DetectedTransaction) => transaction.candidate_id)
+                        .map((transaction: DetectedTransaction) => {
+                            const key = transaction.candidate_id || transaction.id;
+                            const nextStatus = transaction.linked_transaction_id
+                                ? 'linked'
+                                : selectedKeys.has(key)
+                                    ? 'pending'
+                                    : 'skipped';
+                            return axios.patch(
+                                `/bank-statements/import-candidates/${transaction.candidate_id}/`,
+                                (this as any).candidatePatchPayload(transaction, account.id, nextStatus)
+                            );
+                        });
+
+                    const removedPromises = (this as any).removedCandidateIds.map((candidateId: number) =>
+                        axios.patch(`/bank-statements/import-candidates/${candidateId}/`, { status: 'skipped' })
+                    );
+                    await Promise.all([...patchPromises, ...removedPromises]);
+
+                    const commitResponse = await axios.post(
+                        `/bank-statements/import-batches/${(this as any).reviewBatchId}/commit/`,
+                        { account_id: account.id.toString() }
+                    );
+                    const importedCount = commitResponse.data?.imported?.length || 0;
+                    const failedCount = commitResponse.data?.failed?.length || 0;
+                    if (failedCount > 0) {
+                        (this as any).$emit(
+                            'importError',
+                            `Imported ${importedCount} transaction(s), but ${failedCount} candidate(s) need more review.`
+                        );
+                    } else {
+                        (this as any).$emit('transactionsImported', {
+                            importedCount,
+                            accountUpdated: account
+                        });
+                    }
+                    (this as any).closeDialog();
                     return;
                 }
 

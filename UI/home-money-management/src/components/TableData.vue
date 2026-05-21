@@ -42,7 +42,8 @@
                                                 <v-select v-model="(this as any).editedItem.transaction_type"
                                                     label="Transaction Type" :items="[
                                                         { title: 'Income', value: 'Income', prependIcon: 'mdi-trending-up' },
-                                                        { title: 'Expense', value: 'Expense', prependIcon: 'mdi-trending-down' }
+                                                        { title: 'Expense', value: 'Expense', prependIcon: 'mdi-trending-down' },
+                                                        { title: 'Transfer', value: 'Transfer', prependIcon: 'mdi-swap-horizontal' }
                                                     ]" variant="outlined" rounded="lg"></v-select>
                                             </v-col>
                                             <v-col cols="12" md="6">
@@ -61,7 +62,21 @@
                                                     prepend-inner-icon="mdi-currency-usd"></v-text-field>
                                             </v-col>
                                         </v-row>
-                                        <v-row>
+                                        <v-row v-if="editedItem.transaction_type === 'Transfer'">
+                                            <v-col cols="12" md="6">
+                                                <v-select v-model="editedItem.from_account_id" label="From Account"
+                                                    :items="internalAccounts" item-title="title" item-value="value"
+                                                    variant="outlined" rounded="lg"
+                                                    prepend-inner-icon="mdi-bank-transfer-out"></v-select>
+                                            </v-col>
+                                            <v-col cols="12" md="6">
+                                                <v-select v-model="editedItem.to_account_id" label="To Account"
+                                                    :items="internalAccounts" item-title="title" item-value="value"
+                                                    variant="outlined" rounded="lg"
+                                                    prepend-inner-icon="mdi-bank-transfer-in"></v-select>
+                                            </v-col>
+                                        </v-row>
+                                        <v-row v-else>
                                             <v-col cols="12" md="6">
                                                 <v-select v-model="editedItem.account_id" label="Account"
                                                     :items="internalAccounts" item-title="title" item-value="value"
@@ -122,9 +137,9 @@
 
             <!-- Custom row styling -->
             <template v-slot:item.transaction_type="{ item }">
-                <v-chip :color="asTransaction(item).transaction_type === 'Income' ? 'success' : 'error'" size="small" variant="tonal"
+                <v-chip :color="getTypeColor(asTransaction(item).transaction_type)" size="small" variant="tonal"
                     class="font-weight-medium">
-                    <v-icon :icon="asTransaction(item).transaction_type === 'Income' ? 'mdi-trending-up' : 'mdi-trending-down'"
+                    <v-icon :icon="getTypeIcon(asTransaction(item).transaction_type)"
                         size="16" class="me-1"></v-icon>
                     {{ asTransaction(item).transaction_type }}
                 </v-chip>
@@ -132,8 +147,8 @@
 
             <template v-slot:item.total="{ item }">
                 <span class="font-weight-bold"
-                    :class="asTransaction(item).transaction_type === 'Income' ? 'text-success' : 'text-error'">
-                    {{ asTransaction(item).transaction_type === 'Income' ? '+' : '-' }}${{ Math.abs(asTransaction(item).total).toLocaleString() }}
+                    :class="asTransaction(item).transaction_type === 'Income' ? 'text-success' : asTransaction(item).transaction_type === 'Expense' ? 'text-error' : 'text-grey-darken-1'">
+                    {{ asTransaction(item).transaction_type === 'Income' ? '+' : asTransaction(item).transaction_type === 'Expense' ? '-' : '' }}${{ Math.abs(asTransaction(item).total).toLocaleString() }}
                 </span>
             </template>
 
@@ -191,6 +206,8 @@ interface Transaction {
     total: number,
     owner_id: string,
     account_id: string,
+    from_account_id?: string,
+    to_account_id?: string,
 }
 
 interface Account {
@@ -258,6 +275,8 @@ export default {
                 date: '',
                 total: 0,
                 transaction_type: '',
+                from_account_id: '',
+                to_account_id: '',
             } as Transaction,
             defaultItem: {
                 id: 0,
@@ -268,6 +287,8 @@ export default {
                 date: '',
                 total: 0,
                 transaction_type: '',
+                from_account_id: '',
+                to_account_id: '',
             } as Transaction,
             categories: [
                 'Account Transfer',
@@ -297,14 +318,13 @@ export default {
             return (this as any).editedIndex === -1 ? 'New Transaction' : 'Edit Transaction'
         },
         isFormValid(): boolean {
-            let isValid = true;
-            (this as any).editedItem.owner_id = (this as any).userData.user.username
-            Object.values((this as any).editedItem).forEach((value) => {
-                if (value === '') {
-                    isValid = false;
-                }
-            });
-            return isValid;
+            const item = (this as any).editedItem;
+            item.owner_id = (this as any).userData.user.username;
+            const base = !!item.transaction_type && !!item.category && !!item.date && !!item.title && Number(item.total) > 0;
+            if (item.transaction_type === 'Transfer') {
+                return base && !!item.from_account_id && !!item.to_account_id && item.from_account_id !== item.to_account_id;
+            }
+            return base && !!item.account_id;
         },
         currentHeaders(): any[] {
             return (this as any).$vuetify.display.mobile ? (this as any).mobileHeaders : (this as any).headers;
@@ -362,6 +382,16 @@ export default {
         getCategoryStyle(category: string) {
             return getCategoryStyleUtil(category);
         },
+        getTypeColor(type: string): string {
+            if (type === 'Income') return 'success';
+            if (type === 'Expense') return 'error';
+            return 'info';
+        },
+        getTypeIcon(type: string): string {
+            if (type === 'Income') return 'mdi-trending-up';
+            if (type === 'Expense') return 'mdi-trending-down';
+            return 'mdi-swap-horizontal';
+        },
 
         editItem(item: Transaction) {
             if (!Array.isArray((this as any).internalTransactions)) {
@@ -411,6 +441,13 @@ export default {
                 })
         },
         saveTransaction() {
+            const payload = { ...(this as any).editedItem };
+            if (payload.transaction_type === 'Transfer') {
+                payload.account_id = null;
+            } else {
+                payload.from_account_id = null;
+                payload.to_account_id = null;
+            }
             if ((this as any).editedIndex > -1) {
                 let oldTransaction = (this as any).internalTransactions[(this as any).editedIndex];
                 if ((this as any).editedItem === oldTransaction) {
@@ -419,7 +456,7 @@ export default {
                 }
 
                 Object.assign((this as any).internalTransactions[(this as any).editedIndex], (this as any).editedItem)
-                axios.patch(`/transactions/update/${(this as any).editedItem.id}/`, (this as any).editedItem)
+                axios.patch(`/transactions/update/${(this as any).editedItem.id}/`, payload)
                     .then((response: any) => {
                         (this as any).internalTransactions[(this as any).editedIndex] = response.data.updated_transaction;
                         (this as any).$emit('updateAccounts');
@@ -430,7 +467,7 @@ export default {
                     });
             } else {
                 (this as any).editedItem.owner_id = (this as any).userData.user.username
-                axios.post('/transactions/create/', (this as any).editedItem)
+                axios.post('/transactions/create/', payload)
                     .then((response: any) => {
                         (this as any).internalTransactions.push(response.data)
                         (this as any).$emit('updateAccounts');
@@ -459,8 +496,8 @@ export default {
 }
 
 .table-header {
-    background: #ffffff;
-    border-bottom: 1px solid #f3f4f6;
+    background: var(--bb-surface, #ffffff);
+    border-bottom: 1px solid var(--bb-border-soft, #f3f4f6);
 }
 
 /* Modern dialog styling */
@@ -482,12 +519,18 @@ export default {
 }
 
 :deep(.v-data-table-header) {
-    background: #f9fafb;
-    border-bottom: 1px solid #f3f4f6 !important;
+    background: var(--bb-surface-soft, #f9fafb);
+    border-bottom: 1px solid var(--bb-border-soft, #f3f4f6) !important;
+}
+
+:deep(thead),
+:deep(thead tr),
+:deep(.v-data-table__th) {
+    background: var(--bb-surface-soft, #f9fafb) !important;
 }
 
 :deep(.v-data-table-footer) {
-    border-top: 1px solid #f3f4f6 !important;
+    border-top: 1px solid var(--bb-border-soft, #f3f4f6) !important;
     border-bottom: none !important;
 }
 
@@ -521,10 +564,15 @@ export default {
 
 :deep(.v-data-table-header th) {
     font-weight: 600;
-    color: #2E7D32;
+    color: var(--bb-text-muted, #6b7280);
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.5px;
+}
+
+:deep(.v-data-table__th) {
+    border-bottom: 1px solid var(--bb-border-soft, #f3f4f6) !important;
+    color: var(--bb-text-muted, #6b7280) !important;
 }
 
 :deep(.v-data-table__tr) {
@@ -532,37 +580,38 @@ export default {
 }
 
 :deep(.v-data-table__tr:hover) {
-    background: #f9fafb !important;
+    background: var(--bb-row-hover, #f9fafb) !important;
     transform: none;
 }
 
 :deep(.v-data-table__tr:nth-child(even)) {
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff) !important;
 }
 
 :deep(.v-data-table__tr:nth-child(odd)) {
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff) !important;
 }
 
 :deep(.v-data-table__td) {
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--bb-border-soft, #f3f4f6) !important;
+    color: var(--bb-text-strong, #1f2937);
     padding: 16px 12px;
 }
 
 /* Pagination styling */
 :deep(.v-data-table-footer) {
-    background: #ffffff;
-    border-top: 1px solid #f3f4f6;
+    background: var(--bb-surface, #ffffff);
+    border-top: 1px solid var(--bb-border-soft, #f3f4f6);
     padding: 16px 24px;
 }
 
 :deep(.v-data-table-footer__items-per-page) {
-    color: #2E7D32;
+    color: var(--bb-text-muted, #6b7280);
     font-weight: 500;
 }
 
 :deep(.v-data-table-footer__pagination) {
-    color: #2E7D32;
+    color: var(--bb-text-muted, #6b7280);
     font-weight: 500;
 }
 
@@ -736,12 +785,12 @@ export default {
 
 /* Loading state */
 :deep(.v-data-table__loading) {
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
 }
 
 /* Empty state styling */
 :deep(.v-data-table__empty-wrapper) {
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
     border-radius: 16px;
     margin: 16px;
 }
