@@ -2,10 +2,10 @@
   <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
     <header class="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-0 z-50">
       <div class="w-full px-4 sm:px-6 lg:px-10">
-        <div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 h-[72px]">
-          <router-link to="/" class="flex items-center gap-3 min-w-0">
+        <div class="bb-phone-header-grid grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 h-[72px]">
+          <router-link to="/" class="bb-phone-brand flex items-center gap-3 min-w-0">
             <img src="@/assets/logo-192.png" alt="Budget Buddy" class="w-10 h-10 rounded-lg object-contain" />
-            <span class="text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Budget Buddy</span>
+            <span class="bb-phone-brand-text text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Budget Buddy</span>
           </router-link>
           <nav class="hidden md:flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 p-1 shadow-sm">
             <router-link to="/" class="nav-link">Dashboard</router-link>
@@ -14,7 +14,22 @@
             <router-link to="/recurring" class="nav-link active">Recurring</router-link>
             <router-link to="/reports" class="nav-link">Reports</router-link>
           </nav>
-          <div class="flex items-center justify-end gap-2 min-w-0">
+          <div class="bb-phone-actions flex items-center justify-end gap-2 min-w-0">
+            <details class="bb-phone-nav">
+              <summary class="bb-phone-nav-button" aria-label="Open navigation">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path>
+                </svg>
+              </summary>
+              <nav class="bb-phone-nav-panel" aria-label="Phone navigation">
+                <router-link to="/" class="bb-phone-nav-link">Dashboard</router-link>
+                <router-link to="/transactions" class="bb-phone-nav-link">Transactions</router-link>
+                <router-link to="/budgets" class="bb-phone-nav-link">Budgets</router-link>
+                <router-link to="/recurring" class="bb-phone-nav-link">Recurring</router-link>
+                <router-link to="/reports" class="bb-phone-nav-link">Reports</router-link>
+                <button type="button" class="bb-phone-nav-link" @click="goToProfile">Profile</button>
+              </nav>
+            </details>
             <AlertCenter />
             <ThemeToggle />
             <div class="h-9 w-9 rounded-full bg-brand-primary flex items-center justify-center text-white font-semibold cursor-pointer shadow-sm"
@@ -62,7 +77,8 @@
       </section>
 
       <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-6">
-        <table class="w-full text-left border-collapse">
+        <div class="bb-phone-table-scroll">
+        <table class="bb-phone-min-table-compact w-full text-left border-collapse">
           <thead>
             <tr class="bg-gray-50 border-b border-gray-100">
               <th class="px-5 py-4 text-xs font-bold uppercase text-gray-500">Rule</th>
@@ -89,6 +105,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </section>
     </main>
 

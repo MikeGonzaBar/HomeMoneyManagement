@@ -2,10 +2,11 @@
 
 This Django REST API powers Budget Buddy's users, accounts, transactions, budgets, recurring transactions, bank statements, reports, and in-app alerts. All application data endpoints require DRF-style opaque token authentication.
 
-**Current API version:** v1.1.0
+**Current API version:** v1.1.1
 
 ## Release Highlights
 
+- v1.1.1 aligns API schema metadata with the app release; no API contract changes are required for the phone UI fix
 - API admin mode at `/api-admin/` for safe user management and token revocation
 - OpenAPI schema at `/schema/` and Swagger UI at `/docs/` when `API_DOCS_ENABLED=True`
 - `is_admin` is included in authenticated user payloads and can be managed by existing API admins

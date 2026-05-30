@@ -101,6 +101,9 @@ onMounted(() => {
 .app-dark .bb-button-muted,
 .app-dark .bb-button-secondary,
 .app-dark .bb-icon-button,
+.app-dark .bb-phone-nav-button,
+.app-dark .bb-phone-nav-panel,
+.app-dark .bb-phone-nav-link,
 .app-dark .bb-page-button,
 .app-dark .v-field {
   background: #1f2937 !important;
@@ -439,6 +442,81 @@ onMounted(() => {
   color: #111827;
 }
 
+.bb-phone-nav,
+.transactions-phone-export {
+  display: none;
+}
+
+.bb-phone-nav {
+  position: relative;
+}
+
+.bb-phone-nav > summary {
+  list-style: none;
+}
+
+.bb-phone-nav > summary::-webkit-details-marker {
+  display: none;
+}
+
+.bb-phone-nav-button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #f3f4f6;
+  border-radius: 9999px;
+  color: #4b5563;
+  cursor: pointer;
+  display: inline-flex;
+  height: 2.5rem;
+  justify-content: center;
+  width: 2.5rem;
+}
+
+.bb-phone-nav-button:hover {
+  background: #f9fafb;
+  color: #111827;
+}
+
+.bb-phone-nav-panel {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.875rem;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14);
+  display: none;
+  gap: 0.25rem;
+  min-width: 11rem;
+  padding: 0.5rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.625rem);
+  z-index: 80;
+}
+
+.bb-phone-nav[open] .bb-phone-nav-panel {
+  display: grid;
+}
+
+.bb-phone-nav-link {
+  background: transparent;
+  border: 0;
+  border-radius: 0.625rem;
+  color: #4b5563;
+  cursor: pointer;
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  text-decoration: none;
+  width: 100%;
+}
+
+.bb-phone-nav-link:hover,
+.bb-phone-nav-link.router-link-exact-active {
+  background: #f0fdf4;
+  color: #2e7d32;
+}
+
 .bb-input-shell {
   align-items: center;
   background: #ffffff;
@@ -624,5 +702,71 @@ onMounted(() => {
   border: 1px solid #f3f4f6;
   border-radius: 0.875rem !important;
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.12);
+}
+
+@media (max-width: 640px) {
+  .bb-phone-header-grid {
+    display: flex;
+    gap: 0.5rem;
+    height: 4rem;
+    justify-content: space-between;
+  }
+
+  .bb-phone-brand {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .bb-phone-brand-text {
+    display: none !important;
+  }
+
+  .bb-phone-actions {
+    flex: 0 0 auto;
+    gap: 0.4rem !important;
+    min-width: 0;
+  }
+
+  .bb-phone-actions .bb-icon-button,
+  .bb-phone-nav-button {
+    height: 2.35rem;
+    width: 2.35rem;
+  }
+
+  .bb-phone-user-shell {
+    gap: 0;
+    padding: 0.25rem !important;
+  }
+
+  .bb-phone-user-shell > .hidden {
+    display: none !important;
+  }
+
+  .bb-phone-nav {
+    display: block;
+  }
+
+  .transactions-header-export {
+    display: none !important;
+  }
+
+  .transactions-phone-export {
+    display: inline-flex;
+    margin-top: 0.75rem;
+    width: 100%;
+  }
+
+  .bb-phone-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .bb-phone-min-table {
+    min-width: 42rem;
+  }
+
+  .bb-phone-min-table-compact {
+    min-width: 36rem;
+  }
 }
 </style>

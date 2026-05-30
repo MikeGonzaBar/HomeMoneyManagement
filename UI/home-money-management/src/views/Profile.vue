@@ -602,6 +602,17 @@ export default {
 }
 
 /* Mobile-specific improvements */
+@media (max-width: 640px) {
+    .profile-container {
+        overflow-x: hidden;
+    }
+
+    .profile-container :deep(.v-row) {
+        margin-left: 0;
+        margin-right: 0;
+    }
+}
+
 @media (max-width: 600px) {
     .profile-container {
         padding: 12px;

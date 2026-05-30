@@ -2,14 +2,15 @@
 
 A comprehensive full-stack personal finance management application that helps users track expenses, manage multiple accounts, plan budgets, confirm recurring items, reconcile statement imports, and visualize financial data with forecasting and in-app alerts.
 
-**Current release:** v1.1.0
+**Current release:** v1.1.1
 
 ### Release Highlights
 
-- Token-authenticated API admin mode for listing users, updating safe profile/admin fields, and revoking active tokens
-- OpenAPI schema and Swagger UI behind the private API binding when `API_DOCS_ENABLED=True`
-- Hardened Docker exposure defaults: only the UI is published publicly, while API/admin/docs stay on localhost unless intentionally tunneled
-- Continued owner-scoped finance workflows for budgets, recurring transactions, bank statement reconciliation, reports, and alerts
+- Phone-only authenticated layout fixes for Dashboard, Transactions, Budgets, Recurring, Reports, and Profile
+- Compact phone navigation menu at widths below the existing `sm` breakpoint while preserving desktop navigation
+- Mobile table scrolling for Transactions, Budgets, and Recurring without body-level horizontal overflow
+- Transactions export control moved out of the phone header flow to prevent overlap
+- v1.1.0 baseline: token-authenticated API admin mode, private OpenAPI/Swagger docs, hardened Docker exposure defaults, and owner-scoped finance workflows
 
 ## 🚀 Features
 

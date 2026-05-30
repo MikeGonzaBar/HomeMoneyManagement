@@ -287,7 +287,7 @@ REST_FRAMEWORK = {
 SPECTACULAR_SETTINGS = {
     "TITLE": "Home Money Management API",
     "DESCRIPTION": "Token-authenticated API for Budget Buddy users, accounts, transactions, budgets, bank statements, reports, recurring transactions, alerts, and API admin mode.",
-    "VERSION": "1.1.0",
+    "VERSION": "1.1.1",
     "SERVE_INCLUDE_SCHEMA": False,
     "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",

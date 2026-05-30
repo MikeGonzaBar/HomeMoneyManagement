@@ -2,11 +2,15 @@
 
 Vue 3 + Vuetify frontend for Budget Buddy. The app covers dashboard analytics, transactions and transfers, monthly budgets, recurring due-item confirmation, statement import reconciliation, reports/forecasting, in-app alerts, and persisted light/dark/system theme preferences.
 
-**Current frontend version:** v1.1.0
+**Current frontend version:** v1.1.1
 
 ## Release Notes
 
-- Aligns the frontend package release with the v1.1.0 API/admin/docs push.
+- Adds phone-only authenticated layout fixes below the existing `sm` breakpoint.
+- Keeps logo, notification, theme toggle, avatar, and navigation reachable on phone widths.
+- Moves the Transactions export action into page content on phone so it no longer overlaps the header.
+- Adds contained horizontal scrolling for mobile transaction, budget, and recurring tables.
+- Aligns the frontend package release with the v1.1.1 app tag.
 - Continues to use token-based sessions that include the backend `is_admin` flag in the stored user payload.
 
 ## Quick Start
