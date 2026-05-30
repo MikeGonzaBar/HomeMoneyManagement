@@ -1,5 +1,6 @@
 from django.utils import timezone
 from rest_framework import authentication, exceptions
+from rest_framework.request import Request
 
 from .models import AuthToken
 
@@ -9,10 +10,12 @@ class TokenAuthentication(authentication.BaseAuthentication):
 
     keyword = "Token"
 
-    def authenticate_header(self, request):
+    def authenticate_header(self, request: Request) -> str:
+        """Return the header keyword expected by clients."""
         return self.keyword
 
-    def authenticate(self, request):
+    def authenticate(self, request: Request) -> tuple[object, AuthToken] | None:
+        """Authenticate a request from an `Authorization: Token <key>` header."""
         auth_header = authentication.get_authorization_header(request).split()
         if not auth_header:
             return None

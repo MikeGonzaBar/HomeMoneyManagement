@@ -3,10 +3,9 @@ Service for generating Smart Insights using Google AI Studio (Gemini API).
 Uses the same Gemini setup as bank statement processing for consistent behavior.
 """
 import json
-import os
 import re
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 from django.conf import settings
 from google import genai as google_genai
@@ -14,7 +13,7 @@ from google import genai as google_genai
 logger = logging.getLogger(__name__)
 
 
-def _get_gemini_client():
+def _get_gemini_client() -> Any | None:
     """Create a Google GenAI client if the API key is configured."""
     api_key = getattr(settings, 'GOOGLE_AI_API_KEY', None)
     if not api_key:
@@ -23,7 +22,7 @@ def _get_gemini_client():
     return google_genai.Client(api_key=api_key)
 
 
-def _get_model_names_to_try() -> List[str]:
+def _get_model_names_to_try() -> list[str]:
     """Current Gemini text models, with optional env override first."""
     configured_model = getattr(settings, "GOOGLE_AI_MODEL", None)
     model_names = [
@@ -45,12 +44,12 @@ def generate_smart_insights_with_ai(
     end_date: str,
     prev_start_date: str,
     prev_end_date: str,
-    current_period: Dict[str, Any],
-    previous_period: Dict[str, Any],
-    top_categories: list,
+    current_period: dict[str, Any],
+    previous_period: dict[str, Any],
+    top_categories: list[dict[str, Any]],
     net_worth: float,
     net_worth_change: float,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Generate Smart Insights using Gemini API. Acts as a genuine financial advisor.
 

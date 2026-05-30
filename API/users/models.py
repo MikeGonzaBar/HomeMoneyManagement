@@ -23,24 +23,27 @@ class User(models.Model):
         ],
         default="system",
     )
+    is_admin = models.BooleanField(default=False)
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the username for admin and debug displays."""
         return f"{self.username}"
 
     @property
-    def is_authenticated(self):
+    def is_authenticated(self) -> bool:
         """Allow DRF's IsAuthenticated permission to work with this app user."""
         return True
 
     @property
-    def is_anonymous(self):
+    def is_anonymous(self) -> bool:
+        """Return False so DRF treats this model as an authenticated principal."""
         return False
     
-    def set_password(self, raw_password):
+    def set_password(self, raw_password: str) -> None:
         """Set password with secure hashing."""
         self.password = make_password(raw_password)
     
-    def check_password(self, raw_password):
+    def check_password(self, raw_password: str) -> bool:
         """Check password against hash."""
         return check_password(raw_password, self.password)
 
@@ -60,13 +63,16 @@ class AuthToken(models.Model):
             models.Index(fields=["revoked_at"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable token label without exposing the token key."""
         return f"Token for {self.user.username}"
 
     @classmethod
-    def issue_for_user(cls, user):
+    def issue_for_user(cls, user: User) -> "AuthToken":
+        """Issue a new opaque token for an API user."""
         return cls.objects.create(key=secrets.token_hex(32), user=user)
 
     @property
-    def is_active(self):
+    def is_active(self) -> bool:
+        """Return whether the token is still usable for authentication."""
         return self.revoked_at is None

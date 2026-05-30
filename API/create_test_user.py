@@ -3,7 +3,6 @@
 Script to create a test user for debugging login issues.
 """
 import os
-import sys
 import django
 
 # Setup Django
@@ -12,7 +11,7 @@ django.setup()
 
 from users.models import User
 
-def create_test_user():
+def create_test_user() -> None:
     """Create a test user for debugging."""
     username = 'testUser'
     password = 'testpass123'

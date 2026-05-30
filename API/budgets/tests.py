@@ -10,7 +10,10 @@ from .models import Budget
 
 
 class BudgetTests(APITestCase):
-    def setUp(self):
+    """Budget calculation and ownership tests."""
+
+    def setUp(self) -> None:
+        """Create a user, account, transaction, and auth token."""
         self.user = User.objects.create(username="alice", first_name="Alice", last_name="User")
         self.user.set_password("password123")
         self.user.save()
@@ -34,7 +37,7 @@ class BudgetTests(APITestCase):
             account_fk=self.account,
         )
 
-    def test_budget_summary_calculates_category_spend(self):
+    def test_budget_summary_calculates_category_spend(self) -> None:
         response = self.client.post(
             "/budgets/",
             {
@@ -53,7 +56,7 @@ class BudgetTests(APITestCase):
         self.assertEqual(summary.status_code, 200)
         self.assertEqual(len(summary.data["warnings"]), 1)
 
-    def test_budget_owner_isolation(self):
+    def test_budget_owner_isolation(self) -> None:
         Budget.objects.create(
             owner_user=self.other,
             month="2026-05-01",

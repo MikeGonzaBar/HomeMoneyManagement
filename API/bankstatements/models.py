@@ -1,9 +1,11 @@
-from django.db import models
-from django.core.validators import FileExtensionValidator
 import os
+from typing import Any
+
+from django.core.validators import FileExtensionValidator
+from django.db import models
 
 
-def bank_statement_upload_path(instance, filename):
+def bank_statement_upload_path(instance: "BankStatement", filename: str) -> str:
     """Generate upload path for bank statement files."""
     # Create a path like: bank_statements/username/2024/01/filename.pdf
     from datetime import datetime
@@ -56,15 +58,17 @@ class BankStatement(models.Model):
             models.Index(fields=["user_id", "-upload_date"]),
         ]
     
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable statement label for admin displays."""
         return f"{self.user_id} - {self.original_filename} ({self.upload_date.strftime('%Y-%m-%d')})"
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """Keep the legacy user_id string aligned with the owner foreign key."""
         if self.owner_user_id:
             self.user_id = self.owner_user.username
         super().save(*args, **kwargs)
     
-    def get_file_size_display(self):
+    def get_file_size_display(self) -> str:
         """Return human-readable file size."""
         size = self.file_size
         for unit in ['B', 'KB', 'MB', 'GB']:
@@ -73,7 +77,7 @@ class BankStatement(models.Model):
             size /= 1024.0
         return f"{size:.1f} TB"
     
-    def delete(self, *args, **kwargs):
+    def delete(self, *args: Any, **kwargs: Any) -> None:
         """Override delete to also remove the file from filesystem."""
         if self.file:
             if os.path.isfile(self.file.path):
@@ -82,6 +86,8 @@ class BankStatement(models.Model):
 
 
 class BankStatementImportBatch(models.Model):
+    """Review batch created from AI-extracted bank statement transactions."""
+
     STATUS_REVIEW = "review"
     STATUS_COMMITTED = "committed"
     STATUS_CHOICES = [
@@ -114,11 +120,14 @@ class BankStatementImportBatch(models.Model):
             models.Index(fields=["bank_statement", "status"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable batch label for admin displays."""
         return f"Import batch {self.id} for {self.bank_statement.original_filename}"
 
 
 class BankStatementTransactionCandidate(models.Model):
+    """One extracted transaction candidate awaiting import review."""
+
     STATUS_PENDING = "pending"
     STATUS_IMPORTED = "imported"
     STATUS_SKIPPED = "skipped"
@@ -193,5 +202,6 @@ class BankStatementTransactionCandidate(models.Model):
             models.Index(fields=["import_batch", "status"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable candidate label for admin displays."""
         return f"{self.title} {self.amount} {self.date}"

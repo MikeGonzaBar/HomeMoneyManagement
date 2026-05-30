@@ -16,7 +16,7 @@ sys.path.append('/HomeMoneyManagement')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'MoneyManagement.settings')
 django.setup()
 
-def create_superuser():
+def create_superuser() -> None:
     """Create a superuser for Django admin access."""
     User = get_user_model()
     

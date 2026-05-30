@@ -4,6 +4,8 @@ from .models import Transaction
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
+    """Django admin configuration for transactions."""
+
     list_display = ('id', 'title', 'transaction_type', 'category', 'total', 'date', 'owner_id', 'account_id')
     list_filter = ('transaction_type', 'category', 'date', 'owner_id', 'account_id')
     search_fields = ('title', 'owner_id', 'account_id')

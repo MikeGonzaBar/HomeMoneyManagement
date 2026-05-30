@@ -52,7 +52,7 @@ class BankStatementAdmin(admin.ModelAdmin):
     
     ordering = ['-upload_date']
     
-    def file_size_display(self, obj):
+    def file_size_display(self, obj: BankStatement) -> str:
         """Display human-readable file size."""
         return obj.get_file_size_display()
     file_size_display.short_description = 'File Size'

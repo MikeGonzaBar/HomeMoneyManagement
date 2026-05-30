@@ -24,6 +24,13 @@
 		"strictTemplates": false,
 		"globalTypesPath": "./src/types/global.d.ts"
 	},
-	"include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.tsx",
+		"src/**/*.vue",
+		"src/vite-env.d.ts",
+		"src/shims-vue.d.ts",
+		"src/types/vue-custom-properties.d.ts"
+	],
 	"exclude": ["node_modules"]
 }

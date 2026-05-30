@@ -2,6 +2,15 @@
 
 A comprehensive full-stack personal finance management application that helps users track expenses, manage multiple accounts, plan budgets, confirm recurring items, reconcile statement imports, and visualize financial data with forecasting and in-app alerts.
 
+**Current release:** v1.1.0
+
+### Release Highlights
+
+- Token-authenticated API admin mode for listing users, updating safe profile/admin fields, and revoking active tokens
+- OpenAPI schema and Swagger UI behind the private API binding when `API_DOCS_ENABLED=True`
+- Hardened Docker exposure defaults: only the UI is published publicly, while API/admin/docs stay on localhost unless intentionally tunneled
+- Continued owner-scoped finance workflows for budgets, recurring transactions, bank statement reconciliation, reports, and alerts
+
 ## 🚀 Features
 
 ### 💰 Financial Management
@@ -41,6 +50,8 @@ A comprehensive full-stack personal finance management application that helps us
 - **Token Authentication**: DRF-style opaque tokens sent with `Authorization: Token <token>`
 - **Session Management**: The frontend stores only `{ token, user }` in localStorage and clears invalid/legacy sessions
 - **Data Privacy**: Server-enforced user-specific data isolation
+- **API Admin Mode**: Token users with `is_admin=True` can manage safe user fields and revoke active tokens through `/api-admin/`
+- **Private API Documentation**: OpenAPI schema and Swagger UI are available at `/schema/` and `/docs/` when enabled
 
 ## 🏗️ Architecture
 
@@ -390,8 +401,11 @@ HomeMoneyManagement/
 
 3. **Access the application**
    - **Frontend**: <http://localhost:8080>
-   - **Backend API**: <http://localhost:8000>
-   - **Admin Interface**: <http://localhost:8000/admin>
+   - **Backend API**: <http://localhost:8000> from the host/SSH tunnel only
+   - **Admin Interface**: <http://localhost:8000/admin> from the host/SSH tunnel only
+   - **API Docs**: <http://localhost:8000/docs> from the host/SSH tunnel only
+
+Docker publishes only the UI publicly by default. The API binds to `127.0.0.1:${API_HOST_PORT:-8000}`, and PostgreSQL is kept on the Docker network without a host port. Use an SSH tunnel such as `ssh -L 8000:127.0.0.1:8000 user@vm` for remote API, admin, or Swagger access.
 
 ### Default Admin Credentials
 
@@ -400,6 +414,8 @@ Docker development creates a default admin account if one does not already exist
 - **Username**: `admin`
 - **Email**: `admin@example.com`
 - **Password**: `admin123`
+
+You can override these with `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_EMAIL`, and `DJANGO_SUPERUSER_PASSWORD`.
 
 ### Test Data Setup
 
@@ -555,6 +571,24 @@ Route usernames are retained for compatibility, but the server derives the effec
 - `GET /user/detail/<username>/` - Get details for the authenticated user
 - `DELETE /user/detail/<username>/` - Delete the authenticated user after password confirmation
 
+#### API Admin
+
+- `GET /api-admin/users/` - List API users without passwords or token values; requires `is_admin=True`
+- `PATCH /api-admin/users/<id>/` - Update safe user fields including `first_name`, `last_name`, `theme_preference`, and `is_admin`
+- `POST /api-admin/users/<id>/tokens/revoke/` - Revoke all active API tokens for a user
+
+Promote or demote API admins from the backend directory:
+
+```bash
+python manage.py set_api_admin <username> --enabled true
+python manage.py set_api_admin <username> --enabled false
+```
+
+#### OpenAPI Docs
+
+- `GET /schema/` - OpenAPI schema when `API_DOCS_ENABLED=True`
+- `GET /docs/` - Swagger UI when `API_DOCS_ENABLED=True`
+
 #### Accounts
 
 - `POST /accounts/` - Create a new account for the token user
@@ -680,10 +714,11 @@ gunicorn --bind 0.0.0.0:8000 --workers=4 MoneyManagement.wsgi:application
 
 ### Environment Configuration
 
-- Backend runs on port 8000
-- Frontend runs on port 8080
-- Database: PostgreSQL 15 in Docker, with a named `postgres_data` volume
-- Admin interface available at `/admin`
+- Backend listens on container port 8000 and publishes to `127.0.0.1:${API_HOST_PORT:-8000}`
+- Frontend publishes `${UI_HOST_PORT:-8080}:80`
+- Database: PostgreSQL 15 in Docker, with a named `postgres_data` volume and no host port by default
+- Admin interface available at `/admin` through the private API binding
+- Swagger UI available at `/docs` when `API_DOCS_ENABLED=True`
 
 ## 📊 Technology Stack
 

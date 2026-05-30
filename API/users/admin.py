@@ -1,15 +1,18 @@
 from django.contrib import admin
 from django.contrib.admin.utils import get_deleted_objects
-from django.contrib.admin import helpers
+from django.db.models import QuerySet
+from django.http import HttpRequest
 from django.utils.html import format_html
-from django.urls import reverse
+
 from .models import User
 
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('id', 'username', 'first_name', 'last_name', 'related_objects_count')
-    list_filter = ('first_name', 'last_name')
+    """Django admin configuration for token-auth API users."""
+
+    list_display = ('id', 'username', 'first_name', 'last_name', 'is_admin', 'related_objects_count')
+    list_filter = ('first_name', 'last_name', 'is_admin')
     search_fields = ('username', 'first_name', 'last_name')
     ordering = ('username',)
     readonly_fields = ('id', 'related_objects_count')
@@ -19,7 +22,7 @@ class UserAdmin(admin.ModelAdmin):
             'fields': ('username', 'password')
         }),
         ('Personal Information', {
-            'fields': ('first_name', 'last_name')
+            'fields': ('first_name', 'last_name', 'is_admin')
         }),
         ('Related Data', {
             'fields': ('related_objects_count',),
@@ -27,7 +30,7 @@ class UserAdmin(admin.ModelAdmin):
         }),
     )
     
-    def related_objects_count(self, obj):
+    def related_objects_count(self, obj: User | None) -> str:
         """Display count of related objects."""
         if not obj or not obj.pk:
             return "N/A"
@@ -48,7 +51,7 @@ class UserAdmin(admin.ModelAdmin):
         )
     related_objects_count.short_description = 'Related Objects'
     
-    def get_deleted_objects(self, objs, request):
+    def get_deleted_objects(self, objs: list[User], request: HttpRequest) -> tuple:
         """Override to show related objects in delete confirmation."""
         from account.models import Account
         from transaction.models import Transaction
@@ -88,7 +91,7 @@ class UserAdmin(admin.ModelAdmin):
         
         return deleted_objects, model_count, perms_needed, protected
     
-    def delete_model(self, request, obj):
+    def delete_model(self, request: HttpRequest, obj: User) -> None:
         """Override delete to cascade delete related objects."""
         from account.models import Account
         from transaction.models import Transaction
@@ -108,7 +111,7 @@ class UserAdmin(admin.ModelAdmin):
         # Finally, delete the user
         obj.delete()
     
-    def delete_queryset(self, request, queryset):
+    def delete_queryset(self, request: HttpRequest, queryset: QuerySet[User]) -> None:
         """Override to handle bulk delete with cascade."""
         for obj in queryset:
             self.delete_model(request, obj)

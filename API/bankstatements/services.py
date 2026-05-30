@@ -476,7 +476,7 @@ Important:
         }
 
 
-def is_pdf_password_protected(pdf_file) -> bool:
+def is_pdf_password_protected(pdf_file: Any) -> bool:
     """
     Check if a PDF file is password-protected.
     
@@ -515,7 +515,7 @@ def is_pdf_password_protected(pdf_file) -> bool:
         return False
 
 
-def decrypt_pdf_file(pdf_file, password: str) -> ContentFile:
+def decrypt_pdf_file(pdf_file: Any, password: str) -> ContentFile:
     """
     Decrypt a password-protected PDF file.
     

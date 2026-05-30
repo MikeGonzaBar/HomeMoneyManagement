@@ -8,7 +8,10 @@ from .models import Transaction
 
 
 class TransactionBalanceTests(APITestCase):
-    def setUp(self):
+    """Balance and ownership tests for transaction endpoints."""
+
+    def setUp(self) -> None:
+        """Create owner, cross-user, and account fixtures."""
         self.alice = User.objects.create(username="alice", first_name="Alice", last_name="User")
         self.alice.set_password("password123")
         self.alice.save()
@@ -39,7 +42,7 @@ class TransactionBalanceTests(APITestCase):
             total="200.00",
         )
 
-    def test_create_income_and_expense_update_balance(self):
+    def test_create_income_and_expense_update_balance(self) -> None:
         income = self.client.post(
             "/transactions/create/",
             {
@@ -73,7 +76,7 @@ class TransactionBalanceTests(APITestCase):
         self.checking.refresh_from_db()
         self.assertEqual(self.checking.total, Decimal("130.00"))
 
-    def test_transfer_update_and_delete_reverse_balances(self):
+    def test_transfer_update_and_delete_reverse_balances(self) -> None:
         created = self.client.post(
             "/transactions/create/",
             {
@@ -111,7 +114,7 @@ class TransactionBalanceTests(APITestCase):
         self.assertEqual(self.checking.total, Decimal("100.00"))
         self.assertEqual(self.savings.total, Decimal("25.00"))
 
-    def test_rejects_cross_user_account_without_balance_change(self):
+    def test_rejects_cross_user_account_without_balance_change(self) -> None:
         response = self.client.post(
             "/transactions/create/",
             {
@@ -129,6 +132,6 @@ class TransactionBalanceTests(APITestCase):
         self.bob_account.refresh_from_db()
         self.assertEqual(self.bob_account.total, Decimal("200.00"))
 
-    def test_route_username_mismatch_is_forbidden(self):
+    def test_route_username_mismatch_is_forbidden(self) -> None:
         response = self.client.get("/transactions/retrieve/bob/0/0/0/")
         self.assertEqual(response.status_code, 403)

@@ -26,6 +26,12 @@ Once the containers are running, navigate to:
 http://localhost:8000/admin/
 ```
 
+In Docker, the API is bound to `127.0.0.1:${API_HOST_PORT:-8000}` by default. On a remote VM, open it through an SSH tunnel instead of exposing the admin port publicly:
+
+```bash
+ssh -L 8000:127.0.0.1:8000 user@vm
+```
+
 ### 3. Login Credentials
 
 The superuser creation script will run automatically when you start the containers with default credentials:
@@ -95,7 +101,7 @@ docker-compose exec money-management-api python /HomeMoneyManagement/manage.py c
 - The default credentials (admin/admin123) are for development only
 - Change the password immediately in production
 - Consider using environment variables for sensitive data
-- The admin interface is only accessible when DEBUG=True (development mode)
+- The admin interface is mounted whenever Django starts, but Docker keeps the API/admin host port bound to localhost by default
 
 ## Troubleshooting
 

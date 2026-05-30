@@ -3,16 +3,24 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.db import IntegrityError
-from rest_framework import status
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from rest_framework import generics, serializers, status
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from transaction.models import Transaction
+from users.models import User
 
 from .models import Budget
 
 
-def parse_month(value):
+class BudgetSchemaSerializer(serializers.Serializer):
+    """Named schema placeholder for hand-built budget API responses."""
+
+
+def parse_month(value: object) -> date:
+    """Parse a YYYY-MM month value, defaulting to the current month."""
     if not value:
         today = date.today()
         return today.replace(day=1)
@@ -23,12 +31,14 @@ def parse_month(value):
         raise ValueError("month must use YYYY-MM format")
 
 
-def month_bounds(month):
+def month_bounds(month: date) -> tuple[date, date]:
+    """Return the inclusive first and last dates for a month."""
     last_day = monthrange(month.year, month.month)[1]
     return month, date(month.year, month.month, last_day)
 
 
-def money(value, field_name):
+def money(value: object, field_name: str) -> Decimal:
+    """Parse a non-negative money value to two decimal places."""
     try:
         amount = Decimal(str(value)).quantize(Decimal("0.01"))
     except (InvalidOperation, TypeError, ValueError) as exc:
@@ -38,7 +48,8 @@ def money(value, field_name):
     return amount
 
 
-def spending_for_budget(user, budget):
+def spending_for_budget(user: User, budget: Budget) -> Decimal:
+    """Calculate current spending that counts against a budget."""
     start, end = month_bounds(budget.month)
     query = Transaction.objects.filter(
         owner_user=user,
@@ -54,7 +65,8 @@ def spending_for_budget(user, budget):
     return total.quantize(Decimal("0.01"))
 
 
-def budget_payload(user, budget):
+def budget_payload(user: User, budget: Budget) -> dict[str, object]:
+    """Return the API representation for a budget with spending status."""
     spent = spending_for_budget(user, budget)
     remaining = (budget.limit_amount - spent).quantize(Decimal("0.01"))
     percent = Decimal("0.00")
@@ -78,7 +90,8 @@ def budget_payload(user, budget):
     }
 
 
-def validate_payload(data, existing=None):
+def validate_payload(data: dict[str, object], existing: Budget | None = None) -> dict[str, object]:
+    """Validate request data for creating or updating a budget."""
     month = parse_month(data.get("month", existing.month.strftime("%Y-%m") if existing else None))
     scope_value = data.get("scope", existing.scope if existing else None)
     if scope_value not in {Budget.SCOPE_OVERALL, Budget.SCOPE_CATEGORY}:
@@ -97,8 +110,19 @@ def validate_payload(data, existing=None):
     }
 
 
-class BudgetListCreate(APIView):
-    def get(self, request):
+class BudgetListCreate(generics.GenericAPIView):
+    """List and create monthly budgets for the authenticated user."""
+
+    serializer_class = BudgetSchemaSerializer
+
+    @extend_schema(
+        tags=["Budgets"],
+        operation_id="budget_list",
+        parameters=[OpenApiParameter("month", str, OpenApiParameter.QUERY)],
+        responses={200: OpenApiResponse(description="Budgets for the authenticated user")},
+    )
+    def get(self, request: Request) -> Response:
+        """Return budgets for the authenticated user, optionally by month."""
         month_param = request.GET.get("month")
         query = Budget.objects.filter(owner_user=request.user).order_by("-month", "scope", "category")
         if month_param:
@@ -108,7 +132,13 @@ class BudgetListCreate(APIView):
                 return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response([budget_payload(request.user, item) for item in query])
 
-    def post(self, request):
+    @extend_schema(
+        tags=["Budgets"],
+        operation_id="budget_create",
+        responses={201: OpenApiResponse(description="Budget created")},
+    )
+    def post(self, request: Request) -> Response:
+        """Create a unique budget for the authenticated user and month."""
         try:
             attrs = validate_payload(request.data)
             if Budget.objects.filter(
@@ -132,20 +162,37 @@ class BudgetListCreate(APIView):
         return Response(budget_payload(request.user, budget), status=status.HTTP_201_CREATED)
 
 
-class BudgetDetail(APIView):
-    def get_object(self, request, budget_id):
+class BudgetDetail(generics.GenericAPIView):
+    """Retrieve, update, or delete one authenticated user's budget."""
+
+    serializer_class = BudgetSchemaSerializer
+
+    def get_object(self, request: Request, budget_id: int) -> Budget | None:
+        """Return one owned budget or None when it does not exist."""
         try:
             return Budget.objects.get(owner_user=request.user, id=budget_id)
         except Budget.DoesNotExist:
             return None
 
-    def get(self, request, budget_id):
+    @extend_schema(
+        tags=["Budgets"],
+        operation_id="budget_retrieve",
+        responses={200: OpenApiResponse(description="Budget details")},
+    )
+    def get(self, request: Request, budget_id: int) -> Response:
+        """Return one budget owned by the authenticated user."""
         budget = self.get_object(request, budget_id)
         if not budget:
             return Response({"error": "Budget not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(budget_payload(request.user, budget))
 
-    def patch(self, request, budget_id):
+    @extend_schema(
+        tags=["Budgets"],
+        operation_id="budget_update",
+        responses={200: OpenApiResponse(description="Budget updated")},
+    )
+    def patch(self, request: Request, budget_id: int) -> Response:
+        """Update one budget owned by the authenticated user."""
         budget = self.get_object(request, budget_id)
         if not budget:
             return Response({"error": "Budget not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -174,7 +221,13 @@ class BudgetDetail(APIView):
             )
         return Response(budget_payload(request.user, budget))
 
-    def delete(self, request, budget_id):
+    @extend_schema(
+        tags=["Budgets"],
+        operation_id="budget_delete",
+        responses={200: OpenApiResponse(description="Budget deleted")},
+    )
+    def delete(self, request: Request, budget_id: int) -> Response:
+        """Delete one budget owned by the authenticated user."""
         budget = self.get_object(request, budget_id)
         if not budget:
             return Response({"error": "Budget not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -183,7 +236,16 @@ class BudgetDetail(APIView):
 
 
 class BudgetSummary(APIView):
-    def get(self, request):
+    """Return budget rollups for one month."""
+
+    @extend_schema(
+        tags=["Budgets"],
+        operation_id="budget_summary",
+        parameters=[OpenApiParameter("month", str, OpenApiParameter.QUERY)],
+        responses={200: OpenApiResponse(description="Budget summary")},
+    )
+    def get(self, request: Request) -> Response:
+        """Return overall, category, warning, and over-budget summaries."""
         try:
             month = parse_month(request.GET.get("month"))
         except ValueError as exc:

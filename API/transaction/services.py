@@ -4,13 +4,16 @@ from django.core.exceptions import ValidationError
 from django.db import transaction as db_transaction
 
 from account.models import Account
+from users.models import User
+
 from .models import Transaction
 
 
 VALID_TRANSACTION_TYPES = {"Income", "Expense", "Transfer"}
 
 
-def decimal_value(value, field_name="total"):
+def decimal_value(value: object, field_name: str = "total") -> Decimal:
+    """Parse a required positive transaction amount."""
     if value in (None, ""):
         raise ValidationError(f"{field_name} is required")
     try:
@@ -22,7 +25,8 @@ def decimal_value(value, field_name="total"):
     return amount
 
 
-def transaction_payload(item):
+def transaction_payload(item: Transaction) -> dict[str, object]:
+    """Return the public API representation for a transaction."""
     return {
         "id": item.id,
         "transaction_type": item.transaction_type,
@@ -37,7 +41,8 @@ def transaction_payload(item):
     }
 
 
-def _owned_account(user, account_id, field_name):
+def _owned_account(user: User, account_id: object, field_name: str) -> Account:
+    """Lock and return an account owned by the authenticated user."""
     if not account_id:
         raise ValidationError(f"{field_name} is required")
     try:
@@ -46,7 +51,8 @@ def _owned_account(user, account_id, field_name):
         raise ValidationError(f"Invalid {field_name}") from exc
 
 
-def _lock_existing_accounts(item):
+def _lock_existing_accounts(item: Transaction) -> None:
+    """Lock accounts currently attached to an existing transaction."""
     if item.transaction_type in {"Income", "Expense"}:
         if not item.account_fk_id:
             raise ValidationError("Transaction is missing account_id")
@@ -58,7 +64,12 @@ def _lock_existing_accounts(item):
         item.to_account_fk = _owned_account(item.owner_user, item.to_account_fk_id, "to_account_id")
 
 
-def _attrs_from_data(data, user, existing=None):
+def _attrs_from_data(
+    data: dict[str, object],
+    user: User,
+    existing: Transaction | None = None,
+) -> dict[str, object]:
+    """Validate transaction request data and build model attributes."""
     transaction_type = data.get(
         "transaction_type",
         existing.transaction_type if existing else None,
@@ -107,12 +118,14 @@ def _attrs_from_data(data, user, existing=None):
     return attrs
 
 
-def _apply_delta(account, delta):
+def _apply_delta(account: Account, delta: Decimal) -> None:
+    """Apply and persist a balance delta on one account."""
     account.total = account.total + delta
     account.save(update_fields=["total"])
 
 
-def _apply_effect(item, reverse=False):
+def _apply_effect(item: Transaction, reverse: bool = False) -> None:
+    """Apply or reverse the balance effect of a transaction."""
     multiplier = Decimal("-1") if reverse else Decimal("1")
     amount = item.total * multiplier
 
@@ -126,7 +139,8 @@ def _apply_effect(item, reverse=False):
 
 
 @db_transaction.atomic
-def create_transaction(user, data):
+def create_transaction(user: User, data: dict[str, object]) -> Transaction:
+    """Create a transaction and apply its account balance effect."""
     attrs = _attrs_from_data(data, user)
     item = Transaction.objects.create(**attrs)
     _apply_effect(item)
@@ -134,7 +148,8 @@ def create_transaction(user, data):
 
 
 @db_transaction.atomic
-def update_transaction(user, transaction_id, data):
+def update_transaction(user: User, transaction_id: str, data: dict[str, object]) -> Transaction:
+    """Update a transaction and rebalance all affected accounts."""
     try:
         item = (
             Transaction.objects.select_for_update()
@@ -154,7 +169,8 @@ def update_transaction(user, transaction_id, data):
 
 
 @db_transaction.atomic
-def delete_transaction(user, transaction_id):
+def delete_transaction(user: User, transaction_id: str) -> dict[str, object]:
+    """Delete a transaction and reverse its account balance effect."""
     try:
         item = (
             Transaction.objects.select_for_update()

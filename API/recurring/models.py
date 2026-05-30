@@ -2,6 +2,8 @@ from django.db import models
 
 
 class RecurringTransaction(models.Model):
+    """Rule that can generate due transaction occurrences over time."""
+
     FREQUENCY_CHOICES = [
         ("daily", "Daily"),
         ("weekly", "Weekly"),
@@ -59,11 +61,14 @@ class RecurringTransaction(models.Model):
             models.Index(fields=["owner_user", "transaction_type"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable owner/title label for admin displays."""
         return f"{self.owner_user.username}: {self.title}"
 
 
 class RecurringOccurrence(models.Model):
+    """One due instance generated from a recurring transaction rule."""
+
     STATUS_DUE = "due"
     STATUS_POSTED = "posted"
     STATUS_SKIPPED = "skipped"
@@ -106,5 +111,6 @@ class RecurringOccurrence(models.Model):
             models.Index(fields=["owner_user", "status", "due_date"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable due-occurrence label for admin displays."""
         return f"{self.recurring_transaction.title} due {self.due_date}"

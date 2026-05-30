@@ -4,16 +4,19 @@ Reports API - Financial analytics and smart insights.
 from calendar import monthrange
 from datetime import date, datetime, timedelta
 from collections import defaultdict
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from transaction.models import Transaction
 from account.models import Account
 from reports.services import generate_smart_insights_with_ai
+from users.models import User
 
 
-def _parse_dates(start_str, end_str):
+def _parse_dates(start_str: str, end_str: str) -> tuple[date, date]:
     """Parse start/end date strings. Default to current month."""
     today = datetime.now().date()
     if start_str and end_str:
@@ -33,7 +36,7 @@ def _parse_dates(start_str, end_str):
     return start, end
 
 
-def _get_prev_period(start, end):
+def _get_prev_period(start: date, end: date) -> tuple[date, date]:
     """Return previous period of same length."""
     delta = end - start
     prev_end = start - timedelta(days=1)
@@ -41,7 +44,7 @@ def _get_prev_period(start, end):
     return prev_start, prev_end
 
 
-def _aggregate_income_expense(transactions):
+def _aggregate_income_expense(transactions: list[Transaction]) -> tuple[float, float]:
     """Return (income, expense) totals. Excludes Transfer."""
     income = 0.0
     expense = 0.0
@@ -53,21 +56,23 @@ def _aggregate_income_expense(transactions):
     return income, expense
 
 
-def _savings_rate(income, expense):
+def _savings_rate(income: float, expense: float) -> float:
+    """Return savings rate as a percentage for income and expense totals."""
     if income <= 0:
         return 0.0
     net = income - expense
     return round((net / income) * 100, 1)
 
 
-def _pct_change(old_val, new_val):
+def _pct_change(old_val: float, new_val: float) -> float:
     """Return percentage change. Returns 0 if old_val is 0."""
     if old_val == 0:
         return 0.0 if new_val == 0 else 100.0
     return round(((new_val - old_val) / old_val) * 100, 1)
 
 
-def _forbid_other_user(request, username):
+def _forbid_other_user(request: Request, username: str) -> Response | None:
+    """Reject report routes whose legacy username does not match the token."""
     if username != request.user.username:
         return Response({"error": "Cannot access another user's reports"}, status=status.HTTP_403_FORBIDDEN)
     return None
@@ -76,7 +81,16 @@ def _forbid_other_user(request, username):
 class ReportsAnalytics(APIView):
     """GET /reports/analytics/<username>/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD"""
 
-    def get(self, request, username: str):
+    @extend_schema(
+        tags=["Reports"],
+        parameters=[
+            OpenApiParameter("start_date", str, OpenApiParameter.QUERY),
+            OpenApiParameter("end_date", str, OpenApiParameter.QUERY),
+        ],
+        responses={200: OpenApiResponse(description="Analytics report")},
+    )
+    def get(self, request: Request, username: str) -> Response:
+        """Return analytics, charts, KPIs, and smart insights."""
         mismatch = _forbid_other_user(request, username)
         if mismatch:
             return mismatch
@@ -231,17 +245,17 @@ class ReportsAnalytics(APIView):
 
 
 def _generate_smart_insights(
-    curr_income,
-    curr_expense,
-    curr_net,
-    curr_savings_rate,
-    prev_income,
-    prev_expense,
-    prev_net,
-    prev_savings_rate,
-    curr_cat_totals,
-    prev_cat_totals,
-):
+    curr_income: float,
+    curr_expense: float,
+    curr_net: float,
+    curr_savings_rate: float,
+    prev_income: float,
+    prev_expense: float,
+    prev_net: float,
+    prev_savings_rate: float,
+    curr_cat_totals: dict[str, float],
+    prev_cat_totals: dict[str, float],
+) -> dict[str, object]:
     """Generate smart insights comparing current vs previous period."""
     parts = []
     tags = []
@@ -285,7 +299,16 @@ def _generate_smart_insights(
 class ReportsInsights(APIView):
     """GET /reports/insights/<username>/?start_date=&end_date= - Smart Insights only."""
 
-    def get(self, request, username: str):
+    @extend_schema(
+        tags=["Reports"],
+        parameters=[
+            OpenApiParameter("start_date", str, OpenApiParameter.QUERY),
+            OpenApiParameter("end_date", str, OpenApiParameter.QUERY),
+        ],
+        responses={200: OpenApiResponse(description="Smart insights")},
+    )
+    def get(self, request: Request, username: str) -> Response:
+        """Return only smart insights for the requested period."""
         mismatch = _forbid_other_user(request, username)
         if mismatch:
             return mismatch
@@ -361,7 +384,8 @@ class ReportsInsights(APIView):
         return Response(insights, status=status.HTTP_200_OK)
 
 
-def _add_months(value, months):
+def _add_months(value: date, months: int) -> date:
+    """Add calendar months while clamping to valid target days."""
     month_index = value.month - 1 + months
     year = value.year + month_index // 12
     month = month_index % 12 + 1
@@ -369,11 +393,13 @@ def _add_months(value, months):
     return date(year, month, day)
 
 
-def _month_start(value):
+def _month_start(value: date) -> date:
+    """Return the first day of a date's month."""
     return value.replace(day=1)
 
 
-def build_forecast(user, months=6):
+def build_forecast(user: User, months: int = 6) -> dict[str, object]:
+    """Build a month-by-month balance forecast for the authenticated user."""
     from budgets.models import Budget
     from recurring.models import RecurringTransaction
     from recurring.services import advance_date
@@ -464,7 +490,13 @@ def build_forecast(user, months=6):
 class ReportsForecast(APIView):
     """GET /reports/forecast/<username>/?months=6"""
 
-    def get(self, request, username: str):
+    @extend_schema(
+        tags=["Reports"],
+        parameters=[OpenApiParameter("months", int, OpenApiParameter.QUERY)],
+        responses={200: OpenApiResponse(description="Balance forecast")},
+    )
+    def get(self, request: Request, username: str) -> Response:
+        """Return a balance forecast for the authenticated user."""
         mismatch = _forbid_other_user(request, username)
         if mismatch:
             return mismatch

@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 from rest_framework import generics, status
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from .models import Transaction
@@ -13,13 +14,15 @@ from .services import (
 )
 
 
-def _route_user_matches(request, route_user):
+def _route_user_matches(request: Request, route_user: str) -> Response | None:
+    """Reject legacy username routes that do not match the token user."""
     if route_user != request.user.username:
         return Response({"error": "Cannot access another user's transactions"}, status=status.HTTP_403_FORBIDDEN)
     return None
 
 
-def _validation_response(exc):
+def _validation_response(exc: ValidationError) -> Response:
+    """Convert Django validation errors into the API error shape."""
     messages = getattr(exc, "messages", None)
     return Response(
         {"error": messages[0] if messages else str(exc)},
@@ -28,10 +31,13 @@ def _validation_response(exc):
 
 
 class TransactionCreate(generics.CreateAPIView):
+    """Create a transaction for the authenticated token user."""
+
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
+        """Create a transaction and apply its balance effect."""
         try:
             item = create_transaction(request.user, request.data)
         except ValidationError as exc:
@@ -48,10 +54,13 @@ class TransactionCreate(generics.CreateAPIView):
 
 
 class TransactionRetrieve(generics.RetrieveAPIView):
+    """List owner-scoped transactions using legacy filter route parameters."""
+
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
 
-    def get(self, request, user: str, account_id: str, month: int, year: int):
+    def get(self, request: Request, user: str, account_id: str, month: int, year: int) -> Response:
+        """Return transactions filtered by account, month, and year."""
         mismatch = _route_user_matches(request, user)
         if mismatch:
             return mismatch
@@ -76,9 +85,12 @@ class TransactionRetrieve(generics.RetrieveAPIView):
 
 
 class TransactionUpdate(generics.UpdateAPIView):
+    """Update an owner-scoped transaction and rebalance affected accounts."""
+
     serializer_class = TransactionSerializer
 
-    def patch(self, request, transaction_id: str):
+    def patch(self, request: Request, transaction_id: str) -> Response:
+        """Partially update a transaction owned by the authenticated user."""
         try:
             item = update_transaction(request.user, transaction_id, request.data)
         except Transaction.DoesNotExist:
@@ -93,7 +105,12 @@ class TransactionUpdate(generics.UpdateAPIView):
 
 
 class TransactionDelete(generics.DestroyAPIView):
-    def delete(self, request, transaction_id: str):
+    """Delete an owner-scoped transaction and reverse its balance effect."""
+
+    serializer_class = TransactionSerializer
+
+    def delete(self, request: Request, transaction_id: str) -> Response:
+        """Delete a transaction owned by the authenticated user."""
         try:
             payload = delete_transaction(request.user, transaction_id)
         except Transaction.DoesNotExist:

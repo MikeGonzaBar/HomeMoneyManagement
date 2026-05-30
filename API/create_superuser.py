@@ -16,7 +16,7 @@ sys.path.append('/HomeMoneyManagement')
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'MoneyManagement.settings')
 django.setup()
 
-def create_superuser():
+def create_superuser() -> None:
     """Create a superuser for Django admin access."""
     User = get_user_model()
     
@@ -26,9 +26,9 @@ def create_superuser():
         return
     
     # Default credentials for Docker environment
-    username = "admin"
-    email = "admin@example.com"
-    password = "admin123"
+    username = os.getenv("DJANGO_SUPERUSER_USERNAME", "admin")
+    email = os.getenv("DJANGO_SUPERUSER_EMAIL", "admin@example.com")
+    password = os.getenv("DJANGO_SUPERUSER_PASSWORD", "admin123")
     
     try:
         superuser = User.objects.create_superuser(

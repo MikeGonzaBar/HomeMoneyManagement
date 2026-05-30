@@ -1,14 +1,15 @@
 from decimal import Decimal, InvalidOperation
-
 from django.db.models import ProtectedError
 from rest_framework import generics, status
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from .models import Account
 from .serializers import AccountSerializer
 
 
-def _decimal_value(value, field_name, required=False):
+def _decimal_value(value: object, field_name: str, required: bool = False) -> Decimal | None:
+    """Parse and quantize an optional decimal request value."""
     if value in (None, ""):
         if required:
             raise ValueError(f"{field_name} is required")
@@ -19,7 +20,8 @@ def _decimal_value(value, field_name, required=False):
         raise ValueError(f"{field_name} must be a valid decimal number") from exc
 
 
-def _account_payload(account):
+def _account_payload(account: Account) -> dict[str, object]:
+    """Return the public API representation for an account."""
     return {
         "id": account.id,
         "account_name": account.account_name,
@@ -31,17 +33,21 @@ def _account_payload(account):
     }
 
 
-def _route_user_matches(request, route_user):
+def _route_user_matches(request: Request, route_user: str) -> Response | None:
+    """Reject legacy username routes that do not match the token user."""
     if route_user != request.user.username:
         return Response({"error": "Cannot access another user's accounts"}, status=status.HTTP_403_FORBIDDEN)
     return None
 
 
 class AccountCreate(generics.CreateAPIView):
+    """Create an account owned by the authenticated token user."""
+
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
 
-    def post(self, request):
+    def post(self, request: Request) -> Response:
+        """Create an account while deriving ownership from the token."""
         try:
             total = _decimal_value(request.data.get("total", 0), "total") or Decimal("0.00")
             credit_limit = _decimal_value(request.data.get("credit_limit"), "credit_limit")
@@ -70,10 +76,13 @@ class AccountCreate(generics.CreateAPIView):
 
 
 class AccountOps(generics.RetrieveUpdateAPIView):
+    """List or update accounts scoped to the authenticated owner."""
+
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
 
-    def get(self, request, user: str, id: str):
+    def get(self, request: Request, user: str, id: str) -> Response:
+        """Return all accounts for the authenticated user."""
         mismatch = _route_user_matches(request, user)
         if mismatch:
             return mismatch
@@ -81,7 +90,8 @@ class AccountOps(generics.RetrieveUpdateAPIView):
         accounts = Account.objects.filter(owner_user=request.user).order_by("id")
         return Response([_account_payload(account) for account in accounts], status=status.HTTP_200_OK)
 
-    def patch(self, request, user: str, id: str):
+    def patch(self, request: Request, user: str, id: str) -> Response:
+        """Partially update an account owned by the authenticated user."""
         mismatch = _route_user_matches(request, user)
         if mismatch:
             return mismatch
@@ -123,10 +133,13 @@ class AccountOps(generics.RetrieveUpdateAPIView):
 
 
 class AccountDelete(generics.DestroyAPIView):
+    """Delete an account owned by the authenticated user."""
+
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
 
-    def delete(self, request, user: str, id: str):
+    def delete(self, request: Request, user: str, id: str) -> Response:
+        """Delete one account unless protected transactions reference it."""
         mismatch = _route_user_matches(request, user)
         if mismatch:
             return mismatch

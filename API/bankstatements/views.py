@@ -1,15 +1,13 @@
-from rest_framework import status
-from rest_framework.decorators import api_view, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.response import Response
-from django.http import JsonResponse
-from django.core.files.storage import default_storage
-import os
-import mimetypes
 import logging
 
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import serializers, status
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.request import Request
+from rest_framework.response import Response
+
 from .models import BankStatement
-from .serializers import BankStatementUploadSerializer, BankStatementResponseSerializer
 from .reconciliation import (
     batch_payload,
     candidate_payload,
@@ -17,14 +15,24 @@ from .reconciliation import (
     create_import_batch,
     update_candidate,
 )
+from .serializers import BankStatementResponseSerializer, BankStatementUploadSerializer
 from .services import extract_transactions_from_pdf, is_pdf_password_protected, decrypt_pdf_file
 
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(
+    request=BankStatementUploadSerializer,
+    responses={
+        200: OpenApiResponse(description="Bank statement uploaded and processed"),
+        400: OpenApiResponse(description="Invalid upload or password required"),
+        502: OpenApiResponse(description="AI processing failed"),
+        503: OpenApiResponse(description="AI API key missing"),
+    },
+)
 @api_view(['POST'])
 @parser_classes([MultiPartParser, FormParser])
-def upload_bank_statement(request):
+def upload_bank_statement(request: Request) -> Response:
     """
     Upload a bank statement PDF file.
     
@@ -242,8 +250,9 @@ def upload_bank_statement(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@extend_schema(responses={200: OpenApiResponse(description="User bank statements")})
 @api_view(['GET'])
-def get_user_bank_statements(request, user_id):
+def get_user_bank_statements(request: Request, user_id: str) -> Response:
     """
     Get all bank statements for a specific user.
     
@@ -280,8 +289,9 @@ def get_user_bank_statements(request, user_id):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@extend_schema(responses={200: OpenApiResponse(description="Bank statement details")})
 @api_view(['GET'])
-def get_bank_statement_details(request, statement_id):
+def get_bank_statement_details(request: Request, statement_id: int) -> Response:
     """
     Get details of a specific bank statement.
     
@@ -312,8 +322,9 @@ def get_bank_statement_details(request, statement_id):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@extend_schema(responses={200: OpenApiResponse(description="Bank statement deleted")})
 @api_view(['DELETE'])
-def delete_bank_statement(request, statement_id):
+def delete_bank_statement(request: Request, statement_id: int) -> Response:
     """
     Delete a bank statement.
     
@@ -344,8 +355,10 @@ def delete_bank_statement(request, statement_id):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@extend_schema(responses={200: OpenApiResponse(description="Import batch details")})
 @api_view(['GET'])
-def get_import_batch(request, batch_id):
+def get_import_batch(request: Request, batch_id: int) -> Response:
+    """Return one import review batch owned by the authenticated user."""
     try:
         batch = request.user.bank_statement_import_batches.get(id=batch_id)
         return Response(batch_payload(batch), status=status.HTTP_200_OK)
@@ -356,8 +369,27 @@ def get_import_batch(request, batch_id):
         }, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="ImportCandidateUpdateRequest",
+        fields={
+            "title": serializers.CharField(required=False),
+            "transaction_type": serializers.CharField(required=False),
+            "category": serializers.CharField(required=False),
+            "date": serializers.DateField(required=False),
+            "amount": serializers.DecimalField(max_digits=14, decimal_places=2, required=False),
+            "account_id": serializers.CharField(required=False, allow_blank=True),
+            "from_account_id": serializers.CharField(required=False, allow_blank=True),
+            "to_account_id": serializers.CharField(required=False, allow_blank=True),
+            "status": serializers.CharField(required=False),
+            "linked_transaction_id": serializers.IntegerField(required=False),
+        },
+    ),
+    responses={200: OpenApiResponse(description="Import candidate updated")},
+)
 @api_view(['PATCH'])
-def update_import_candidate(request, candidate_id):
+def update_import_candidate(request: Request, candidate_id: int) -> Response:
+    """Update one import review candidate owned by the authenticated user."""
     try:
         candidate = update_candidate(request.user, candidate_id, request.data)
         return Response({'candidate': candidate_payload(candidate)}, status=status.HTTP_200_OK)
@@ -368,8 +400,16 @@ def update_import_candidate(request, candidate_id):
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="ImportBatchCommitRequest",
+        fields={"account_id": serializers.CharField(required=False, allow_blank=True)},
+    ),
+    responses={200: OpenApiResponse(description="Import batch committed")},
+)
 @api_view(['POST'])
-def commit_import_batch(request, batch_id):
+def commit_import_batch(request: Request, batch_id: int) -> Response:
+    """Commit an import review batch owned by the authenticated user."""
     try:
         result = commit_batch(request.user, batch_id, request.data)
         return Response(result, status=status.HTTP_200_OK)

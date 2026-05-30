@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.db import models
 
 
@@ -62,12 +64,14 @@ class Transaction(models.Model):
             models.Index(fields=["owner_id", "date"]),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable transaction label for admin displays."""
         if self.transaction_type == 'Transfer':
             return f"Transfer: {self.title} - ${self.total} ({self.date})"
         return f"{self.title} - ${self.total} ({self.date})"
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """Keep legacy owner/account string fields aligned with foreign keys."""
         if self.owner_user_id:
             self.owner_id = self.owner_user.username
         if self.account_fk_id:
@@ -79,19 +83,19 @@ class Transaction(models.Model):
         super().save(*args, **kwargs)
     
     @property
-    def is_transfer(self):
+    def is_transfer(self) -> bool:
         """Check if this is a transfer transaction."""
         return self.transaction_type == 'Transfer'
     
     @property
-    def source_account(self):
+    def source_account(self) -> str | None:
         """Get the source account for transfers or the main account for income/expense."""
         if self.is_transfer:
             return self.from_account_id
         return self.account_id
     
     @property
-    def destination_account(self):
+    def destination_account(self) -> str | None:
         """Get the destination account for transfers."""
         if self.is_transfer:
             return self.to_account_id

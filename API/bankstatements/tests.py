@@ -1,14 +1,17 @@
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from users.models import AuthToken, User
 from .models import BankStatement
 
 
 class BankStatementOwnershipTests(APITestCase):
-    def setUp(self):
+    """Ownership and upload error tests for bank statement endpoints."""
+
+    def setUp(self) -> None:
+        """Create two users and one statement for each user."""
         self.alice = User.objects.create(username="alice", first_name="Alice", last_name="User")
         self.bob = User.objects.create(username="bob", first_name="Bob", last_name="User")
         self.token = AuthToken.issue_for_user(self.alice)
@@ -26,22 +29,22 @@ class BankStatementOwnershipTests(APITestCase):
             file_size=9,
         )
 
-    def test_route_username_mismatch_is_forbidden(self):
+    def test_route_username_mismatch_is_forbidden(self) -> None:
         response = self.client.get("/bank-statements/user/bob/")
         self.assertEqual(response.status_code, 403)
 
-    def test_detail_does_not_expose_other_users_statement(self):
+    def test_detail_does_not_expose_other_users_statement(self) -> None:
         response = self.client.get(f"/bank-statements/details/{self.bob_statement.id}/")
         self.assertEqual(response.status_code, 404)
 
-    def test_user_list_only_returns_owned_statements(self):
+    def test_user_list_only_returns_owned_statements(self) -> None:
         response = self.client.get("/bank-statements/user/alice/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["statements"]), 1)
         self.assertEqual(response.data["statements"][0]["id"], self.alice_statement.id)
 
     @patch("bankstatements.views.extract_transactions_from_pdf")
-    def test_upload_surfaces_ai_processing_failure(self, mock_extract):
+    def test_upload_surfaces_ai_processing_failure(self, mock_extract: Mock) -> None:
         mock_extract.return_value = {
             "transactions": [],
             "account_name": None,
@@ -62,7 +65,7 @@ class BankStatementOwnershipTests(APITestCase):
         self.assertEqual(statement.processing_status, "failed")
 
     @patch("bankstatements.views.extract_transactions_from_pdf")
-    def test_upload_reports_missing_ai_key_as_service_unavailable(self, mock_extract):
+    def test_upload_reports_missing_ai_key_as_service_unavailable(self, mock_extract: Mock) -> None:
         mock_extract.return_value = {
             "transactions": [],
             "account_name": None,

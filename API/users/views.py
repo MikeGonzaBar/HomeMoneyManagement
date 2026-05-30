@@ -1,27 +1,33 @@
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
-from rest_framework import generics, status
+from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from rest_framework import generics, serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
+from typing import Any
 
 from .models import AuthToken, User
 from .serializers import UserLoginSerializer, UserResponseSerializer, UserSerializer
 from .services import UserService
 
 
-def _user_payload(user):
+def _user_payload(user: User) -> dict[str, object]:
+    """Build the public authenticated user payload returned by auth endpoints."""
     return {
         "id": user.id,
         "username": user.username,
         "first_name": user.first_name,
         "last_name": user.last_name,
         "theme_preference": user.theme_preference,
+        "is_admin": user.is_admin,
     }
 
 
-def _auth_payload(user, token):
+def _auth_payload(user: User, token: AuthToken) -> dict[str, object]:
+    """Build the token response returned after registration or login."""
     return {
         "valid": True,
         "token": token.key,
@@ -36,7 +42,22 @@ class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
 
-    def create(self, request, *args, **kwargs):
+    @extend_schema(
+        request=UserSerializer,
+        responses={
+            201: inline_serializer(
+                name="AuthTokenResponse",
+                fields={
+                    "valid": serializers.BooleanField(),
+                    "token": serializers.CharField(),
+                    "user": UserResponseSerializer(),
+                },
+            ),
+            400: OpenApiResponse(description="Invalid registration data"),
+        },
+    )
+    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Validate registration data, create a user, and return a token."""
         serializer = self.get_serializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -55,7 +76,23 @@ class UserLoginView(generics.GenericAPIView):
     serializer_class = UserLoginSerializer
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
+    @extend_schema(
+        request=UserLoginSerializer,
+        responses={
+            200: inline_serializer(
+                name="LoginTokenResponse",
+                fields={
+                    "valid": serializers.BooleanField(),
+                    "token": serializers.CharField(),
+                    "user": UserResponseSerializer(),
+                },
+            ),
+            400: OpenApiResponse(description="Invalid login data"),
+            401: OpenApiResponse(description="Invalid credentials"),
+        },
+    )
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Authenticate username/password credentials and issue a token."""
         username_from_url = kwargs.get("username")
         if username_from_url:
             username_or_email = username_from_url
@@ -101,16 +138,19 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
     lookup_field = "username"
 
-    def get_object(self):
+    def get_object(self) -> User:
+        """Return only the route user when it matches the authenticated user."""
         user = super().get_object()
         if user.id != self.request.user.id:
             self.permission_denied(self.request, message="Cannot access another user")
         return user
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Return the authenticated user's detail payload."""
         return Response({"user": _user_payload(self.get_object())}, status=status.HTTP_200_OK)
 
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """Delete the authenticated user after password confirmation."""
         user = self.get_object()
         password = request.data.get("password")
         if not password:
@@ -126,15 +166,35 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="UserProfileResponse",
+            fields={"user": UserResponseSerializer()},
+        )
+    }
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def user_profile(request):
+def user_profile(request: Request) -> Response:
+    """Return the authenticated user's profile."""
     return Response({"user": _user_payload(request.user)}, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="UpdateUserInfoRequest",
+        fields={
+            "new_username": serializers.CharField(required=False),
+            "first_name": serializers.CharField(required=False),
+            "last_name": serializers.CharField(required=False),
+        },
+    ),
+    responses={200: OpenApiResponse(description="User information updated")},
+)
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
-def update_user_info(request):
+def update_user_info(request: Request) -> Response:
     """Update the authenticated user's username and display name."""
 
     user = request.user
@@ -166,9 +226,19 @@ def update_user_info(request):
     return Response({"message": "User information updated successfully", "user": _user_payload(user)})
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="ChangePasswordRequest",
+        fields={
+            "current_password": serializers.CharField(),
+            "new_password": serializers.CharField(),
+        },
+    ),
+    responses={200: OpenApiResponse(description="Password changed")},
+)
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
-def change_password(request):
+def change_password(request: Request) -> Response:
     """Change the authenticated user's password after current-password verification."""
 
     user = request.user
@@ -203,9 +273,16 @@ def change_password(request):
     return Response({"message": "Password changed successfully"}, status=status.HTTP_200_OK)
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="UserPreferencesRequest",
+        fields={"theme_preference": serializers.ChoiceField(choices=("system", "light", "dark"))},
+    ),
+    responses={200: OpenApiResponse(description="User preferences")},
+)
 @api_view(["GET", "PUT"])
 @permission_classes([IsAuthenticated])
-def user_preferences(request):
+def user_preferences(request: Request) -> Response:
     """Read or update authenticated user preferences."""
 
     user = request.user
@@ -230,9 +307,10 @@ def user_preferences(request):
     )
 
 
+@extend_schema(request=None, responses={200: OpenApiResponse(description="Token revoked")})
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def logout(request):
+def logout(request: Request) -> Response:
     """Revoke the current API token."""
 
     if request.auth:

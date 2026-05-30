@@ -2,6 +2,8 @@ from django.db import models
 
 
 class Alert(models.Model):
+    """In-app alert generated from financial rules and review workflows."""
+
     SEVERITY_CHOICES = [
         ("info", "Info"),
         ("warning", "Warning"),
@@ -35,5 +37,6 @@ class Alert(models.Model):
             )
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable owner/title label for admin displays."""
         return f"{self.owner_user.username}: {self.title}"

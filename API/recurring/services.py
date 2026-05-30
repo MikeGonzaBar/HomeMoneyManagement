@@ -4,9 +4,11 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.db import transaction as db_transaction
+from django.db.models import QuerySet
 
 from account.models import Account
 from transaction.services import create_transaction, transaction_payload
+from users.models import User
 
 from .models import RecurringOccurrence, RecurringTransaction
 
@@ -15,7 +17,8 @@ VALID_TYPES = {"Income", "Expense", "Transfer"}
 VALID_FREQUENCIES = {"daily", "weekly", "monthly", "yearly"}
 
 
-def parse_date(value, field_name):
+def parse_date(value: object, field_name: str) -> date:
+    """Parse a required ISO date request value."""
     if isinstance(value, date):
         return value
     if not value:
@@ -26,13 +29,15 @@ def parse_date(value, field_name):
         raise ValidationError(f"{field_name} must use YYYY-MM-DD format") from exc
 
 
-def parse_optional_date(value, field_name):
+def parse_optional_date(value: object, field_name: str) -> date | None:
+    """Parse an optional ISO date request value."""
     if value in (None, ""):
         return None
     return parse_date(value, field_name)
 
 
-def parse_money(value, field_name="total"):
+def parse_money(value: object, field_name: str = "total") -> Decimal:
+    """Parse a required positive money value."""
     if value in (None, ""):
         raise ValidationError(f"{field_name} is required")
     try:
@@ -44,7 +49,8 @@ def parse_money(value, field_name="total"):
     return amount
 
 
-def owned_account(user, value, field_name):
+def owned_account(user: User, value: object, field_name: str) -> Account:
+    """Return an account owned by the user or raise a validation error."""
     if not value:
         raise ValidationError(f"{field_name} is required")
     try:
@@ -53,7 +59,8 @@ def owned_account(user, value, field_name):
         raise ValidationError(f"Invalid {field_name}") from exc
 
 
-def add_months(value, months):
+def add_months(value: date, months: int) -> date:
+    """Add calendar months while clamping to the target month's final day."""
     month_index = value.month - 1 + months
     year = value.year + month_index // 12
     month = month_index % 12 + 1
@@ -61,7 +68,8 @@ def add_months(value, months):
     return date(year, month, day)
 
 
-def advance_date(value, frequency, interval):
+def advance_date(value: date, frequency: str, interval: int) -> date:
+    """Advance a recurring due date according to its frequency and interval."""
     if frequency == "daily":
         return value + timedelta(days=interval)
     if frequency == "weekly":
@@ -73,7 +81,12 @@ def advance_date(value, frequency, interval):
     raise ValidationError("frequency must be daily, weekly, monthly, or yearly")
 
 
-def attrs_from_data(user, data, existing=None):
+def attrs_from_data(
+    user: User,
+    data: dict[str, object],
+    existing: RecurringTransaction | None = None,
+) -> dict[str, object]:
+    """Validate request data and build model attributes for a recurring rule."""
     transaction_type = data.get("transaction_type", existing.transaction_type if existing else None)
     if transaction_type not in VALID_TYPES:
         raise ValidationError("transaction_type must be Income, Expense, or Transfer")
@@ -84,7 +97,13 @@ def attrs_from_data(user, data, existing=None):
     if interval <= 0:
         raise ValidationError("interval must be greater than 0")
     start_date = parse_date(data.get("start_date", existing.start_date if existing else None), "start_date")
-    next_due = parse_optional_date(data.get("next_due_date", existing.next_due_date if existing else None), "next_due_date") or start_date
+    next_due = (
+        parse_optional_date(
+            data.get("next_due_date", existing.next_due_date if existing else None),
+            "next_due_date",
+        )
+        or start_date
+    )
     end_date = parse_optional_date(data.get("end_date", existing.end_date if existing else None), "end_date")
     if end_date and end_date < start_date:
         raise ValidationError("end_date cannot be before start_date")
@@ -129,7 +148,8 @@ def attrs_from_data(user, data, existing=None):
     return attrs
 
 
-def recurring_payload(item):
+def recurring_payload(item: RecurringTransaction) -> dict[str, object]:
+    """Return the API representation for a recurring transaction rule."""
     return {
         "id": item.id,
         "title": item.title,
@@ -148,7 +168,8 @@ def recurring_payload(item):
     }
 
 
-def occurrence_payload(item):
+def occurrence_payload(item: RecurringOccurrence) -> dict[str, object]:
+    """Return the API representation for a due recurring occurrence."""
     rule = item.recurring_transaction
     payload = recurring_payload(rule)
     payload.update(
@@ -163,7 +184,8 @@ def occurrence_payload(item):
 
 
 @db_transaction.atomic
-def generate_due_occurrences(user, through):
+def generate_due_occurrences(user: User, through: object) -> QuerySet[RecurringOccurrence]:
+    """Generate and return due occurrences through the provided date."""
     through_date = parse_date(through, "through")
     rules = RecurringTransaction.objects.select_for_update().filter(
         owner_user=user,
@@ -187,7 +209,8 @@ def generate_due_occurrences(user, through):
 
 
 @db_transaction.atomic
-def post_occurrence(user, occurrence_id):
+def post_occurrence(user: User, occurrence_id: int) -> RecurringOccurrence:
+    """Post a due occurrence by creating the corresponding transaction."""
     try:
         occurrence = RecurringOccurrence.objects.select_for_update().select_related("recurring_transaction").get(
             owner_user=user,
@@ -220,7 +243,8 @@ def post_occurrence(user, occurrence_id):
 
 
 @db_transaction.atomic
-def skip_occurrence(user, occurrence_id):
+def skip_occurrence(user: User, occurrence_id: int) -> RecurringOccurrence:
+    """Mark an unposted occurrence as skipped."""
     try:
         occurrence = RecurringOccurrence.objects.select_for_update().get(owner_user=user, id=occurrence_id)
     except RecurringOccurrence.DoesNotExist as exc:

@@ -10,8 +10,6 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -35,13 +33,17 @@ services:
       CORS_ALLOW_ALL_ORIGINS: "${CORS_ALLOW_ALL_ORIGINS:-False}"
       CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080,http://127.0.0.1:8080}"
       CSRF_TRUSTED_ORIGINS: "${CSRF_TRUSTED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}"
+      API_DOCS_ENABLED: "${API_DOCS_ENABLED:-True}"
+      DJANGO_SUPERUSER_USERNAME: "${DJANGO_SUPERUSER_USERNAME:-admin}"
+      DJANGO_SUPERUSER_EMAIL: "${DJANGO_SUPERUSER_EMAIL:-admin@example.com}"
+      DJANGO_SUPERUSER_PASSWORD: "${DJANGO_SUPERUSER_PASSWORD:-admin123}"
       GOOGLE_AI_API_KEY: "${GOOGLE_AI_API_KEY:-}"
       GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
       GOOGLE_AI_MODEL: "${GOOGLE_AI_MODEL:-gemini-2.5-flash}"
     command: bash -c "python /HomeMoneyManagement/manage.py migrate && python /HomeMoneyManagement/create_superuser.py && python /HomeMoneyManagement/manage.py runserver 0.0.0.0:8000"
     ports:
-      - 8000:8000
+      - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
     volumes:
       - media_files:/HomeMoneyManagement/media
     depends_on:
@@ -55,7 +57,7 @@ services:
     container_name: money-management-ui
     build: ./UI/home-money-management
     ports:
-      - 8080:80
+      - "${UI_HOST_PORT:-8080}:80"
     depends_on:
       - money-management-api
 

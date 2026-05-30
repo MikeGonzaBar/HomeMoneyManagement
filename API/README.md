@@ -2,6 +2,15 @@
 
 This Django REST API powers Budget Buddy's users, accounts, transactions, budgets, recurring transactions, bank statements, reports, and in-app alerts. All application data endpoints require DRF-style opaque token authentication.
 
+**Current API version:** v1.1.0
+
+## Release Highlights
+
+- API admin mode at `/api-admin/` for safe user management and token revocation
+- OpenAPI schema at `/schema/` and Swagger UI at `/docs/` when `API_DOCS_ENABLED=True`
+- `is_admin` is included in authenticated user payloads and can be managed by existing API admins
+- Docker keeps raw API, admin, and docs access private on `127.0.0.1` by default
+
 ## Requirements
 
 ```text
@@ -40,7 +49,8 @@ Register and login return the same response shape:
     "username": "john_doe",
     "first_name": "John",
     "last_name": "Doe",
-    "theme_preference": "system"
+    "theme_preference": "system",
+    "is_admin": false
   }
 }
 ```
@@ -63,6 +73,7 @@ Development defaults are intentionally convenient. Production must be explicit:
 - `CORS_ALLOWED_ORIGINS`: required when `DEBUG=False`.
 - `CORS_ALLOW_ALL_ORIGINS`: must be `False` when `DEBUG=False`.
 - `DATABASE_URL` or `USE_POSTGRES=true`: enables PostgreSQL. Otherwise local SQLite is used.
+- `API_DOCS_ENABLED`: enables `/schema/` and `/docs/`; defaults to the value of `DEBUG`.
 - `GOOGLE_AI_API_KEY`: enables Gemini-powered statement extraction and report insights. `GOOGLE_API_KEY` and `GEMINI_API_KEY` are accepted as aliases for local compatibility.
 - `GOOGLE_AI_MODEL`: optional Gemini model override; defaults to `gemini-2.5-flash`.
 - `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, and `SECURE_HSTS_SECONDS`: default to secure production values when `DEBUG=False`; override only if a trusted proxy handles the behavior.
@@ -89,6 +100,14 @@ Production serving should run migrations once and serve with Gunicorn:
 ```bash
 python manage.py migrate
 gunicorn --bind 0.0.0.0:8000 --workers=4 MoneyManagement.wsgi:application
+```
+
+Docker binds the API to `127.0.0.1:${API_HOST_PORT:-8000}` by default so raw API, Django admin, and Swagger access stay private on a VM. The UI remains public on `${UI_HOST_PORT:-8080}` and proxies `/api/` and `/media/` to the API container over the Docker network. PostgreSQL is internal-only unless you intentionally add a host port.
+
+Use an SSH tunnel for remote admin/API/docs access:
+
+```bash
+ssh -L 8000:127.0.0.1:8000 user@vm
 ```
 
 ## Ownership And Money Rules
@@ -132,6 +151,25 @@ Legacy string fields such as `owner`, `owner_id`, `account_id`, `from_account_id
 | `DELETE` | `/user/detail/<username>/` | Yes | Delete only the token user's account after password confirmation. |
 
 Legacy `POST /user/` and `POST /user/<username>/` remain available for register/login compatibility.
+
+### API Admin
+
+API admin endpoints use the same `Authorization: Token <opaque-token>` header, but require the token user to have `is_admin=True`. Promote or demote users with:
+
+```bash
+python manage.py set_api_admin <username> --enabled true
+python manage.py set_api_admin <username> --enabled false
+```
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api-admin/users/` | List API users without passwords or token values. |
+| `PATCH` | `/api-admin/users/<id>/` | Update safe fields including `first_name`, `last_name`, `theme_preference`, and `is_admin`. |
+| `POST` | `/api-admin/users/<id>/tokens/revoke/` | Revoke all active API tokens for a user. |
+
+### OpenAPI Docs
+
+When `API_DOCS_ENABLED=True`, the OpenAPI schema is available at `/schema/` and Swagger UI is available at `/docs/`. In Docker these routes are private by default because the API host port binds to `127.0.0.1`.
 
 ### Accounts
 

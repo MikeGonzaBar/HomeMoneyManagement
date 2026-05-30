@@ -16,7 +16,7 @@ class BankStatementUploadSerializer(serializers.ModelSerializer):
             'owner_user': {'read_only': True},
         }
     
-    def validate_file(self, value):
+    def validate_file(self, value: object) -> object:
         """Validate the uploaded file."""
         if not value:
             raise serializers.ValidationError("No file provided.")
@@ -69,25 +69,29 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
     
-    def get_file_size_display(self, obj):
+    def get_file_size_display(self, obj: BankStatement) -> str:
         """Return human-readable file size."""
         return obj.get_file_size_display()
     
-    def get_upload_date_display(self, obj):
+    def get_upload_date_display(self, obj: BankStatement) -> str:
         """Return formatted upload date."""
         return obj.upload_date.strftime('%Y-%m-%d %H:%M:%S')
 
-    def get_review_batch(self, obj):
+    def get_review_batch(self, obj: BankStatement) -> object:
+        """Return the most recent import review batch for the statement."""
         return obj.import_batches.order_by('-created_at').first()
 
-    def get_review_batch_id(self, obj):
+    def get_review_batch_id(self, obj: BankStatement) -> int | None:
+        """Return the most recent import review batch ID."""
         batch = self.get_review_batch(obj)
         return batch.id if batch else None
 
-    def get_review_batch_status(self, obj):
+    def get_review_batch_status(self, obj: BankStatement) -> str | None:
+        """Return the most recent import review batch status."""
         batch = self.get_review_batch(obj)
         return batch.status if batch else None
 
-    def get_review_candidate_count(self, obj):
+    def get_review_candidate_count(self, obj: BankStatement) -> int:
+        """Return the number of candidates in the most recent review batch."""
         batch = self.get_review_batch(obj)
         return batch.candidates.count() if batch else 0

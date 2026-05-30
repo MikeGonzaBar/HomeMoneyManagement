@@ -4,6 +4,8 @@ from .models import Account
 
 @admin.register(Account)
 class AccountAdmin(admin.ModelAdmin):
+    """Django admin configuration for financial accounts."""
+
     list_display = ('id', 'account_name', 'account_type', 'bank', 'total', 'owner')
     list_filter = ('account_type', 'bank', 'owner')
     search_fields = ('account_name', 'owner', 'bank')

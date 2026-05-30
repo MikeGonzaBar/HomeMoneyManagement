@@ -8,15 +8,18 @@ from django.db import transaction as db_transaction
 from account.models import Account
 from transaction.models import Transaction
 from transaction.services import create_transaction, transaction_payload
+from users.models import User
 
-from .models import BankStatementImportBatch, BankStatementTransactionCandidate
+from .models import BankStatement, BankStatementImportBatch, BankStatementTransactionCandidate
 
 
-def normalize_title(value):
+def normalize_title(value: object) -> str:
+    """Normalize titles for lightweight duplicate matching."""
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", str(value).lower())).strip()
 
 
-def parse_date(value):
+def parse_date(value: object) -> date:
+    """Parse a required ISO date from imported statement data."""
     if not value:
         raise ValidationError("date is required")
     if isinstance(value, date):
@@ -27,7 +30,8 @@ def parse_date(value):
         raise ValidationError("date must use YYYY-MM-DD format") from exc
 
 
-def parse_decimal(value, field_name="amount"):
+def parse_decimal(value: object, field_name: str = "amount") -> Decimal:
+    """Parse a positive decimal from imported statement data."""
     try:
         amount = Decimal(str(value)).quantize(Decimal("0.01"))
     except (InvalidOperation, TypeError, ValueError) as exc:
@@ -37,7 +41,8 @@ def parse_decimal(value, field_name="amount"):
     return amount
 
 
-def optional_account(user, value, field_name):
+def optional_account(user: User, value: object, field_name: str) -> Account | None:
+    """Return an optional account owned by the user."""
     if value in (None, ""):
         return None
     try:
@@ -46,7 +51,8 @@ def optional_account(user, value, field_name):
         raise ValidationError(f"Invalid {field_name}") from exc
 
 
-def transaction_match_payload(item):
+def transaction_match_payload(item: Transaction) -> dict[str, object]:
+    """Return a compact transaction match candidate."""
     return {
         "id": item.id,
         "title": item.title,
@@ -60,7 +66,8 @@ def transaction_match_payload(item):
     }
 
 
-def find_possible_matches(candidate):
+def find_possible_matches(candidate: BankStatementTransactionCandidate) -> list[dict[str, object]]:
+    """Find likely existing transactions for an import candidate."""
     query = Transaction.objects.filter(
         owner_user=candidate.owner_user,
         transaction_type=candidate.transaction_type,
@@ -86,7 +93,8 @@ def find_possible_matches(candidate):
     return exact + fuzzy
 
 
-def candidate_payload(candidate):
+def candidate_payload(candidate: BankStatementTransactionCandidate) -> dict[str, object]:
+    """Return the API representation for one import candidate."""
     return {
         "id": candidate.id,
         "title": candidate.title,
@@ -99,13 +107,18 @@ def candidate_payload(candidate):
         "to_account_id": str(candidate.to_account_fk_id) if candidate.to_account_fk_id else None,
         "possible_matches": candidate.possible_matches,
         "linked_transaction_id": candidate.linked_transaction_id,
-        "imported_transaction": transaction_payload(candidate.imported_transaction) if candidate.imported_transaction else None,
+        "imported_transaction": (
+            transaction_payload(candidate.imported_transaction)
+            if candidate.imported_transaction
+            else None
+        ),
         "status": candidate.status,
         "error_message": candidate.error_message,
     }
 
 
-def batch_payload(batch):
+def batch_payload(batch: BankStatementImportBatch) -> dict[str, object]:
+    """Return the API representation for an import review batch."""
     return {
         "id": batch.id,
         "bank_statement_id": batch.bank_statement_id,
@@ -121,14 +134,22 @@ def batch_payload(batch):
     }
 
 
-def create_import_batch(bank_statement, extracted_data):
+def create_import_batch(
+    bank_statement: BankStatement,
+    extracted_data: dict[str, object],
+) -> BankStatementImportBatch:
+    """Create import review candidates from extracted statement data."""
     period = extracted_data.get("statement_period") or {}
     batch = BankStatementImportBatch.objects.create(
         bank_statement=bank_statement,
         owner_user=bank_statement.owner_user,
         detected_account_name=extracted_data.get("account_name") or "",
         detected_account_type=extracted_data.get("account_type") or "",
-        initial_balance=extracted_data.get("initial_balance") if extracted_data.get("initial_balance") is not None else None,
+        initial_balance=(
+            extracted_data.get("initial_balance")
+            if extracted_data.get("initial_balance") is not None
+            else None
+        ),
         statement_period_start=parse_date(period["start"]) if period.get("start") else None,
         statement_period_end=parse_date(period["end"]) if period.get("end") else None,
     )
@@ -149,7 +170,12 @@ def create_import_batch(bank_statement, extracted_data):
     return batch
 
 
-def update_candidate(user, candidate_id, data):
+def update_candidate(
+    user: User,
+    candidate_id: int,
+    data: dict[str, object],
+) -> BankStatementTransactionCandidate:
+    """Update one import review candidate owned by a user."""
     try:
         candidate = BankStatementTransactionCandidate.objects.get(owner_user=user, id=candidate_id)
     except BankStatementTransactionCandidate.DoesNotExist as exc:
@@ -192,7 +218,8 @@ def update_candidate(user, candidate_id, data):
 
 
 @db_transaction.atomic
-def commit_batch(user, batch_id, data):
+def commit_batch(user: User, batch_id: int, data: dict[str, object]) -> dict[str, object]:
+    """Commit an import batch by creating transactions for pending candidates."""
     try:
         batch = BankStatementImportBatch.objects.select_for_update().get(owner_user=user, id=batch_id)
     except BankStatementImportBatch.DoesNotExist as exc:

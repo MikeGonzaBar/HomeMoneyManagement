@@ -1,18 +1,25 @@
 from datetime import date, timedelta
 
-from django.utils import timezone
-
 from bankstatements.models import BankStatementTransactionCandidate
-from budgets.views import budget_payload, parse_month
 from budgets.models import Budget
+from budgets.views import budget_payload, parse_month
 from recurring.models import RecurringOccurrence
 from recurring.services import generate_due_occurrences
 from reports.views import build_forecast
+from users.models import User
 
 from .models import Alert
 
 
-def upsert_alert(user, object_key, alert_type, severity, title, message):
+def upsert_alert(
+    user: User,
+    object_key: str,
+    alert_type: str,
+    severity: str,
+    title: str,
+    message: str,
+) -> Alert:
+    """Create or update one active alert for a stable object key."""
     alert, _ = Alert.objects.update_or_create(
         owner_user=user,
         object_key=object_key,
@@ -27,7 +34,8 @@ def upsert_alert(user, object_key, alert_type, severity, title, message):
     return alert
 
 
-def alert_payload(alert):
+def alert_payload(alert: Alert) -> dict[str, object]:
+    """Return the API representation for an alert."""
     return {
         "id": alert.id,
         "alert_type": alert.alert_type,
@@ -41,7 +49,8 @@ def alert_payload(alert):
     }
 
 
-def refresh_alerts_for_user(user):
+def refresh_alerts_for_user(user: User) -> list[Alert]:
+    """Regenerate budget, recurring, forecast, and import-review alerts."""
     generated = []
     current_month = parse_month(date.today().strftime("%Y-%m"))
     for budget in Budget.objects.filter(owner_user=user, month=current_month):

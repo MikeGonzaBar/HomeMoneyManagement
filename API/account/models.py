@@ -1,3 +1,6 @@
+from decimal import Decimal
+from typing import Any
+
 from django.db import models
 
 
@@ -36,28 +39,30 @@ class Account(models.Model):
             models.Index(fields=["owner"]),
         ]
     
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable account label for admin displays."""
         return f"{self.account_name} ({self.bank})"
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        """Keep the legacy owner string aligned with the owner foreign key."""
         if self.owner_user_id:
             self.owner = self.owner_user.username
         super().save(*args, **kwargs)
     
     @property
-    def is_credit_card(self):
+    def is_credit_card(self) -> bool:
         """Check if this is a credit card account."""
         normalized_type = self.account_type.replace(' Account', '').strip()
         return normalized_type in ['Crédito', 'Credit Card', 'Credit']
     
     @property
-    def is_liability(self):
+    def is_liability(self) -> bool:
         """Check if this account represents a liability (debt)."""
         normalized_type = self.account_type.replace(' Account', '').strip()
         return normalized_type in ['Crédito', 'Credit Card', 'Credit', 'Loan', 'Mortgage']
     
     @property
-    def net_worth_value(self):
+    def net_worth_value(self) -> Decimal:
         """
         Get the value this account contributes to net worth.
         For assets: returns positive balance
@@ -75,14 +80,14 @@ class Account(models.Model):
             return self.total
     
     @property
-    def available_credit(self):
+    def available_credit(self) -> Decimal | None:
         """Get available credit for credit cards."""
         if self.is_credit_card and self.credit_limit:
             return self.total  # For credit cards, total represents available credit
         return None
     
     @property
-    def used_credit(self):
+    def used_credit(self) -> Decimal | None:
         """Get used credit amount for credit cards."""
         if self.is_credit_card and self.credit_limit:
             return self.credit_limit - self.total

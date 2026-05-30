@@ -7,7 +7,10 @@ from users.models import AuthToken, User
 
 
 class RecurringTests(APITestCase):
-    def setUp(self):
+    """Recurring rule and occurrence posting tests."""
+
+    def setUp(self) -> None:
+        """Create user, auth token, and account fixtures."""
         self.user = User.objects.create(username="alice", first_name="Alice", last_name="User")
         self.user.set_password("password123")
         self.user.save()
@@ -16,7 +19,7 @@ class RecurringTests(APITestCase):
         self.checking = Account.objects.create(owner_user=self.user, account_name="Checking", account_type="Checking", bank="Bank", total="100.00")
         self.savings = Account.objects.create(owner_user=self.user, account_name="Savings", account_type="Savings", bank="Bank", total="0.00")
 
-    def test_due_occurrence_requires_confirm_before_posting(self):
+    def test_due_occurrence_requires_confirm_before_posting(self) -> None:
         created = self.client.post(
             "/recurring-transactions/",
             {
@@ -42,7 +45,7 @@ class RecurringTests(APITestCase):
         self.checking.refresh_from_db()
         self.assertEqual(self.checking.total, Decimal("90.00"))
 
-    def test_recurring_transfer_posts_once(self):
+    def test_recurring_transfer_posts_once(self) -> None:
         created = self.client.post(
             "/recurring-transactions/",
             {

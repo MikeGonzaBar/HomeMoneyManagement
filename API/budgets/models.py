@@ -2,6 +2,8 @@ from django.db import models
 
 
 class Budget(models.Model):
+    """Monthly spending limit scoped to one API user."""
+
     SCOPE_OVERALL = "overall"
     SCOPE_CATEGORY = "category"
     SCOPE_CHOICES = [
@@ -33,6 +35,7 @@ class Budget(models.Model):
             )
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return a readable owner/month label for admin displays."""
         label = self.category if self.scope == self.SCOPE_CATEGORY else "Overall"
         return f"{self.owner_user.username} {label} {self.month:%Y-%m}"

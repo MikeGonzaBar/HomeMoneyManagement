@@ -25,21 +25,24 @@ if env_path.exists():
     load_dotenv(dotenv_path=env_path)
 
 
-def env_bool(name, default=False):
+def env_bool(name: str, default: bool = False) -> bool:
+    """Return a boolean environment value using common truthy strings."""
     value = os.getenv(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def env_list(name, default):
+def env_list(name: str, default: list[str]) -> list[str]:
+    """Return a comma-separated environment value as a clean string list."""
     value = os.getenv(name)
     if not value:
         return default
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-def env_int(name, default):
+def env_int(name: str, default: int) -> int:
+    """Return an integer environment value with a fallback."""
     value = os.getenv(name)
     if value is None:
         return default
@@ -114,6 +117,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",
     # endpoints
     "users",
     "account",
@@ -255,10 +260,12 @@ GOOGLE_AI_MODEL = os.getenv("GOOGLE_AI_MODEL", "gemini-2.5-flash")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Note: Using default User model for compatibility
+API_DOCS_ENABLED = env_bool("API_DOCS_ENABLED", DEBUG)
 
 # Custom Exception Handler
 REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'MoneyManagement.error_handlers.custom_exception_handler',
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'users.authentication.TokenAuthentication',
     ],
@@ -275,4 +282,20 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.MultiPartParser',
         'rest_framework.parsers.FormParser',
     ],
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Home Money Management API",
+    "DESCRIPTION": "Token-authenticated API for Budget Buddy users, accounts, transactions, budgets, bank statements, reports, recurring transactions, alerts, and API admin mode.",
+    "VERSION": "1.1.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
+    "EXTENSIONS_INFO": {
+        "x-api-docs-private": "The Docker API port is bound to localhost by default; access docs through the VM host or an SSH tunnel.",
+    },
+    "ENUM_NAME_OVERRIDES": {
+        "ThemePreferenceEnum": [("system", "System"), ("light", "Light"), ("dark", "Dark")],
+    },
 }

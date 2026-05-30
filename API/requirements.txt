@@ -1,5 +1,7 @@
 Django == 4.2.30
 djangorestframework == 3.15.2
+drf-spectacular >= 0.27.0
+drf-spectacular-sidecar >= 2024.1.1
 django-cors-headers == 4.2.0
 psycopg2-binary == 2.9.9
 setuptools >= 75.0.0

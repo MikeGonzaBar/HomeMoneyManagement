@@ -5,7 +5,6 @@ This script helps when you've forgotten your admin credentials.
 """
 
 import os
-import sys
 import django
 from django.contrib.auth import get_user_model
 
@@ -13,7 +12,7 @@ from django.contrib.auth import get_user_model
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'MoneyManagement.settings')
 django.setup()
 
-def list_superusers():
+def list_superusers() -> object | None:
     """List all existing superusers."""
     User = get_user_model()
     
@@ -24,7 +23,7 @@ def list_superusers():
         else:
             # If no is_superuser field, list all users
             superusers = User.objects.all()
-    except:
+    except Exception:
         # Fallback: list all users
         superusers = User.objects.all()
     
@@ -42,7 +41,7 @@ def list_superusers():
         print("\nNo users found in the database.")
         return None
 
-def reset_password(username, new_password):
+def reset_password(username: str, new_password: str) -> bool:
     """Reset password for an existing user."""
     User = get_user_model()
     
@@ -65,7 +64,7 @@ def reset_password(username, new_password):
         print(f"\n✗ Error resetting password: {e}")
         return False
 
-def create_new_superuser(username, email, password):
+def create_new_superuser(username: str, email: str, password: str) -> bool:
     """Create a new superuser."""
     User = get_user_model()
     
@@ -91,7 +90,7 @@ def create_new_superuser(username, email, password):
         print(f"\n✗ Error creating superuser: {e}")
         return False
 
-def main():
+def main() -> None:
     """Main function to handle password reset or superuser creation."""
     print("=" * 50)
     print("Django Admin Password Reset Tool")
