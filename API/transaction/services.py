@@ -2,6 +2,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.db import transaction as db_transaction
+from django.db.models import F
 
 from account.models import Account
 from users.models import User
@@ -41,33 +42,105 @@ def transaction_payload(item: Transaction) -> dict[str, object]:
     }
 
 
-def _owned_account(user: User, account_id: object, field_name: str) -> Account:
-    """Lock and return an account owned by the authenticated user."""
-    if not account_id:
+def _account_id(value: object, field_name: str) -> int:
+    """Normalize and validate an account identifier."""
+    if value in (None, ""):
         raise ValidationError(f"{field_name} is required")
     try:
-        return Account.objects.select_for_update().get(owner_user=user, id=account_id)
-    except Account.DoesNotExist as exc:
+        account_id = int(value)
+    except (TypeError, ValueError) as exc:
         raise ValidationError(f"Invalid {field_name}") from exc
+    if account_id <= 0:
+        raise ValidationError(f"Invalid {field_name}")
+    return account_id
 
 
-def _lock_existing_accounts(item: Transaction) -> None:
-    """Lock accounts currently attached to an existing transaction."""
+def _account_values_from_data(
+    data: dict[str, object],
+    existing: Transaction | None = None,
+) -> dict[str, object]:
+    """Return the account identifiers required by the resulting transaction type."""
+    transaction_type = data.get(
+        "transaction_type",
+        existing.transaction_type if existing else None,
+    )
+    if transaction_type == "Transfer":
+        return {
+            "from_account_id": data.get(
+                "from_account_id",
+                existing.from_account_fk_id if existing and existing.from_account_fk_id else existing.from_account_id if existing else None,
+            ),
+            "to_account_id": data.get(
+                "to_account_id",
+                existing.to_account_fk_id if existing and existing.to_account_fk_id else existing.to_account_id if existing else None,
+            ),
+        }
+    return {
+        "account_id": data.get(
+            "account_id",
+            existing.account_fk_id if existing and existing.account_fk_id else existing.account_id if existing else None,
+        )
+    }
+
+
+def _lock_owned_accounts(
+    user: User,
+    account_values: list[object],
+) -> dict[int, Account]:
+    """Lock all owned accounts in ascending primary-key order."""
+    account_ids = sorted({_account_id(value, "account_id") for value in account_values})
+    return {
+        account.id: account
+        for account in Account.objects.select_for_update()
+        .filter(owner_user=user, id__in=account_ids)
+        .order_by("id")
+    }
+
+
+def _set_account_attrs(
+    attrs: dict[str, object],
+    transaction_type: str,
+    account_ids: dict[str, int],
+    accounts: dict[int, Account],
+) -> None:
+    """Attach locked accounts to transaction attributes."""
+    if transaction_type == "Transfer":
+        from_account_id = account_ids["from_account_id"]
+        to_account_id = account_ids["to_account_id"]
+        if from_account_id == to_account_id:
+            raise ValidationError("Transfers require two different accounts")
+        attrs["from_account_fk"] = accounts[from_account_id]
+        attrs["to_account_fk"] = accounts[to_account_id]
+    else:
+        account_id = account_ids["account_id"]
+        attrs["account_fk"] = accounts[account_id]
+
+
+def _lock_existing_accounts(
+    item: Transaction,
+    accounts: dict[int, Account],
+) -> None:
+    """Attach already locked accounts to an existing transaction."""
+    account_values = _account_values_from_data({}, item)
+    account_ids = {
+        field_name: _account_id(value, field_name)
+        for field_name, value in account_values.items()
+    }
+    for field_name, account_id in account_ids.items():
+        if account_id not in accounts:
+            raise ValidationError(f"Invalid {field_name}")
     if item.transaction_type in {"Income", "Expense"}:
-        if not item.account_fk_id:
-            raise ValidationError("Transaction is missing account_id")
-        item.account_fk = _owned_account(item.owner_user, item.account_fk_id, "account_id")
+        item.account_fk = accounts[item.account_fk_id]
     elif item.transaction_type == "Transfer":
-        if not item.from_account_fk_id or not item.to_account_fk_id:
-            raise ValidationError("Transaction is missing transfer account details")
-        item.from_account_fk = _owned_account(item.owner_user, item.from_account_fk_id, "from_account_id")
-        item.to_account_fk = _owned_account(item.owner_user, item.to_account_fk_id, "to_account_id")
+        item.from_account_fk = accounts[item.from_account_fk_id]
+        item.to_account_fk = accounts[item.to_account_fk_id]
 
 
 def _attrs_from_data(
     data: dict[str, object],
     user: User,
     existing: Transaction | None = None,
+    accounts: dict[int, Account] | None = None,
 ) -> dict[str, object]:
     """Validate transaction request data and build model attributes."""
     transaction_type = data.get(
@@ -93,35 +166,25 @@ def _attrs_from_data(
     if missing:
         raise ValidationError(f"Missing required field(s): {', '.join(missing)}")
 
-    if transaction_type == "Transfer":
-        from_account_id = data.get(
-            "from_account_id",
-            existing.from_account_fk_id if existing and existing.from_account_fk_id else existing.from_account_id if existing else None,
-        )
-        to_account_id = data.get(
-            "to_account_id",
-            existing.to_account_fk_id if existing and existing.to_account_fk_id else existing.to_account_id if existing else None,
-        )
-        from_account = _owned_account(user, from_account_id, "from_account_id")
-        to_account = _owned_account(user, to_account_id, "to_account_id")
-        if from_account.id == to_account.id:
-            raise ValidationError("Transfers require two different accounts")
-        attrs["from_account_fk"] = from_account
-        attrs["to_account_fk"] = to_account
-    else:
-        account_id = data.get(
-            "account_id",
-            existing.account_fk_id if existing and existing.account_fk_id else existing.account_id if existing else None,
-        )
-        attrs["account_fk"] = _owned_account(user, account_id, "account_id")
+    account_values = _account_values_from_data(data, existing)
+    account_ids = {
+        field_name: _account_id(value, field_name)
+        for field_name, value in account_values.items()
+    }
+    if accounts is None:
+        accounts = _lock_owned_accounts(user, list(account_ids.values()))
+    for field_name, account_id in account_ids.items():
+        if account_id not in accounts:
+            raise ValidationError(f"Invalid {field_name}")
+    _set_account_attrs(attrs, transaction_type, account_ids, accounts)
 
     return attrs
 
 
 def _apply_delta(account: Account, delta: Decimal) -> None:
-    """Apply and persist a balance delta on one account."""
-    account.total = account.total + delta
-    account.save(update_fields=["total"])
+    """Apply and persist a balance delta in one database expression."""
+    Account.objects.filter(pk=account.pk).update(total=F("total") + delta)
+    account.total = Decimal(account.total) + delta
 
 
 def _apply_effect(item: Transaction, reverse: bool = False) -> None:
@@ -158,9 +221,17 @@ def update_transaction(user: User, transaction_id: str, data: dict[str, object])
     except Transaction.DoesNotExist as exc:
         raise Transaction.DoesNotExist("Transaction not found") from exc
 
-    _lock_existing_accounts(item)
+    old_account_values = _account_values_from_data({}, item)
+    new_account_values = _account_values_from_data(data, item)
+    for field_name, value in new_account_values.items():
+        _account_id(value, field_name)
+    accounts = _lock_owned_accounts(
+        user,
+        [*old_account_values.values(), *new_account_values.values()],
+    )
+    _lock_existing_accounts(item, accounts)
     _apply_effect(item, reverse=True)
-    attrs = _attrs_from_data(data, user, existing=item)
+    attrs = _attrs_from_data(data, user, existing=item, accounts=accounts)
     for key, value in attrs.items():
         setattr(item, key, value)
     item.save()
@@ -179,7 +250,9 @@ def delete_transaction(user: User, transaction_id: str) -> dict[str, object]:
     except Transaction.DoesNotExist as exc:
         raise Transaction.DoesNotExist("Transaction not found") from exc
 
-    _lock_existing_accounts(item)
+    account_values = _account_values_from_data({}, item)
+    accounts = _lock_owned_accounts(user, list(account_values.values()))
+    _lock_existing_accounts(item, accounts)
     payload = transaction_payload(item)
     _apply_effect(item, reverse=True)
     item.delete()

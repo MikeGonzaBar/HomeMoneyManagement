@@ -253,7 +253,7 @@
 </template>
 
 <script lang="ts">
-import axios from '@/services/api';
+import axios, { getAllPages } from '@/services/api';
 import { getStoredSession, setStoredSession } from '@/services/session';
 import { applyDocumentTheme, type ThemePreference } from '@/services/theme';
 
@@ -465,8 +465,11 @@ export default {
             try {
                 const session = getStoredSession();
                 if (session?.user.username) {
-                    const response = await axios.get(`/bank-statements/user/${session.user.username}/`);
-                    (this as any).userFiles = response.data.statements || [];
+                    const files = await getAllPages<UserFile>(
+                        `/bank-statements/user/${session.user.username}/`,
+                        (data) => data.statements as unknown as UserFile[],
+                    );
+                    (this as any).userFiles = files;
                 }
             } catch (error) {
                 console.error('Error loading user files:', error);

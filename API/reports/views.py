@@ -4,6 +4,10 @@ Reports API - Financial analytics and smart insights.
 from calendar import monthrange
 from datetime import date, datetime, timedelta
 from collections import defaultdict
+from decimal import Decimal
+
+from django.db.models import Case, DecimalField, Sum, Value, When
+from django.db.models.functions import Abs, Coalesce, TruncMonth
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.request import Request
@@ -44,16 +48,99 @@ def _get_prev_period(start: date, end: date) -> tuple[date, date]:
     return prev_start, prev_end
 
 
-def _aggregate_income_expense(transactions: list[Transaction]) -> tuple[float, float]:
-    """Return (income, expense) totals. Excludes Transfer."""
-    income = 0.0
-    expense = 0.0
-    for t in transactions:
-        if t.transaction_type == "Income":
-            income += float(t.total)
-        elif t.transaction_type == "Expense":
-            expense += abs(float(t.total))
-    return income, expense
+MONEY_FIELD = DecimalField(max_digits=14, decimal_places=2)
+
+
+def _period_summary(
+    user: User,
+    start: date,
+    end: date,
+) -> tuple[float, float, dict[str, float]]:
+    """Aggregate period income, expense, and expense categories in the database."""
+    income = Case(
+        When(transaction_type="Income", then="total"),
+        default=Value(Decimal("0.00")),
+        output_field=MONEY_FIELD,
+    )
+    expense = Case(
+        When(transaction_type="Expense", then=Abs("total")),
+        default=Value(Decimal("0.00")),
+        output_field=MONEY_FIELD,
+    )
+    rows = (
+        Transaction.objects.filter(owner_user=user, date__gte=start, date__lte=end)
+        .exclude(transaction_type="Transfer")
+        .values("category")
+        .annotate(
+            income=Coalesce(Sum(income), Value(Decimal("0.00")), output_field=MONEY_FIELD),
+            expense=Coalesce(Sum(expense), Value(Decimal("0.00")), output_field=MONEY_FIELD),
+        )
+    )
+    total_income = sum((row["income"] for row in rows), Decimal("0.00"))
+    total_expense = sum((row["expense"] for row in rows), Decimal("0.00"))
+    categories = {
+        row["category"]: float(row["expense"])
+        for row in rows
+        if row["expense"]
+    }
+    return float(total_income), float(total_expense), categories
+
+
+def _monthly_summary(user: User, start: date, end: date) -> dict[str, dict[str, float]]:
+    """Aggregate income and expense by calendar month."""
+    income = Case(
+        When(transaction_type="Income", then="total"),
+        default=Value(Decimal("0.00")),
+        output_field=MONEY_FIELD,
+    )
+    expense = Case(
+        When(transaction_type="Expense", then=Abs("total")),
+        default=Value(Decimal("0.00")),
+        output_field=MONEY_FIELD,
+    )
+    rows = (
+        Transaction.objects.filter(owner_user=user, date__gte=start, date__lte=end)
+        .exclude(transaction_type="Transfer")
+        .annotate(month=TruncMonth("date"))
+        .values("month")
+        .annotate(
+            income=Coalesce(Sum(income), Value(Decimal("0.00")), output_field=MONEY_FIELD),
+            expense=Coalesce(Sum(expense), Value(Decimal("0.00")), output_field=MONEY_FIELD),
+        )
+        .order_by("month")
+    )
+    return {
+        row["month"].strftime("%Y-%m"): {
+            "income": float(row["income"]),
+            "expense": float(row["expense"]),
+        }
+        for row in rows
+    }
+
+
+def _monthly_category_summary(
+    user: User,
+    start: date,
+    end: date,
+) -> dict[str, dict[str, float]]:
+    """Aggregate expense totals by calendar month and category."""
+    rows = (
+        Transaction.objects.filter(
+            owner_user=user,
+            transaction_type="Expense",
+            date__gte=start,
+            date__lte=end,
+        )
+        .annotate(month=TruncMonth("date"))
+        .values("month", "category")
+        .annotate(expense=Sum(Abs("total")))
+        .order_by("month", "category")
+    )
+    summary: dict[str, dict[str, float]] = defaultdict(dict)
+    for row in rows:
+        summary[row["month"].strftime("%Y-%m")][row["category"]] = float(row["expense"])
+    return dict(summary)
+
 
 
 def _savings_rate(income: float, expense: float) -> float:
@@ -100,23 +187,16 @@ class ReportsAnalytics(APIView):
         start, end = _parse_dates(start_str, end_str)
         prev_start, prev_end = _get_prev_period(start, end)
 
-        # Current period transactions
-        curr_tx = list(
-            Transaction.objects.filter(owner_user=request.user).filter(
-                date__gte=start, date__lte=end
-            ).exclude(transaction_type="Transfer")
-        )
-        curr_income, curr_expense = _aggregate_income_expense(curr_tx)
+        # Current and previous period totals/categories are aggregated by PostgreSQL.
+        curr_income, curr_expense, cat_totals = _period_summary(request.user, start, end)
         curr_net = curr_income - curr_expense
         curr_savings_rate = _savings_rate(curr_income, curr_expense)
 
-        # Previous period
-        prev_tx = list(
-            Transaction.objects.filter(owner_user=request.user).filter(
-                date__gte=prev_start, date__lte=prev_end
-            ).exclude(transaction_type="Transfer")
+        prev_income, prev_expense, prev_cat = _period_summary(
+            request.user,
+            prev_start,
+            prev_end,
         )
-        prev_income, prev_expense = _aggregate_income_expense(prev_tx)
         prev_net = prev_income - prev_expense
         prev_savings_rate = _savings_rate(prev_income, prev_expense)
 
@@ -128,17 +208,7 @@ class ReportsAnalytics(APIView):
 
         # Monthly income/expenses for last 6 months (bar chart)
         six_months_ago = end - timedelta(days=180)
-        monthly_tx = Transaction.objects.filter(owner_user=request.user).filter(
-            date__gte=six_months_ago, date__lte=end
-        ).exclude(transaction_type="Transfer")
-
-        monthly = defaultdict(lambda: {"income": 0.0, "expense": 0.0})
-        for t in monthly_tx:
-            key = t.date.strftime("%Y-%m")
-            if t.transaction_type == "Income":
-                monthly[key]["income"] += float(t.total)
-            else:
-                monthly[key]["expense"] += abs(float(t.total))
+        monthly = _monthly_summary(request.user, six_months_ago, end)
 
         months_sorted = sorted(monthly.keys())[-6:]
         monthly_chart = [
@@ -159,38 +229,20 @@ class ReportsAnalytics(APIView):
         net_worth_change = curr_net  # Approximate: net savings this month adds to net worth
 
         # Spending by category over time (last 3 months, by month)
-        cat_monthly = defaultdict(lambda: defaultdict(float))
-        for t in Transaction.objects.filter(owner_user=request.user).filter(
-            date__gte=six_months_ago, date__lte=end
-        ):
-            if t.transaction_type != "Expense":
-                continue
-            key = t.date.strftime("%Y-%m")
-            cat_monthly[key][t.category] = cat_monthly[key][t.category] + abs(float(t.total))
+        cat_monthly = _monthly_category_summary(request.user, six_months_ago, end)
 
         spending_by_category = []
         for m in months_sorted:
             entry = {"month": m, "label": datetime.strptime(m + "-01", "%Y-%m-%d").strftime("%b"), "categories": {}}
-            for cat, amt in cat_monthly[m].items():
+            for cat, amt in cat_monthly.get(m, {}).items():
                 entry["categories"][cat] = round(amt, 2)
             spending_by_category.append(entry)
 
         # Top categories (current period)
-        cat_totals = defaultdict(float)
-        for t in curr_tx:
-            if t.transaction_type == "Expense":
-                cat_totals[t.category] += abs(float(t.total))
-
         top_categories = [
             {"category": cat, "amount": round(amt, 2)}
             for cat, amt in sorted(cat_totals.items(), key=lambda x: -x[1])
         ][:10]
-
-        # Smart Insights: use Gemini (financial advisor style) if available, else fallback to data-driven
-        prev_cat = defaultdict(float)
-        for t in prev_tx:
-            if t.transaction_type == "Expense":
-                prev_cat[t.category] += abs(float(t.total))
 
         insights = generate_smart_insights_with_ai(
             start_date=start.isoformat(),
@@ -318,33 +370,17 @@ class ReportsInsights(APIView):
         start, end = _parse_dates(start_str, end_str)
         prev_start, prev_end = _get_prev_period(start, end)
 
-        curr_tx = list(
-            Transaction.objects.filter(owner_user=request.user).filter(
-                date__gte=start, date__lte=end
-            ).exclude(transaction_type="Transfer")
-        )
-        prev_tx = list(
-            Transaction.objects.filter(owner_user=request.user).filter(
-                date__gte=prev_start, date__lte=prev_end
-            ).exclude(transaction_type="Transfer")
-        )
-
-        curr_income, curr_expense = _aggregate_income_expense(curr_tx)
+        curr_income, curr_expense, curr_cat = _period_summary(request.user, start, end)
         curr_net = curr_income - curr_expense
         curr_savings_rate = _savings_rate(curr_income, curr_expense)
 
-        prev_income, prev_expense = _aggregate_income_expense(prev_tx)
+        prev_income, prev_expense, prev_cat = _period_summary(
+            request.user,
+            prev_start,
+            prev_end,
+        )
         prev_net = prev_income - prev_expense
         prev_savings_rate = _savings_rate(prev_income, prev_expense)
-
-        curr_cat = defaultdict(float)
-        for t in curr_tx:
-            if t.transaction_type == "Expense":
-                curr_cat[t.category] += abs(float(t.total))
-        prev_cat = defaultdict(float)
-        for t in prev_tx:
-            if t.transaction_type == "Expense":
-                prev_cat[t.category] += abs(float(t.total))
 
         top_categories = [
             {"category": c, "amount": round(a, 2)}
@@ -412,12 +448,7 @@ def build_forecast(user: User, months: int = 6) -> dict[str, object]:
     results = []
 
     trailing_start = today - timedelta(days=90)
-    trailing_transactions = Transaction.objects.filter(
-        owner_user=user,
-        date__gte=trailing_start,
-        date__lt=today,
-    ).exclude(transaction_type="Transfer")
-    trailing_income, trailing_expense = _aggregate_income_expense(trailing_transactions)
+    trailing_income, trailing_expense, _ = _period_summary(user, trailing_start, today - timedelta(days=1))
     avg_income = trailing_income / 3 if trailing_income else 0.0
     avg_expense = trailing_expense / 3 if trailing_expense else 0.0
 

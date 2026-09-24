@@ -7,6 +7,8 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from MoneyManagement.pagination import RelativePageNumberPagination
+
 from .models import BankStatement
 from .reconciliation import (
     batch_payload,
@@ -15,7 +17,11 @@ from .reconciliation import (
     create_import_batch,
     update_candidate,
 )
-from .serializers import BankStatementResponseSerializer, BankStatementUploadSerializer
+from .serializers import (
+    BankStatementResponseSerializer,
+    BankStatementUploadSerializer,
+    with_review_data,
+)
 from .services import extract_transactions_from_pdf, is_pdf_password_protected, decrypt_pdf_file
 
 logger = logging.getLogger(__name__)
@@ -267,20 +273,16 @@ def get_user_bank_statements(request: Request, user_id: str) -> Response:
                 'error': 'Cannot access another user\'s bank statements'
             }, status=status.HTTP_403_FORBIDDEN)
 
-        bank_statements = BankStatement.objects.filter(owner_user=request.user).order_by('-upload_date')
-        
-        if not bank_statements.exists():
-            return Response({
-                'message': 'No bank statements found for this user',
-                'statements': []
-            }, status=status.HTTP_200_OK)
-        
-        serializer = BankStatementResponseSerializer(bank_statements, many=True)
-        
-        return Response({
-            'message': f'Found {bank_statements.count()} bank statement(s)',
-            'statements': serializer.data
-        }, status=status.HTTP_200_OK)
+        query = with_review_data(
+            BankStatement.objects.filter(owner_user=request.user).order_by('-upload_date')
+        )
+        paginator = RelativePageNumberPagination()
+        page = paginator.paginate_queryset(query, request, view=None)
+        serializer = BankStatementResponseSerializer(page, many=True)
+        response = paginator.get_paginated_response(serializer.data)
+        response.data['message'] = f'Found {paginator.page.paginator.count} bank statement(s)'
+        response.data['statements'] = serializer.data
+        return response
         
     except Exception as e:
         return Response({
@@ -301,7 +303,9 @@ def get_bank_statement_details(request: Request, statement_id: int) -> Response:
     """
     
     try:
-        bank_statement = BankStatement.objects.get(id=statement_id, owner_user=request.user)
+        bank_statement = with_review_data(
+            BankStatement.objects.filter(id=statement_id, owner_user=request.user)
+        ).get()
         serializer = BankStatementResponseSerializer(bank_statement)
         
         return Response({

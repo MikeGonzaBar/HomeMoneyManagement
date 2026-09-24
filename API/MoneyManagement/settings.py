@@ -198,6 +198,8 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+DATABASES["default"]["CONN_MAX_AGE"] = env_int("DB_CONN_MAX_AGE", 60)
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 
 # Password validation

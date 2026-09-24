@@ -348,7 +348,7 @@ import BankStatementUpload from '@/components/BankStatementUpload.vue'
 import BankStatementReview from '@/components/BankStatementReview.vue'
 import AlertCenter from '@/components/AlertCenter.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
-import axios from '@/services/api'
+import axios, { getAllPages } from '@/services/api'
 
 interface AccountsCarousel {
   accountTotalUpdated: () => void;
@@ -556,26 +556,20 @@ export default {
         : ((this as any).expense > 0 && lastMonthExpense === 0) ? 100 : 0;
     },
     getTransactions() {
-      // Fetch all transactions (month=0, year=0) so the chart has access to last 12 months of data
-      if ((this as any).accountSelected === null) {
-        axios.get(`/transactions/retrieve/${(this as any).userData.user.username}/0/0/0`)
-          .then((response) => {
-            (this as any).transactions = response.data;
-            (this as any).calculateIncomeAndExpense();
-          })
-          .catch((error) => {
-            console.log('ERROR', error);
-          });
-      } else {
-        axios.get(`/transactions/retrieve/${(this as any).userData.user.username}/${(this as any).accountSelected.id}/0/0`)
-          .then((response) => {
-            (this as any).transactions = response.data;
-            (this as any).calculateIncomeAndExpense();
-          })
-          .catch((error) => {
-            console.log('ERROR', error);
-          });
-      }
+      const accountId = (this as any).accountSelected === null
+        ? '0'
+        : (this as any).accountSelected.id;
+      getAllPages<Transaction>(
+        `/transactions/retrieve/${(this as any).userData.user.username}/${accountId}/0/0`,
+        (data) => data.results,
+      )
+        .then((transactions) => {
+          (this as any).transactions = transactions;
+          (this as any).calculateIncomeAndExpense();
+        })
+        .catch((error) => {
+          console.log('ERROR', error);
+        });
       // Also fetch accounts
       (this as any).getAccounts();
     },

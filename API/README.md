@@ -103,7 +103,16 @@ python manage.py migrate
 gunicorn --bind 0.0.0.0:8000 --workers=4 MoneyManagement.wsgi:application
 ```
 
-Docker binds the API to `127.0.0.1:${API_HOST_PORT:-8000}` by default so raw API, Django admin, and Swagger access stay private on a VM. The UI remains public on `${UI_HOST_PORT:-8080}` and proxies `/api/` and `/media/` to the API container over the Docker network. PostgreSQL is internal-only unless you intentionally add a host port.
+Docker binds the API to `127.0.0.1:${API_HOST_PORT:-8000}` by default so raw API, Django admin, and Swagger access stay private on a VM. The UI remains public on `${UI_HOST_PORT:-8080}` and proxies `/api/` and `/media/` to the API container over the Docker network. PostgreSQL is internal-only unless you intentionally add a host port. The API container uses Gunicorn with configurable workers/threads, and `DB_CONN_MAX_AGE` defaults to 60 seconds.
+
+PostgreSQL query metrics are enabled through `pg_stat_statements`. Inspect them with:
+
+```sql
+SELECT calls, total_exec_time, query
+FROM pg_stat_statements
+ORDER BY total_exec_time DESC
+LIMIT 20;
+```
 
 Use an SSH tunnel for remote admin/API/docs access:
 

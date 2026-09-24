@@ -15,6 +15,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "pg_stat_statements.max=10000", "-c", "pg_stat_statements.track=top"]
 
   money-management-api:
     hostname: money-management-api
@@ -27,6 +28,10 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      DB_CONN_MAX_AGE: "${DB_CONN_MAX_AGE:-60}"
+      GUNICORN_WORKERS: "${GUNICORN_WORKERS:-4}"
+      GUNICORN_THREADS: "${GUNICORN_THREADS:-2}"
+      GUNICORN_TIMEOUT: "${GUNICORN_TIMEOUT:-60}"
       SECRET_KEY: "${SECRET_KEY:-django-insecure-local-docker-key}"
       DEBUG: "${DEBUG:-True}"
       ALLOWED_HOSTS: "${ALLOWED_HOSTS:-*}"
@@ -41,7 +46,7 @@ services:
       GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
       GOOGLE_AI_MODEL: "${GOOGLE_AI_MODEL:-gemini-2.5-flash}"
-    command: bash -c "python /HomeMoneyManagement/manage.py migrate && python /HomeMoneyManagement/create_superuser.py && python /HomeMoneyManagement/manage.py runserver 0.0.0.0:8000"
+    command: bash -c "python /HomeMoneyManagement/manage.py migrate && python /HomeMoneyManagement/create_superuser.py && gunicorn --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-2} --timeout ${GUNICORN_TIMEOUT:-60} --access-logfile - --error-logfile - MoneyManagement.wsgi:application"
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
     volumes:
@@ -49,9 +54,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-  # Production command:
-  # python /HomeMoneyManagement/manage.py migrate &&
-  # gunicorn --bind 0.0.0.0:8000 --workers=4 MoneyManagement.wsgi:application
   money-management-ui:
     hostname: money-management-ui
     container_name: money-management-ui

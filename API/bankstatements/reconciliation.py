@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.db import transaction as db_transaction
+from django.db.models import Q
 
 from account.models import Account
 from transaction.models import Transaction
@@ -11,6 +12,8 @@ from transaction.services import create_transaction, transaction_payload
 from users.models import User
 
 from .models import BankStatement, BankStatementImportBatch, BankStatementTransactionCandidate
+
+MATCH_CHUNK_SIZE = 200
 
 
 def normalize_title(value: object) -> str:
@@ -66,6 +69,91 @@ def transaction_match_payload(item: Transaction) -> dict[str, object]:
     }
 
 
+def _rank_matches(
+    candidate: BankStatementTransactionCandidate,
+    items,
+) -> list[dict[str, object]]:
+    """Return exact title matches first, followed by the existing fuzzy matches."""
+    normalized = normalize_title(candidate.title)
+    exact = []
+    fuzzy = []
+    for item in items:
+        item_normalized = normalize_title(item.title)
+        if item_normalized == normalized:
+            exact.append(transaction_match_payload(item))
+        elif normalized in item_normalized or item_normalized in normalized:
+            fuzzy.append(transaction_match_payload(item))
+    return exact + fuzzy
+
+
+def _transaction_match_key(item: BankStatementTransactionCandidate | Transaction) -> tuple:
+    """Return the required fields used to narrow statement duplicate matching."""
+    return (
+        item.transaction_type,
+        item.date,
+        item.amount if isinstance(item, BankStatementTransactionCandidate) else item.total,
+    )
+
+
+def _candidate_match_query(
+    candidate: BankStatementTransactionCandidate,
+) -> Q:
+    lookup = {
+        "transaction_type": candidate.transaction_type,
+        "date": candidate.date,
+        "total": candidate.amount,
+    }
+    if candidate.transaction_type == "Transfer":
+        if candidate.from_account_fk_id:
+            lookup["from_account_fk_id"] = candidate.from_account_fk_id
+        if candidate.to_account_fk_id:
+            lookup["to_account_fk_id"] = candidate.to_account_fk_id
+    elif candidate.account_fk_id:
+        lookup["account_fk_id"] = candidate.account_fk_id
+    return Q(**lookup)
+
+
+def find_possible_matches_for_candidates(
+    candidates: list[BankStatementTransactionCandidate],
+) -> dict[int, list[dict[str, object]]]:
+    """Find duplicate candidates for a batch using chunked database queries."""
+    matches = {candidate.id: [] for candidate in candidates}
+    if not candidates:
+        return matches
+
+    for offset in range(0, len(candidates), MATCH_CHUNK_SIZE):
+        chunk = candidates[offset:offset + MATCH_CHUNK_SIZE]
+        query = Q()
+        for condition in {_candidate_match_query(candidate) for candidate in chunk}:
+            query |= condition
+        transactions = Transaction.objects.filter(
+            owner_user=chunk[0].owner_user_id
+        ).filter(query)
+        grouped: dict[tuple, list[Transaction]] = {}
+        for item in transactions:
+            grouped.setdefault(_transaction_match_key(item), []).append(item)
+        for candidate in chunk:
+            candidate_items = grouped.get(_transaction_match_key(candidate), [])
+            if candidate.transaction_type == "Transfer":
+                if candidate.from_account_fk_id:
+                    candidate_items = [
+                        item for item in candidate_items
+                        if item.from_account_fk_id == candidate.from_account_fk_id
+                    ]
+                if candidate.to_account_fk_id:
+                    candidate_items = [
+                        item for item in candidate_items
+                        if item.to_account_fk_id == candidate.to_account_fk_id
+                    ]
+            elif candidate.account_fk_id:
+                candidate_items = [
+                    item for item in candidate_items
+                    if item.account_fk_id == candidate.account_fk_id
+                ]
+            matches[candidate.id] = _rank_matches(candidate, candidate_items[:25])
+    return matches
+
+
 def find_possible_matches(candidate: BankStatementTransactionCandidate) -> list[dict[str, object]]:
     """Find likely existing transactions for an import candidate."""
     query = Transaction.objects.filter(
@@ -81,16 +169,7 @@ def find_possible_matches(candidate: BankStatementTransactionCandidate) -> list[
             query = query.filter(to_account_fk=candidate.to_account_fk)
     elif candidate.account_fk_id:
         query = query.filter(account_fk=candidate.account_fk)
-    normalized = normalize_title(candidate.title)
-    exact = []
-    fuzzy = []
-    for item in query[:25]:
-        item_norm = normalize_title(item.title)
-        if item_norm == normalized:
-            exact.append(transaction_match_payload(item))
-        elif normalized in item_norm or item_norm in normalized:
-            fuzzy.append(transaction_match_payload(item))
-    return exact + fuzzy
+    return _rank_matches(candidate, query[:25])
 
 
 def candidate_payload(candidate: BankStatementTransactionCandidate) -> dict[str, object]:
@@ -119,6 +198,7 @@ def candidate_payload(candidate: BankStatementTransactionCandidate) -> dict[str,
 
 def batch_payload(batch: BankStatementImportBatch) -> dict[str, object]:
     """Return the API representation for an import review batch."""
+    candidates = batch.candidates.select_related("imported_transaction").order_by("date", "id")
     return {
         "id": batch.id,
         "bank_statement_id": batch.bank_statement_id,
@@ -130,10 +210,11 @@ def batch_payload(batch: BankStatementImportBatch) -> dict[str, object]:
             "start": batch.statement_period_start.isoformat() if batch.statement_period_start else None,
             "end": batch.statement_period_end.isoformat() if batch.statement_period_end else None,
         },
-        "candidates": [candidate_payload(item) for item in batch.candidates.order_by("date", "id")],
+        "candidates": [candidate_payload(item) for item in candidates],
     }
 
 
+@db_transaction.atomic
 def create_import_batch(
     bank_statement: BankStatement,
     extracted_data: dict[str, object],
@@ -153,20 +234,35 @@ def create_import_batch(
         statement_period_start=parse_date(period["start"]) if period.get("start") else None,
         statement_period_end=parse_date(period["end"]) if period.get("end") else None,
     )
+    candidates = []
     for raw in extracted_data.get("transactions", []):
         amount = raw.get("amount", raw.get("total"))
-        candidate = BankStatementTransactionCandidate.objects.create(
-            import_batch=batch,
-            owner_user=bank_statement.owner_user,
-            title=raw.get("title") or raw.get("description") or "Imported transaction",
-            transaction_type=raw.get("transaction_type") or "Expense",
-            category=raw.get("category") or "Others",
-            date=parse_date(raw.get("date")),
-            amount=parse_decimal(amount),
-            raw_data=raw,
+        candidates.append(
+            BankStatementTransactionCandidate(
+                import_batch=batch,
+                owner_user=bank_statement.owner_user,
+                title=raw.get("title") or raw.get("description") or "Imported transaction",
+                transaction_type=raw.get("transaction_type") or "Expense",
+                category=raw.get("category") or "Others",
+                date=parse_date(raw.get("date")),
+                amount=parse_decimal(amount),
+                raw_data=raw,
+            )
         )
-        candidate.possible_matches = find_possible_matches(candidate)
-        candidate.save(update_fields=["possible_matches"])
+    if not candidates:
+        return batch
+
+    BankStatementTransactionCandidate.objects.bulk_create(candidates, batch_size=500)
+    matches = find_possible_matches_for_candidates(candidates)
+    matched_candidates = [candidate for candidate in candidates if matches[candidate.id]]
+    if matched_candidates:
+        for candidate in matched_candidates:
+            candidate.possible_matches = matches[candidate.id]
+        BankStatementTransactionCandidate.objects.bulk_update(
+            matched_candidates,
+            ["possible_matches"],
+            batch_size=500,
+        )
     return batch
 
 
@@ -177,7 +273,11 @@ def update_candidate(
 ) -> BankStatementTransactionCandidate:
     """Update one import review candidate owned by a user."""
     try:
-        candidate = BankStatementTransactionCandidate.objects.get(owner_user=user, id=candidate_id)
+        candidate = (
+            BankStatementTransactionCandidate.objects
+            .select_related("imported_transaction")
+            .get(owner_user=user, id=candidate_id)
+        )
     except BankStatementTransactionCandidate.DoesNotExist as exc:
         raise BankStatementTransactionCandidate.DoesNotExist("Candidate not found") from exc
     allowed_statuses = {
@@ -228,7 +328,12 @@ def commit_batch(user: User, batch_id: int, data: dict[str, object]) -> dict[str
     imported = []
     skipped = []
     failed = []
-    for candidate in batch.candidates.select_for_update().order_by("id"):
+    candidates = (
+        batch.candidates
+        .select_for_update(of=("self",))
+        .select_related("imported_transaction")
+    )
+    for candidate in candidates.order_by("id"):
         if candidate.status in {
             BankStatementTransactionCandidate.STATUS_IMPORTED,
             BankStatementTransactionCandidate.STATUS_SKIPPED,

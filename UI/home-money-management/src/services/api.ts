@@ -38,6 +38,33 @@ axios.interceptors.request.use((config) => {
   return config
 })
 
+export interface PaginatedResponse<T> {
+  count: number
+  next: string | null
+  previous: string | null
+  results: T[]
+}
+
+export async function getAllPages<T>(
+  url: string,
+  selectItems: (data: PaginatedResponse<T> & Record<string, unknown>) => T[],
+  params: Record<string, unknown> = {},
+): Promise<T[]> {
+  const items: T[] = []
+  let nextPage: string | null = url
+  let firstRequest = true
+
+  while (nextPage) {
+    const response = await axios.get(nextPage, {
+      params: firstRequest ? { ...params, page_size: 100 } : {},
+    }) as { data: PaginatedResponse<T> & Record<string, unknown> }
+    items.push(...selectItems(response.data))
+    nextPage = response.data.next || null
+    firstRequest = false
+  }
+  return items
+}
+
 axios.interceptors.response.use(
   response => response,
   error => {

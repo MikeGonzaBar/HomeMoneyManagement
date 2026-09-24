@@ -1,8 +1,11 @@
+from collections.abc import Iterable
 from calendar import monthrange
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.db import IntegrityError
+from django.db.models import Sum
+from django.db.models.functions import Abs, TruncMonth
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, serializers, status
 from rest_framework.request import Request
@@ -48,6 +51,44 @@ def money(value: object, field_name: str) -> Decimal:
     return amount
 
 
+def spending_totals_by_month(
+    user: User,
+    months: Iterable[date],
+) -> dict[date, tuple[Decimal, dict[str, Decimal]]]:
+    """Return overall and per-category spending for all requested months in one query."""
+    month_starts = sorted({month.replace(day=1) for month in months})
+    if not month_starts:
+        return {}
+    start = month_starts[0]
+    end = month_bounds(month_starts[-1])[1]
+    rows = (
+        Transaction.objects.filter(
+            owner_user=user,
+            transaction_type="Expense",
+            date__gte=start,
+            date__lte=end,
+        )
+        .annotate(month=TruncMonth("date"))
+        .values("month", "category")
+        .annotate(spent=Sum(Abs("total")))
+        .order_by("month", "category")
+    )
+
+    result: dict[date, dict[str, Decimal]] = {month: {} for month in month_starts}
+    for row in rows:
+        result[row["month"]][row["category"]] = row["spent"]
+    return {
+        month: (
+            sum(category_totals.values(), Decimal("0.00")).quantize(Decimal("0.01")),
+            {
+                category: amount.quantize(Decimal("0.01"))
+                for category, amount in category_totals.items()
+            },
+        )
+        for month, category_totals in result.items()
+    }
+
+
 def spending_for_budget(user: User, budget: Budget) -> Decimal:
     """Calculate current spending that counts against a budget."""
     start, end = month_bounds(budget.month)
@@ -59,15 +100,22 @@ def spending_for_budget(user: User, budget: Budget) -> Decimal:
     )
     if budget.scope == Budget.SCOPE_CATEGORY:
         query = query.filter(category=budget.category)
-    total = Decimal("0.00")
-    for item in query:
-        total += abs(item.total)
-    return total.quantize(Decimal("0.01"))
+    total = query.aggregate(spent=Sum(Abs("total")))["spent"] or Decimal("0.00")
+    return abs(total).quantize(Decimal("0.01"))
 
 
-def budget_payload(user: User, budget: Budget) -> dict[str, object]:
+def budget_payload(
+    user: User,
+    budget: Budget,
+    spending: tuple[Decimal, dict[str, Decimal]] | None = None,
+) -> dict[str, object]:
     """Return the API representation for a budget with spending status."""
-    spent = spending_for_budget(user, budget)
+    if spending is None:
+        spent = spending_for_budget(user, budget)
+    elif budget.scope == Budget.SCOPE_CATEGORY:
+        spent = spending[1].get(budget.category, Decimal("0.00"))
+    else:
+        spent = spending[0]
     remaining = (budget.limit_amount - spent).quantize(Decimal("0.01"))
     percent = Decimal("0.00")
     if budget.limit_amount > 0:
@@ -130,7 +178,18 @@ class BudgetListCreate(generics.GenericAPIView):
                 query = query.filter(month=parse_month(month_param))
             except ValueError as exc:
                 return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response([budget_payload(request.user, item) for item in query])
+        budgets = list(query)
+        spending = spending_totals_by_month(request.user, [item.month for item in budgets])
+        return Response(
+            [
+                budget_payload(
+                    request.user,
+                    item,
+                    spending.get(item.month),
+                )
+                for item in budgets
+            ]
+        )
 
     @extend_schema(
         tags=["Budgets"],
@@ -250,8 +309,12 @@ class BudgetSummary(APIView):
             month = parse_month(request.GET.get("month"))
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        budgets = Budget.objects.filter(owner_user=request.user, month=month).order_by("scope", "category")
-        payloads = [budget_payload(request.user, item) for item in budgets]
+        budgets = list(Budget.objects.filter(owner_user=request.user, month=month).order_by("scope", "category"))
+        spending = spending_totals_by_month(request.user, [month])
+        payloads = [
+            budget_payload(request.user, item, spending[month])
+            for item in budgets
+        ]
         overall = next((item for item in payloads if item["scope"] == Budget.SCOPE_OVERALL), None)
         categories = [item for item in payloads if item["scope"] == Budget.SCOPE_CATEGORY]
         return Response(

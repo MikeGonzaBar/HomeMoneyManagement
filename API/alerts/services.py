@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from bankstatements.models import BankStatementTransactionCandidate
 from budgets.models import Budget
-from budgets.views import budget_payload, parse_month
+from budgets.views import budget_payload, parse_month, spending_totals_by_month
 from recurring.models import RecurringOccurrence
 from recurring.services import generate_due_occurrences
 from reports.views import build_forecast
@@ -53,8 +53,10 @@ def refresh_alerts_for_user(user: User) -> list[Alert]:
     """Regenerate budget, recurring, forecast, and import-review alerts."""
     generated = []
     current_month = parse_month(date.today().strftime("%Y-%m"))
-    for budget in Budget.objects.filter(owner_user=user, month=current_month):
-        data = budget_payload(user, budget)
+    budgets = list(Budget.objects.filter(owner_user=user, month=current_month))
+    spending = spending_totals_by_month(user, [current_month])
+    for budget in budgets:
+        data = budget_payload(user, budget, spending[current_month])
         if data["status"] in {"warning", "exceeded"}:
             label = data["category"] or "Overall budget"
             severity = "critical" if data["status"] == "exceeded" else "warning"

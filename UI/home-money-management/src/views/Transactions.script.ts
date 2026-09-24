@@ -1,4 +1,4 @@
-import axios from '@/services/api';
+import axios, { getAllPages } from '@/services/api';
 import { defineComponent } from 'vue';
 import { getCategoryStyle } from '@/constants/categoryStyles';
 import { getStoredSession } from '@/services/session';
@@ -150,8 +150,8 @@ export default defineComponent({
     getTransactions() {
       const username = this.userData?.user?.username;
       if (!username) return;
-      axios.get(`/transactions/retrieve/${username}/0/0/0`)
-        .then((res) => { this.transactions = res.data || []; })
+      getAllPages<Transaction>(`/transactions/retrieve/${username}/0/0/0`, (data) => data.results)
+        .then((items) => { this.transactions = items; })
         .catch((err) => console.error('Transactions fetch error:', err));
     },
     getAccounts() {
