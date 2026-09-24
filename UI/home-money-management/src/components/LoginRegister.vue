@@ -5,7 +5,7 @@
             <!-- Right Side - Login Form -->
             <div class="auth-section">
                 <v-card class="modern-auth-card glass-card shadow-strong" rounded="xl"
-                    :max-width="$vuetify.display.mobile ? '100%' : '500'">
+                    width="min(100%, 500px)" max-width="100%">
                     <!-- Header with Logo -->
                     <v-card-title :class="$vuetify.display.mobile ? 'pa-4 pb-2 text-center' : 'pa-8 pb-4 text-center'">
                         <div class="d-flex flex-column align-center">
@@ -21,15 +21,15 @@
 
                     <v-card-text :class="$vuetify.display.mobile ? 'pa-4 pt-2' : 'pa-8 pt-2'">
                         <!-- Login Form -->
-                        <v-form v-if="(this as any).loginFormVisible" @submit.prevent="(this as any).login">
+                        <v-form v-if="(this as any).loginFormVisible" class="auth-form" @submit.prevent="(this as any).login">
                             <v-text-field v-model="(this as any).loginUsername" label="Username" autocomplete="username"
-                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-account"
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-account" class="auth-field"
                                 :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'" required></v-text-field>
 
                             <v-text-field v-model="(this as any).loginPassword" label="Password" type="password"
                                 autocomplete="current-password" variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock"
-                                :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'" @keyup.enter="(this as any).login"
-                                required></v-text-field>
+                                class="auth-field" :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'"
+                                @keyup.enter="(this as any).login" required></v-text-field>
 
                             <!-- Login Error Message -->
                             <v-alert v-if="(this as any).loginError" type="error" variant="tonal"
@@ -49,32 +49,30 @@
                         </v-form>
 
                         <!-- Register Form -->
-                        <v-form v-else @submit.prevent="(this as any).register">
+                        <v-form v-else class="auth-form" @submit.prevent="(this as any).register">
                             <v-text-field v-model="(this as any).registerUsername" label="Username" autocomplete="username"
-                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-account"
+                                variant="outlined" rounded="lg" prepend-inner-icon="mdi-account" class="auth-field"
                                 :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
 
                             <v-row>
-                                <v-col :cols="$vuetify.display.mobile ? 12 : 6">
+                                <v-col cols="12">
                                     <v-text-field v-model="(this as any).registerFirstname" label="First Name" autocomplete="given-name"
-                                        variant="outlined" rounded="lg"
-                                        :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
+                                        variant="outlined" rounded="lg" class="auth-field" mb-3 required></v-text-field>
                                 </v-col>
-                                <v-col :cols="$vuetify.display.mobile ? 12 : 6">
+                                <v-col cols="12">
                                     <v-text-field v-model="(this as any).registerLastname" label="Last Name" autocomplete="family-name"
-                                        variant="outlined" rounded="lg"
-                                        :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
+                                        variant="outlined" rounded="lg" class="auth-field" mb-3 required></v-text-field>
                                 </v-col>
                             </v-row>
 
                             <v-text-field v-model="(this as any).registerPassword" label="Password" type="password"
                                 autocomplete="new-password" variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock"
-                                :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
+                                class="auth-field" :class="$vuetify.display.mobile ? 'mb-3' : 'mb-3'" required></v-text-field>
 
                             <v-text-field v-model="(this as any).registerConfirmPassword" label="Confirm Password"
                                 type="password" autocomplete="new-password" variant="outlined" rounded="lg" prepend-inner-icon="mdi-lock-check"
-                                @keyup.enter="(this as any).register" :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'"
-                                required></v-text-field>
+                                class="auth-field" @keyup.enter="(this as any).register"
+                                :class="$vuetify.display.mobile ? 'mb-3' : 'mb-4'" required></v-text-field>
 
                             <!-- Registration Error Message -->
                             <v-alert v-if="(this as any).registerError" type="error" variant="tonal"
@@ -277,6 +275,9 @@ export default {
 <style scoped>
 /* Modern Login/Register Container */
 .login-register-container {
+    --auth-field-background: #ffffff;
+    --auth-field-border: #94a3b8;
+    --auth-field-text: #1f2937;
     position: relative;
     min-height: 100vh;
     padding: 20px;
@@ -285,6 +286,12 @@ export default {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+:global(.app-dark) .login-register-container {
+    --auth-field-background: #1f2937;
+    --auth-field-border: #64748b;
+    --auth-field-text: #f8fafc;
 }
 
 /* Main Content Wrapper */
@@ -299,6 +306,7 @@ export default {
 }
 
 .modern-auth-card {
+    width: 100%;
     background: #ffffff;
     border: 1px solid #f3f4f6;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.10);
@@ -332,31 +340,44 @@ export default {
     }
 }
 
-/* Form field enhancements */
-:deep(.v-field) {
+/* Draw one continuous auth field border instead of Vuetify's segmented
+   outline, which is affected by the app-level .v-field border rule. */
+.auth-field :deep(.v-field) {
+    background: var(--auth-field-background) !important;
+    border: 1px solid var(--auth-field-border) !important;
     border-radius: 12px;
-    transition: all 0.3s ease;
+    box-shadow: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Prevent the outlined border from visually striking through floating labels. */
-:deep(.v-field--variant-outlined .v-field-label--floating) {
-    background: rgba(255, 255, 255, 0.98);
+.auth-field :deep(.v-field__outline) {
+    display: none;
+}
+
+.auth-field :deep(.v-field),
+.auth-field :deep(.v-field__input),
+.auth-field :deep(input) {
+    color: var(--auth-field-text) !important;
+    caret-color: var(--auth-field-text);
+    -webkit-text-fill-color: var(--auth-field-text);
+}
+
+.auth-field :deep(input:-webkit-autofill),
+.auth-field :deep(input:-webkit-autofill:hover),
+.auth-field :deep(input:-webkit-autofill:focus) {
+    -webkit-text-fill-color: var(--auth-field-text);
+    -webkit-box-shadow: 0 0 0 1000px var(--auth-field-background) inset;
+    caret-color: var(--auth-field-text);
+}
+
+.auth-field :deep(.v-field--focused) {
+    border-color: #4caf50 !important;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12) !important;
+}
+
+.auth-field :deep(.v-field-label--floating) {
+    background: var(--auth-field-background);
     padding: 0 6px;
-    z-index: 2;
-}
-
-:deep(.v-field--variant-outlined .v-field__outline__notch::before) {
-    border-top: 0 !important;
-}
-
-:deep(.v-field__outline) {
-    border-radius: 12px;
-    transition: all 0.3s ease;
-}
-
-:deep(.v-field--focused .v-field__outline) {
-    border-color: #4CAF50;
-    border-width: 2px;
 }
 
 /* Button enhancements */
