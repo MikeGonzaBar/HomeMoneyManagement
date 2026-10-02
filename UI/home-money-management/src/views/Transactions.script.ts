@@ -2,8 +2,7 @@ import axios, { getAllPages } from '@/services/api';
 import { defineComponent } from 'vue';
 import { getCategoryStyle } from '@/constants/categoryStyles';
 import { getStoredSession } from '@/services/session';
-import AlertCenter from '@/components/AlertCenter.vue';
-import ThemeToggle from '@/components/ThemeToggle.vue';
+import AppHeader from '@/components/AppHeader.vue';
 
 interface Transaction {
   id: number;
@@ -24,7 +23,7 @@ interface Account {
 
 export default defineComponent({
   name: 'Transactions',
-  components: { AlertCenter, ThemeToggle },
+  components: { AppHeader },
   data() {
     return {
       userData: { user: {} } as any,
@@ -182,9 +181,6 @@ export default defineComponent({
       this.filterCategory = '';
       this.filterPeriod = '30';
       this.currentPage = 1;
-    },
-    goToProfile() {
-      this.$router.push('/profile');
     },
     exportTransactions() {
       const rows = this.filteredTransactions.map((t) => ({

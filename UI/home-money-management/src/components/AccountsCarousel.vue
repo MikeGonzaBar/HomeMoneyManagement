@@ -92,6 +92,9 @@
                                     ${{ getCreditLimit(acc).toLocaleString() }}
                                 </span>
                             </div>
+                            <v-chip v-if="acc.credit_card_statement_snapshot?.summary?.deferred_balance" size="x-small" color="deep-orange" variant="tonal" class="mt-1">
+                                MSI ${{ Number(acc.credit_card_statement_snapshot.summary.deferred_balance).toLocaleString() }}
+                            </v-chip>
                         </div>
 
                         <div v-else class="regular-balance-info">
@@ -109,6 +112,34 @@
                                 </span>
                             </div>
                         </div>
+                        <v-expansion-panels v-if="acc.account_type === 'Retirement' && acc.retirement_metadata?.breakdown" variant="accordion" class="mt-2">
+                            <v-expansion-panel title="Statement breakdown">
+                                <v-expansion-panel-text>
+                                    <div v-if="acc.retirement_metadata.institution"><strong>{{ acc.retirement_metadata.institution }}</strong> · AFORE</div>
+                                    <div v-for="(amount, name) in acc.retirement_metadata.breakdown.subaccounts || {}" :key="String(name)">{{ name }}: ${{ Number(amount).toLocaleString() }}</div>
+                                    <small>Statement date: {{ acc.retirement_metadata.statement_date }}</small>
+                                </v-expansion-panel-text>
+                            </v-expansion-panel>
+                        </v-expansion-panels>
+                        <v-expansion-panels v-if="acc.account_type === 'Investment' && acc.statement_snapshot?.positions?.length" variant="accordion" class="mt-2">
+                            <v-expansion-panel title="Investment positions">
+                                <v-expansion-panel-text>
+                                    <div v-for="(position, index) in acc.statement_snapshot.positions" :key="index">{{ position.investment_id || position.name || 'Investment' }} · ${{ Number(position.total || position.capital || 0).toLocaleString() }}</div>
+                                    <small>Statement date: {{ acc.statement_snapshot.statement_date }}</small>
+                                </v-expansion-panel-text>
+                            </v-expansion-panel>
+                        </v-expansion-panels>
+                        <v-expansion-panels v-if="isCreditCard(acc) && acc.credit_card_statement_snapshot?.deferred_purchases?.length" variant="accordion" class="mt-2">
+                            <v-expansion-panel title="Deferred purchases / MSI">
+                                <v-expansion-panel-text>
+                                    <div v-for="plan in acc.credit_card_statement_snapshot.deferred_purchases" :key="plan.source_key" class="mb-1">
+                                        {{ plan.merchant }} · ${{ Number(plan.remaining_balance || 0).toLocaleString() }} remaining
+                                        <small class="d-block">{{ plan.installment_number || '?' }} of {{ plan.installment_count || '?' }}</small>
+                                    </div>
+                                    <small>Statement date: {{ acc.credit_card_statement_snapshot.statement_date }}</small>
+                                </v-expansion-panel-text>
+                            </v-expansion-panel>
+                        </v-expansion-panels>
                     </div>
                 </v-card-text>
             </v-card>
@@ -146,8 +177,8 @@
                     <v-row v-if="newAccountType === 'Crédito' || newAccountType === 'Credit Card'">
                         <v-col cols="12">
                             <v-alert type="warning" variant="tonal" class="mb-0">
-                                <small>Credit card transactions will be recorded as expenses, and payments should be
-                                    recorded as income.</small>
+                                <small>Card purchases are recorded as <strong>expenses</strong>. Card payments are
+                                    <strong>transfers</strong> from a bank account, not income.</small>
                             </v-alert>
                         </v-col>
                     </v-row>
@@ -276,6 +307,9 @@ interface Account {
     total: number;
     account_name: string;
     credit_limit?: number | null;
+    retirement_metadata?: { institution?: string; statement_date?: string; breakdown?: { subaccounts?: Record<string, number> } };
+    statement_snapshot?: { statement_date: string; positions?: Array<{ investment_id?: string; name?: string; total?: number; capital?: number }> } | null;
+    credit_card_statement_snapshot?: { statement_date: string; summary?: { deferred_balance?: number }; deferred_purchases?: Array<{ source_key: string; merchant: string; remaining_balance?: number; installment_number?: number; installment_count?: number }> } | null;
 }
 
 interface Data {
@@ -364,6 +398,8 @@ export default {
                     return 'mdi-cash-multiple';
                 case 'Investment':
                     return 'mdi-chart-line';
+                case 'Retirement':
+                    return 'mdi-piggy-bank-outline';
                 case 'Loan':
                 case 'Mortgage':
                     return 'mdi-bank-transfer';
@@ -391,6 +427,7 @@ export default {
                 case 'Cash':
                     return 'cash-account-gradient';
                 case 'Investment':
+                case 'Retirement':
                 case 'Loan':
                 case 'Mortgage':
                 case 'Business':
@@ -417,6 +454,7 @@ export default {
                 return { text: 'Cash', color: 'green', icon: 'mdi-cash-multiple' };
             }
             if (t.includes('investment')) return { text: 'Investment', color: 'purple', icon: 'mdi-chart-line' };
+            if (t.includes('retirement')) return { text: 'Retirement', color: 'indigo', icon: 'mdi-piggy-bank-outline' };
             if (t.includes('loan')) return { text: 'Loan', color: 'amber', icon: 'mdi-bank-transfer' };
             if (t.includes('mortgage')) return { text: 'Mortgage', color: 'brown', icon: 'mdi-home' };
             if (t.includes('business')) return { text: 'Business', color: 'teal', icon: 'mdi-briefcase' };
@@ -458,6 +496,8 @@ export default {
                 return 'Balance';
             } else if (normalizedType === 'Efectivo' || normalizedType === 'Cash') {
                 return 'Cash on Hand';
+            } else if (normalizedType === 'Retirement') {
+                return 'Retirement balance';
             }
             return 'Balance';
         },
@@ -489,6 +529,9 @@ export default {
             // Used credit = Credit Limit - Available Credit
             const creditLimit = (this as any).getCreditLimit(account);
             return creditLimit - account.total;
+        },
+        isCreditCard(this: ComponentInstance, account: Account): boolean {
+            return ['Crédito', 'Credit Card', 'Credit'].includes(account.account_type.replace(/\s+Account$/i, '').trim());
         },
 
         getAccountNetWorthContribution(this: ComponentInstance, account: Account): number {
@@ -638,6 +681,7 @@ export default {
                 { title: 'Credit', value: 'Crédito' },
                 { title: 'Cash', value: 'Efectivo' },
                 { title: 'Investment', value: 'Investment' },
+                { title: 'Retirement', value: 'Retirement' },
                 { title: 'Loan', value: 'Loan' },
                 { title: 'Mortgage', value: 'Mortgage' },
                 { title: 'Business', value: 'Business' },

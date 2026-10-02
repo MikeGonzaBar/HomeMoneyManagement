@@ -1,76 +1,11 @@
 <template>
   <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
-    <!-- Header -->
-    <header class="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-0 z-50">
-      <div class="w-full px-4 sm:px-6 lg:px-10">
-        <div class="bb-phone-header-grid grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 h-[72px]">
-          <!-- Logo and Brand -->
-          <div class="bb-phone-brand flex items-center gap-3 min-w-0">
-            <img src="@/assets/logo-192.png" alt="Budget Buddy" class="w-10 h-10 rounded-lg object-contain" />
-            <span class="bb-phone-brand-text text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Budget Buddy</span>
-          </div>
-          <!-- Desktop Navigation -->
-          <nav class="hidden md:flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 p-1 shadow-sm">
-            <router-link to="/" class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary shadow-sm">
-              Dashboard
-            </router-link>
-            <router-link to="/transactions"
-              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Transactions
-            </router-link>
-            <router-link to="/budgets"
-              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Budgets
-            </router-link>
-            <router-link to="/recurring"
-              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Recurring
-            </router-link>
-            <router-link to="/reports"
-              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Reports
-            </router-link>
-          </nav>
-          <!-- User Profile -->
-          <div class="bb-phone-actions flex items-center justify-end gap-3 min-w-0">
-            <details class="bb-phone-nav">
-              <summary class="bb-phone-nav-button" aria-label="Open navigation">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path>
-                </svg>
-              </summary>
-              <nav class="bb-phone-nav-panel" aria-label="Phone navigation">
-                <router-link to="/" class="bb-phone-nav-link">Dashboard</router-link>
-                <router-link to="/transactions" class="bb-phone-nav-link">Transactions</router-link>
-                <router-link to="/budgets" class="bb-phone-nav-link">Budgets</router-link>
-                <router-link to="/recurring" class="bb-phone-nav-link">Recurring</router-link>
-                <router-link to="/reports" class="bb-phone-nav-link">Reports</router-link>
-                <button type="button" class="bb-phone-nav-link" @click="goToProfile">Profile</button>
-              </nav>
-            </details>
-            <AlertCenter />
-            <ThemeToggle />
-            <div class="bb-phone-user-shell flex items-center gap-3 rounded-full border border-gray-100 bg-gray-50 py-1 pl-4 pr-1.5">
-              <div class="text-right hidden sm:block">
-                <p class="text-sm font-semibold text-gray-900 leading-none">{{ userData.user.first_name }} {{
-                  userData.user.last_name }}</p>
-                <p class="text-xs text-gray-500 mt-1">Premium Member</p>
-              </div>
-              <div
-                class="h-9 w-9 rounded-full bg-brand-primary flex items-center justify-center text-white font-semibold cursor-pointer shadow-sm"
-                @click="goToProfile">
-                {{ userData.user.first_name.charAt(0) }}{{ userData.user.last_name.charAt(0) }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
+    <AppHeader :userData="userData" />
 
     <main class="w-full">
       <div class="px-4 sm:px-6 py-6">
         <!-- Summary Cards -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
           <!-- Income Card -->
           <div class="dashboard-summary-card">
             <div class="dashboard-summary-content">
@@ -145,6 +80,40 @@
                 <path
                   d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                   stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Investment Returns Card -->
+          <div class="dashboard-summary-card">
+            <div class="dashboard-summary-content">
+              <p class="dashboard-metric-label">Investment Returns</p>
+              <h3 class="text-3xl font-bold text-income leading-tight mb-2">${{ investmentReturns.toLocaleString('en-US', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+              }) }}</h3>
+              <span class="text-sm text-gray-500 block">Realized investment income</span>
+            </div>
+            <div class="dashboard-summary-icon bg-emerald-50 text-emerald-600">
+              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M3 17l6-6 4 4 8-9M15 6h6v6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Investment Balance Card -->
+          <div class="dashboard-summary-card">
+            <div class="dashboard-summary-content">
+              <p class="dashboard-metric-label">Investment Balance</p>
+              <h3 class="text-3xl font-bold text-balance leading-tight mb-2">${{ investmentBalance.toLocaleString('en-US', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+              }) }}</h3>
+              <span class="text-sm text-gray-500 block">Value across investment accounts</span>
+            </div>
+            <div class="dashboard-summary-icon bg-blue-50 text-balance">
+              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 19V9m5 10V5m5 14v-7m5 7V3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
               </svg>
             </div>
           </div>
@@ -241,14 +210,24 @@
             <section>
               <div class="dashboard-section-header px-1">
                 <h2 class="dashboard-section-title">My Accounts</h2>
-                <button class="bb-button bb-button-secondary"
-                  @click="openAddAccount">
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-                  </svg>
-                  Add Account
-                </button>
+                <div class="flex items-center gap-2">
+                  <router-link to="/accounts" class="bb-button bb-button-secondary">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 6h16M4 12h16M4 18h10" stroke-linecap="round" stroke-linejoin="round"
+                        stroke-width="2"></path>
+                    </svg>
+                    View all
+                  </router-link>
+                  <button class="bb-button bb-button-secondary"
+                    @click="openAddAccount">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                    </svg>
+                    Add Account
+                  </button>
+                </div>
               </div>
               <div class="custom-scrollbar">
                 <AccountsCarousel ref="accountsCarousel" :userData="userData" @accountSelected="handleAccountSelected"
@@ -332,10 +311,6 @@
         </section>
       </div>
     </main>
-
-    <!-- Bank Statement Review Dialog -->
-    <BankStatementReview ref="bankStatementReview" :userData="userData" :accounts="accounts"
-      @transactionsImported="handleTransactionsImported" @importError="handleImportError" />
   </div>
 </template>
 
@@ -345,10 +320,9 @@ import TableData from '@/components/TableData.vue'
 import PieChart from '@/components/PieChart.vue'
 import Projections from '@/components/Projections.vue'
 import BankStatementUpload from '@/components/BankStatementUpload.vue'
-import BankStatementReview from '@/components/BankStatementReview.vue'
-import AlertCenter from '@/components/AlertCenter.vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import AppHeader from '@/components/AppHeader.vue'
 import axios, { getAllPages } from '@/services/api'
+import { trackBankStatement } from '@/services/bankStatementTracking'
 
 interface AccountsCarousel {
   accountTotalUpdated: () => void;
@@ -407,9 +381,7 @@ export default {
     PieChart,
     Projections,
     BankStatementUpload,
-    BankStatementReview,
-    AlertCenter,
-    ThemeToggle
+    AppHeader
   },
   props: {
     userData: {
@@ -446,6 +418,19 @@ export default {
     netBalance(): number {
       return (this as any).income - (this as any).expense;
     },
+    investmentReturns(): number {
+      return (this as any).transactions
+        .filter((transaction: Transaction) =>
+          transaction.transaction_type === 'Income'
+          && transaction.category?.trim().toLowerCase() === 'investments'
+        )
+        .reduce((total: number, transaction: Transaction) => total + (Number(transaction.total) || 0), 0);
+    },
+    investmentBalance(): number {
+      return (this as any).accounts
+        .filter((account: Account) => account.account_type?.trim().toLowerCase() === 'investment')
+        .reduce((total: number, account: Account) => total + (Number(account.total) || 0), 0);
+    },
     filteredTransactions(): Transaction[] {
       if (!(this as any).searchQuery) {
         return (this as any).transactions;
@@ -467,9 +452,6 @@ export default {
     (this as any).getDueSoon();
   },
   methods: {
-    goToProfile() {
-      (this as any).$router.push('/profile');
-    },
     handleUpdateIncomeExpense() {
       (this as any).getTransactions();
     },
@@ -527,13 +509,21 @@ export default {
         return tDate.getMonth() === lastMonth && tDate.getFullYear() === lastMonthYear;
       });
 
-      // Calculate current month - sum all income transactions
-      (this as any).income = currentTransactions
+      // These cards are labelled Total Income / Total Expenses, so aggregate
+      // every loaded transaction (or every transaction for the selected
+      // account). Month-scoped rows are used only for the comparison badges.
+      (this as any).income = (this as any).transactions
         .filter((t: Transaction) => t.transaction_type === 'Income')
         .reduce((acc: number, t: Transaction) => acc + (Number(t.total) || 0), 0);
 
-      // Calculate current month expenses - use absolute value
-      (this as any).expense = currentTransactions
+      (this as any).expense = (this as any).transactions
+        .filter((t: Transaction) => t.transaction_type === 'Expense')
+        .reduce((acc: number, t: Transaction) => acc + Math.abs(Number(t.total) || 0), 0);
+
+      const currentMonthIncome = currentTransactions
+        .filter((t: Transaction) => t.transaction_type === 'Income')
+        .reduce((acc: number, t: Transaction) => acc + (Number(t.total) || 0), 0);
+      const currentMonthExpense = currentTransactions
         .filter((t: Transaction) => t.transaction_type === 'Expense')
         .reduce((acc: number, t: Transaction) => acc + Math.abs(Number(t.total) || 0), 0);
 
@@ -548,12 +538,12 @@ export default {
 
       // Calculate percentage changes
       (this as any).incomeChange = lastMonthIncome > 0
-        ? (((this as any).income - lastMonthIncome) / lastMonthIncome) * 100
-        : ((this as any).income > 0 && lastMonthIncome === 0) ? 100 : 0;
+        ? ((currentMonthIncome - lastMonthIncome) / lastMonthIncome) * 100
+        : (currentMonthIncome > 0 && lastMonthIncome === 0) ? 100 : 0;
 
       (this as any).expenseChange = lastMonthExpense > 0
-        ? (((this as any).expense - lastMonthExpense) / lastMonthExpense) * 100
-        : ((this as any).expense > 0 && lastMonthExpense === 0) ? 100 : 0;
+        ? ((currentMonthExpense - lastMonthExpense) / lastMonthExpense) * 100
+        : (currentMonthExpense > 0 && lastMonthExpense === 0) ? 100 : 0;
     },
     getTransactions() {
       const accountId = (this as any).accountSelected === null
@@ -577,27 +567,17 @@ export default {
       axios.get(`/accounts/details/${(this as any).userData.user.username}/0`)
         .then((response) => {
           (this as any).accounts = response.data;
-          (this as any).openReviewBatchFromRoute();
+          (this as any).redirectLegacyReviewLink();
         })
         .catch((error) => {
           console.log('ERROR fetching accounts:', error);
         });
     },
-    openReviewBatchFromRoute() {
+    redirectLegacyReviewLink() {
       const reviewBatch = (this as any).$route?.query?.reviewBatch;
       if (!reviewBatch || (this as any).openedReviewBatchId === reviewBatch) return;
       (this as any).openedReviewBatchId = reviewBatch;
-      axios.get(`/bank-statements/import-batches/${reviewBatch}/`)
-        .then((response) => {
-          (this as any).$refs.bankStatementReview.openDialog({
-            review_batch_id: response.data.id,
-            import_batch: response.data
-          });
-        })
-        .catch((error) => {
-          console.log('ERROR loading import batch:', error);
-          alert('Unable to load that import review batch.');
-        });
+      (this as any).$router.push({ path: `/statements/${reviewBatch}/review` });
     },
     getBudgetSummary() {
       const month = new Date().toISOString().slice(0, 7);
@@ -618,29 +598,17 @@ export default {
     },
     handleStatementProcessed(bankStatementData: any) {
       if (bankStatementData.status === 'uploaded') {
-        console.log('Bank statement uploaded successfully:', bankStatementData.file_details);
-        if (bankStatementData.file_details.processing_status === 'failed') {
-          alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded but processing failed.\n\nPlease try again or process manually.`);
-        } else {
-          alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded successfully!\n\nFile size: ${bankStatementData.file_details.file_size_display}\nStatus: ${bankStatementData.file_details.processing_status}`);
-        }
-      } else if (bankStatementData.status === 'processed' && bankStatementData.extracted_data) {
-        (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
-      } else {
-        (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
+        trackBankStatement({
+          id: bankStatementData.file_details.id,
+          filename: bankStatementData.file_details.filename,
+        });
+      } else if (bankStatementData.review_batch_id) {
+        (this as any).$router.push({ path: `/statements/${bankStatementData.review_batch_id}/review` });
       }
     },
     handleUploadError(errorMessage: string) {
       console.error('Upload error:', errorMessage);
       alert(`Upload Error: ${errorMessage}`);
-    },
-    handleTransactionsImported(data: any) {
-      (this as any).getTransactions();
-      (this as any).handleUpdateAccountsMethod();
-      console.log(`Successfully imported ${data.importedCount} transactions`);
-    },
-    handleImportError(errorMessage: string) {
-      console.error('Import error:', errorMessage);
     }
   }
 }

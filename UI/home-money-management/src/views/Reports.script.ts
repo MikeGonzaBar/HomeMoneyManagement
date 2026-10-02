@@ -2,8 +2,7 @@ import axios from '@/services/api';
 import { defineComponent } from 'vue';
 import { getCategoryColor } from '@/constants/categoryStyles';
 import { getStoredSession } from '@/services/session';
-import AlertCenter from '@/components/AlertCenter.vue';
-import ThemeToggle from '@/components/ThemeToggle.vue';
+import AppHeader from '@/components/AppHeader.vue';
 
 interface AnalyticsData {
   start_date: string;
@@ -66,7 +65,7 @@ function fallbackDarkCategoryColor(category: string): string {
 
 export default defineComponent({
   name: 'Reports',
-  components: { AlertCenter, ThemeToggle },
+  components: { AppHeader },
   data() {
     return {
       userData: { user: {} } as any,
@@ -248,9 +247,6 @@ export default defineComponent({
     applyDateRange() {
       this.showDateMenu = false;
       this.fetchAnalytics();
-    },
-    goToProfile() {
-      this.$router.push('/profile');
     },
     exportReport() {
       const data = this.analytics;

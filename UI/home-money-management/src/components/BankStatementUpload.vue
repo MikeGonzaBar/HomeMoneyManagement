@@ -2,6 +2,7 @@
     <div class="bank-upload-content">
         <div class="upload-form">
             <v-file-input ref="fileInput" v-model="selectedFile" accept=".pdf" label="Select Bank Statement PDF"
+                placeholder="Choose a PDF file"
                 prepend-icon="mdi-file-pdf-box" variant="outlined" rounded="lg" :rules="fileRules"
                 :loading="isUploading" @change="handleFileSelect" class="mb-4" clearable show-size
                 density="comfortable"></v-file-input>
@@ -22,7 +23,7 @@
                 <v-text-field v-if="showPasswordField || passwordRequired" v-model="pdfPassword" label="PDF Password"
                     type="password" variant="outlined" prepend-inner-icon="mdi-lock"
                     hint="Enter the password for this password-protected PDF" persistent-hint :error="passwordRequired"
-                    :error-messages="passwordRequired ? 'Password is required for this PDF' : ''" class="mb-3"
+                    :error-messages="passwordRequired ? 'Password is required for this PDF' : ''" class="mb-3 pdf-password-field"
                     rounded="lg" density="comfortable" clearable></v-text-field>
 
                 <v-btn color="primary" size="large" rounded="lg" :loading="isUploading"
@@ -165,31 +166,14 @@ export default {
                     },
                 });
 
-                if (response.data.status === 'success') {
-                    const processingError = response.data.extracted_data?.processing_error;
-                    if (processingError) {
-                        throw new Error(processingError);
-                    }
-
-                    // Check if we have extracted transaction data
-                    if (response.data.extracted_data && response.data.extracted_data.transactions && response.data.extracted_data.transactions.length > 0) {
-                        // We have transactions to review - emit with extracted data
-                        (this as any).$emit('statementProcessed', {
-                            message: response.data.message,
-                            file_details: response.data.file_details,
-                            extracted_data: response.data.extracted_data,
-                            review_batch_id: response.data.review_batch_id,
-                            import_batch: response.data.import_batch,
-                            status: 'processed'
-                        });
-                    } else {
-                        // Just uploaded, no transactions extracted yet
-                        (this as any).$emit('statementProcessed', {
-                            message: response.data.message,
-                            file_details: response.data.file_details,
-                            status: 'uploaded'
-                        });
-                    }
+                if (response.data.status === 'processing') {
+                    // Uploading and AI extraction are separate operations. The
+                    // worker continues in the background and Profile exposes
+                    // the processing state/retry action.
+                    (this as any).$emit('statementProcessed', {
+                        ...response.data,
+                        status: 'uploaded'
+                    });
 
                     // Reset form
                     (this as any).selectedFile = null;
@@ -379,21 +363,60 @@ export default {
 
 /* File input styling */
 :deep(.v-file-input .v-field) {
+    border: 1px solid rgba(76, 175, 80, 0.45);
     border-radius: 12px;
     min-height: 52px;
-    border: 2px dashed rgba(76, 175, 80, 0.35);
     background: rgba(76, 175, 80, 0.04);
-    transition: all 0.25s ease;
+    box-shadow: none;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+:deep(.v-file-input .v-field__outline) {
+    display: none;
 }
 
 :deep(.v-file-input .v-field:hover) {
-    border-color: rgba(76, 175, 80, 0.55);
+    border-color: rgba(76, 175, 80, 0.7);
     background: rgba(76, 175, 80, 0.08);
     box-shadow: 0 2px 8px rgba(76, 175, 80, 0.1);
 }
 
-:deep(.v-file-input .v-field__outline) {
+:deep(.v-file-input .v-field--focused) {
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
+}
+
+:deep(.v-file-input .v-field-label--floating) {
+    background: #ffffff;
+    padding: 0 6px;
+}
+
+/* Use one continuous password-field border instead of Vuetify's segmented outline. */
+:deep(.pdf-password-field .v-field) {
+    border: 1px solid #d1d5db;
     border-radius: 12px;
+    background: #ffffff;
+    box-shadow: none;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+:deep(.pdf-password-field .v-field__outline) {
+    display: none;
+}
+
+:deep(.pdf-password-field .v-field--focused) {
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12);
+}
+
+:deep(.pdf-password-field .v-field--error) {
+    border-color: #f44336;
+    box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.12);
+}
+
+:deep(.pdf-password-field .v-field-label--floating) {
+    background: #ffffff;
+    padding: 0 6px;
 }
 
 :deep(.v-file-input .v-field__input) {

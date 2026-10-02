@@ -35,6 +35,21 @@ const routes = [
     name: 'Reports',
     component: () => import(/* webpackChunkName: "reports" */ '@/views/Reports.vue'),
   },
+  {
+    path: '/statements',
+    name: 'Statements',
+    component: () => import(/* webpackChunkName: "statements" */ '@/views/Statements.vue'),
+  },
+  {
+    path: '/statements/:batchId/review',
+    name: 'ImportReview',
+    component: () => import(/* webpackChunkName: "import-review" */ '@/views/ImportReview.vue'),
+  },
+  {
+    path: '/accounts',
+    name: 'Accounts',
+    component: () => import(/* webpackChunkName: "accounts" */ '@/views/Accounts.vue'),
+  },
 ]
 
 const router = createRouter({

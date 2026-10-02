@@ -1,6 +1,17 @@
 <template>
   <v-app>
     <router-view />
+    <v-snackbar v-for="notification in notifications" :key="notification.id" :model-value="true"
+      :color="notification.status === 'failed' ? 'error' : notification.status === 'completed' ? 'success' : 'info'"
+      location="bottom right" timeout="-1" multi-line>
+      {{ notification.message }}
+      <template #actions>
+        <v-btn v-if="notification.status === 'completed' && notification.reviewBatchId" variant="text" @click="openNotification(notification.id, notification.reviewBatchId)">Review now</v-btn>
+        <v-btn v-else-if="notification.status === 'failed'" variant="text" @click="openNotification(notification.id)">View status</v-btn>
+        <v-btn v-else variant="text" @click="openNotification(notification.id)">View status</v-btn>
+        <v-btn icon="mdi-close" variant="text" @click="dismissStatementNotification(notification.id)" />
+      </template>
+    </v-snackbar>
   </v-app>
 </template>
 
@@ -8,10 +19,23 @@
 import { onMounted } from 'vue'
 import { getStoredSession } from '@/services/session'
 import { applyDocumentTheme } from '@/services/theme'
+import router from '@/router'
+import { dismissStatementNotification, notifications, resumeRecentStatementTracking, startStatementTracking } from '@/services/bankStatementTracking'
 
 onMounted(() => {
   applyDocumentTheme(getStoredSession()?.user.theme_preference ?? 'system')
+  startStatementTracking()
+  void resumeRecentStatementTracking()
 })
+
+function openNotification(notificationId: number, reviewBatchId?: number | null) {
+  dismissStatementNotification(notificationId)
+  if (reviewBatchId) {
+    void router.push({ path: `/statements/${reviewBatchId}/review` })
+    return
+  }
+  void router.push({ path: '/profile', query: { section: 'files' } })
+}
 </script>
 
 <style>

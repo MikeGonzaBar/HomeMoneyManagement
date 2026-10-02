@@ -320,7 +320,11 @@ export default {
         isFormValid(): boolean {
             const item = (this as any).editedItem;
             item.owner_id = (this as any).userData.user.username;
-            const base = !!item.transaction_type && !!item.category && !!item.date && !!item.title && Number(item.total) > 0;
+            // Transfers do not show a category selector. They always use the
+            // ledger category "Account Transfer", so do not block a complete
+            // transfer form because that hidden field is blank.
+            const hasCategory = item.transaction_type === 'Transfer' || !!item.category;
+            const base = !!item.transaction_type && hasCategory && !!item.date && !!item.title && Number(item.total) > 0;
             if (item.transaction_type === 'Transfer') {
                 return base && !!item.from_account_id && !!item.to_account_id && item.from_account_id !== item.to_account_id;
             }
@@ -444,6 +448,7 @@ export default {
             const payload = { ...(this as any).editedItem };
             if (payload.transaction_type === 'Transfer') {
                 payload.account_id = null;
+                payload.category = 'Account Transfer';
             } else {
                 payload.from_account_id = null;
                 payload.to_account_id = null;

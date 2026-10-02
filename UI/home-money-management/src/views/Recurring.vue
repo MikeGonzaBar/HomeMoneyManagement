@@ -1,45 +1,6 @@
 <template>
   <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
-    <header class="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-0 z-50">
-      <div class="w-full px-4 sm:px-6 lg:px-10">
-        <div class="bb-phone-header-grid grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 h-[72px]">
-          <router-link to="/" class="bb-phone-brand flex items-center gap-3 min-w-0">
-            <img src="@/assets/logo-192.png" alt="Budget Buddy" class="w-10 h-10 rounded-lg object-contain" />
-            <span class="bb-phone-brand-text text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Budget Buddy</span>
-          </router-link>
-          <nav class="hidden md:flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 p-1 shadow-sm">
-            <router-link to="/" class="nav-link">Dashboard</router-link>
-            <router-link to="/transactions" class="nav-link">Transactions</router-link>
-            <router-link to="/budgets" class="nav-link">Budgets</router-link>
-            <router-link to="/recurring" class="nav-link active">Recurring</router-link>
-            <router-link to="/reports" class="nav-link">Reports</router-link>
-          </nav>
-          <div class="bb-phone-actions flex items-center justify-end gap-2 min-w-0">
-            <details class="bb-phone-nav">
-              <summary class="bb-phone-nav-button" aria-label="Open navigation">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path>
-                </svg>
-              </summary>
-              <nav class="bb-phone-nav-panel" aria-label="Phone navigation">
-                <router-link to="/" class="bb-phone-nav-link">Dashboard</router-link>
-                <router-link to="/transactions" class="bb-phone-nav-link">Transactions</router-link>
-                <router-link to="/budgets" class="bb-phone-nav-link">Budgets</router-link>
-                <router-link to="/recurring" class="bb-phone-nav-link">Recurring</router-link>
-                <router-link to="/reports" class="bb-phone-nav-link">Reports</router-link>
-                <button type="button" class="bb-phone-nav-link" @click="goToProfile">Profile</button>
-              </nav>
-            </details>
-            <AlertCenter />
-            <ThemeToggle />
-            <div class="h-9 w-9 rounded-full bg-brand-primary flex items-center justify-center text-white font-semibold cursor-pointer shadow-sm"
-              @click="goToProfile">
-              {{ userData.user?.first_name?.charAt(0) }}{{ userData.user?.last_name?.charAt(0) }}
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
+    <AppHeader :userData="userData" />
 
     <main class="w-full px-4 sm:px-6 py-6">
       <div class="page-heading">
@@ -164,8 +125,7 @@
 import { defineComponent } from 'vue'
 import axios from '@/services/api'
 import { getStoredSession } from '@/services/session'
-import AlertCenter from '@/components/AlertCenter.vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
+import AppHeader from '@/components/AppHeader.vue'
 
 interface Account {
   id: number
@@ -210,7 +170,7 @@ const blankForm = () => ({
 
 export default defineComponent({
   name: 'Recurring',
-  components: { AlertCenter, ThemeToggle },
+  components: { AppHeader },
   data() {
     const through = new Date()
     through.setDate(through.getDate() + 3)
@@ -338,28 +298,11 @@ export default defineComponent({
       await axios.post(`/recurring-transactions/due/${item.occurrence_id}/skip/`)
       this.loadDue()
     },
-    goToProfile() {
-      this.$router.push('/profile')
-    },
   },
 })
 </script>
 
 <style scoped>
-.nav-link {
-  border-radius: 999px;
-  color: #6b7280;
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: 0.5rem 1rem;
-}
-
-.nav-link.active {
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
-  color: #4caf50;
-}
-
 .page-heading,
 .panel-header,
 .due-item,
