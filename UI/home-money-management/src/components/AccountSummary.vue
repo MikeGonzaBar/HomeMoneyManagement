@@ -740,7 +740,7 @@ export default {
 
 .account-summary__empty {
     align-items: center;
-    background: #fff;
+    background: var(--bb-surface-soft, #f9fafb);
     border: 1px dashed var(--bb-border-soft, #e5e7eb);
     border-radius: 12px;
     display: flex;
@@ -756,7 +756,7 @@ export default {
 }
 
 .account-summary__group {
-    background: #fff;
+    background: var(--bb-surface, #ffffff);
     border: 1px solid var(--bb-border-soft, #f3f4f6);
     border-radius: 12px;
     overflow: hidden;

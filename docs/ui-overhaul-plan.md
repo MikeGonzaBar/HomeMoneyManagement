@@ -404,6 +404,38 @@ the 7-pill header at ~1024px is still unverified by eye.
 
 ---
 
+## Follow-up audit (after Phase 5)
+
+Found by sweeping `src/**` for unreachable code and unthemed surfaces. Fixed in the same
+commit as Phase 5's follow-ups unless marked otherwise.
+
+1. **Dark mode was silently broken on the new UI** *(fixed)*. `App.vue` defines a real
+   `--bb-*` token set and an `.app-dark` override block, and `theme.ts` toggles `app-dark` on
+   `<html>`. The top area, the group summary and the Accounts cards hardcoded
+   `background: #ffffff`, so they stayed white-on-white in dark mode. Now on
+   `var(--bb-surface, #ffffff)` / `var(--bb-border-soft, #f3f4f6)`. **Still open:** only 2 files
+   in the whole app (`LoginRegister.vue`, `Projections.vue`) have any `app-dark` rules, and
+   Budgets/Recurring/Reports/Statements/Transactions use tokens without ever defining the
+   semantic aliases they lean on — a full dark-mode pass is a separate phase, not a patch.
+2. **`components/DatePicker.vue` was dead** *(fixed — deleted)*. Nothing imported it, and its
+   only caller was `MainPage.handleDatePicked`, which nothing invoked.
+3. **`src/layouts/default/*` was dead** *(fixed — deleted)*. `AppBar.vue`, `Default.vue`,
+   `View.vue`; 0 references. The registry flagged this as dead back in Phase 1 and it was
+   still on disk.
+4. **`MainPage` carried dead state** *(fixed)*: `month`, `year`, `DateObject`,
+   `handleDatePicked`, `showAddAccountDialog`, `showNewTransactionDialog` — none read by the
+   template or any caller.
+5. **Hardcoded hex in the new files** *(partly fixed)*: ~70 raw hex values remain across
+   `MainPage.vue`, `AccountSummary.vue`, `Accounts.vue` (text colours, group-icon tints, focus
+   rings). Harmless in light mode; they are what will look wrong in a future dark pass. The
+   green/red money colours are intentionally literal (they are semantic, not themed).
+6. **Not done, by choice**: `Transaction.test_transfer_*` (3 pre-existing SQLite
+   `select_for_update` failures) still fail; the 7-pill header and the new dashboard have never
+   been seen by a human; `verify-tests-exit.txt` is still an untracked stray claiming
+   `TEST_EXIT=0`; and the branch is still unpushed.
+
+---
+
 ## Risks / open questions
 
 1. `AppHeader` extraction touches 5 files at once — highest chance of visual regression; verify

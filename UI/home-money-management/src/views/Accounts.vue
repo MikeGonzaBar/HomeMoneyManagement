@@ -343,8 +343,8 @@ export default {
 <style scoped>
 .accounts-empty {
   align-items: center;
-  background: #fff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 16px;
   display: flex;
   flex-direction: column;
@@ -423,8 +423,8 @@ export default {
 }
 
 .accounts-card {
-  background: #fff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 16px;
   display: flex;
   gap: 16px;

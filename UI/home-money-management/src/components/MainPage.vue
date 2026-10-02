@@ -272,11 +272,6 @@ interface AccountSummaryRef {
   openNewAccountModal: () => void;
 }
 
-interface DateObject {
-  month: number;
-  year: number;
-}
-
 interface Account {
   id: number;
   account_type: string;
@@ -298,15 +293,11 @@ interface Transaction {
 
 interface Data {
   accountSelected: null | Account;
-  month: number;
-  year: number;
   transactions: Transaction[];
   accounts: Account[];
   searchQuery: string;
   chartPeriod: string;
   chartPeriodOptions: Array<{ title: string; value: string }>;
-  showAddAccountDialog: boolean;
-  showNewTransactionDialog: boolean;
   budgetSummary: any;
   dueSoon: any[];
   openedReviewBatchId: string | null;
@@ -331,8 +322,6 @@ export default {
   data(): Data {
     return {
       accountSelected: null,
-      month: 0,
-      year: 0,
       transactions: [],
       accounts: [],
       searchQuery: '',
@@ -342,8 +331,6 @@ export default {
         { title: 'Last 6 Months', value: '6' },
         { title: 'Year to Date', value: 'ytd' }
       ],
-      showAddAccountDialog: false,
-      showNewTransactionDialog: false,
       budgetSummary: { overall: null, over_budget: [], warnings: [], categories: [] },
       dueSoon: [],
       openedReviewBatchId: null
@@ -375,9 +362,6 @@ export default {
     }
   },
   mounted() {
-    const currentDate = new Date();
-    (this as any).month = currentDate.getMonth() + 1;
-    (this as any).year = currentDate.getFullYear();
     (this as any).getAccounts();
     (this as any).getTransactions();
     (this as any).getBudgetSummary();
@@ -392,11 +376,6 @@ export default {
     },
     openAddAccount() {
       ((this as any).$refs.accountSummary as AccountSummaryRef).openNewAccountModal();
-    },
-    handleDatePicked(date: DateObject) {
-      (this as any).month = date.month;
-      (this as any).year = date.year;
-      (this as any).getTransactions();
     },
     handleAllAccountSelected() {
       (this as any).accountSelected = null;
@@ -486,8 +465,8 @@ export default {
 
 <style scoped>
 .dashboard-panel {
-  background: #ffffff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
@@ -516,8 +495,8 @@ export default {
 }
 
 .dashboard-hero {
-  background: #ffffff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   display: flex;
@@ -552,8 +531,8 @@ export default {
 
 .dashboard-top-flow {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   display: grid;
