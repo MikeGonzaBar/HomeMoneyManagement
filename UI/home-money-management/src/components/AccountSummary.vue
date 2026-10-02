@@ -70,9 +70,9 @@
                 <div v-show="expandedGroups[group.key]" class="account-summary__accounts">
                     <div v-for="acc in group.accounts" :key="acc.id" class="account-summary__account"
                         :class="{ 'is-selected': selectedAccountId === acc.id }">
-                        <v-avatar size="28" color="grey-lighten-1">
-                            <v-icon size="16" color="grey-darken-1">{{ getAccountTypeIcon(acc.account_type) }}</v-icon>
-                        </v-avatar>
+                        <span class="account-summary__logo">
+                            <BankLogo :bank="acc.bank" :size="64" />
+                        </span>
                         <button type="button" class="account-summary__account-main" @click="selectAccount(acc)">
                             <span class="account-summary__account-name">{{ acc.account_name }}</span>
                             <span class="account-summary__account-meta">
@@ -297,6 +297,7 @@
 <script lang="ts">
 import axios from '@/services/api';
 import { GROUP_ICONS, groupAccounts, netWorthContribution } from '@/services/accountGroups';
+import BankLogo from '@/components/BankLogo.vue';
 import type { GroupKey, SnapshotAccount } from '@/services/accountGroups';
 // import Vue from 'vue';
 type Account = SnapshotAccount;
@@ -352,6 +353,7 @@ interface ComponentInstance extends Data {
 
 export default {
     name: 'AccountSummary',
+  components: { BankLogo },
     props: {
         userData: {
             type: Object,
@@ -767,6 +769,13 @@ export default {
     display: flex;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
+}
+
+.account-summary__logo {
+    display: block;
+    flex-shrink: 0;
+    height: 1.75rem;
+    width: 1.75rem;
 }
 
 .account-summary__accounts {

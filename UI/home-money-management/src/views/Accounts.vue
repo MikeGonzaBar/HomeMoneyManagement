@@ -109,6 +109,9 @@
             <div class="p-4" :class="viewMode === 'grid' ? 'accounts-grid' : 'accounts-list'">
               <article v-for="card in section.cards" :key="card.id" class="accounts-card">
                 <div class="accounts-card__head">
+                  <span class="accounts-bank-logo">
+                    <BankLogo :bank="card.bank" :size="64" />
+                  </span>
                   <span class="accounts-group-icon" :class="`is-${group.key}`">
                     <v-icon size="20" color="white">{{ group.icon }}</v-icon>
                   </span>
@@ -157,6 +160,7 @@
 <script lang="ts">
 import axios from '@/services/api';
 import AppHeader from '@/components/AppHeader.vue';
+import BankLogo from '@/components/BankLogo.vue';
 import { getStoredSession } from '@/services/session';
 import { toMoneyNumber } from '@/services/money';
 import {
@@ -201,7 +205,7 @@ interface GroupModel {
 
 export default {
   name: 'AccountsPage',
-  components: { AppHeader },
+  components: { AppHeader, BankLogo },
   data() {
     return {
       userData: null as any,
@@ -378,6 +382,13 @@ export default {
   gap: 16px;
   justify-content: space-between;
   padding: 16px 20px;
+}
+
+.accounts-bank-logo {
+    display: block;
+    flex-shrink: 0;
+    height: 2rem;
+    width: 2rem;
 }
 
 .accounts-group-icon {
