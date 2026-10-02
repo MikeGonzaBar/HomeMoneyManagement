@@ -110,6 +110,19 @@ class BankStatementImportBatch(models.Model):
     initial_balance = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     statement_period_start = models.DateField(null=True, blank=True)
     statement_period_end = models.DateField(null=True, blank=True)
+    statement_kind = models.CharField(max_length=30, default="bank", db_index=True)
+    balance_period_start = models.DateField(null=True, blank=True)
+    balance_period_end = models.DateField(null=True, blank=True)
+    movements_period_start = models.DateField(null=True, blank=True)
+    movements_period_end = models.DateField(null=True, blank=True)
+    retirement_breakdown = models.JSONField(default=dict, blank=True)
+    card_summary = models.JSONField(default=dict, blank=True)
+    deferred_purchases = models.JSONField(default=list, blank=True)
+    reconciliation = models.JSONField(default=dict, blank=True)
+    linked_account = models.ForeignKey(
+        "account.Account", related_name="retirement_import_batches", null=True,
+        blank=True, on_delete=models.PROTECT,
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_REVIEW)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -123,6 +136,88 @@ class BankStatementImportBatch(models.Model):
     def __str__(self) -> str:
         """Return a readable batch label for admin displays."""
         return f"Import batch {self.id} for {self.bank_statement.original_filename}"
+
+
+class RetirementStatementSnapshot(models.Model):
+    """Immutable verified AFORE/retirement statement snapshot."""
+
+    account = models.ForeignKey("account.Account", related_name="retirement_snapshots", on_delete=models.CASCADE)
+    import_batch = models.OneToOneField(BankStatementImportBatch, related_name="retirement_snapshot", on_delete=models.CASCADE)
+    statement_date = models.DateField()
+    opening_balance = models.DecimalField(max_digits=14, decimal_places=2)
+    closing_balance = models.DecimalField(max_digits=14, decimal_places=2)
+    breakdown = models.JSONField(default=dict)
+    balance_period_start = models.DateField(null=True, blank=True)
+    balance_period_end = models.DateField(null=True, blank=True)
+    movements_period_start = models.DateField(null=True, blank=True)
+    movements_period_end = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-statement_date", "-id"]
+        indexes = [models.Index(fields=["account", "-statement_date"], name="bankstateme_account_dc80e1_idx")]
+
+
+class BankStatementImportProduct(models.Model):
+    """One balance-bearing product detected in a multi-product statement."""
+
+    import_batch = models.ForeignKey(BankStatementImportBatch, related_name="products", on_delete=models.CASCADE)
+    source_product_id = models.CharField(max_length=120)
+    name = models.CharField(max_length=255)
+    bank_name = models.CharField(max_length=120, blank=True)
+    product_type = models.CharField(max_length=60)
+    opening_balance = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    closing_balance = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    reconciliation = models.JSONField(default=dict, blank=True)
+    positions = models.JSONField(default=list, blank=True)
+    linked_account = models.ForeignKey("account.Account", related_name="statement_import_products", null=True, blank=True, on_delete=models.PROTECT)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["import_batch", "source_product_id"], name="unique_import_product_source")]
+
+
+class ProductStatementSnapshot(models.Model):
+    """Immutable verified balance snapshot for a checking or investment product."""
+
+    account = models.ForeignKey("account.Account", related_name="product_statement_snapshots", on_delete=models.CASCADE)
+    import_product = models.OneToOneField(BankStatementImportProduct, related_name="snapshot", on_delete=models.CASCADE)
+    closing_balance = models.DecimalField(max_digits=14, decimal_places=2)
+    statement_date = models.DateField()
+    positions = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class CreditCardStatementSnapshot(models.Model):
+    """Immutable verified card statement, including its MSI schedule."""
+
+    account = models.ForeignKey("account.Account", related_name="credit_card_statement_snapshots", on_delete=models.CASCADE)
+    import_batch = models.OneToOneField(BankStatementImportBatch, related_name="credit_card_snapshot", on_delete=models.CASCADE)
+    statement_date = models.DateField()
+    summary = models.JSONField(default=dict)
+    deferred_purchases = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-statement_date", "-id"]
+        indexes = [models.Index(fields=["account", "-statement_date"], name="card_snapshot_account_date_idx")]
+
+
+class DeferredPurchase(models.Model):
+    """Latest known state of one MSI/deferred purchase on a credit card."""
+
+    account = models.ForeignKey("account.Account", related_name="deferred_purchases", on_delete=models.CASCADE)
+    source_key = models.CharField(max_length=180)
+    merchant = models.CharField(max_length=255)
+    original_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    remaining_balance = models.DecimalField(max_digits=14, decimal_places=2)
+    current_installment = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    installment_number = models.PositiveIntegerField(null=True, blank=True)
+    installment_count = models.PositiveIntegerField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["account", "source_key"], name="unique_deferred_purchase_key")]
 
 
 class BankStatementTransactionCandidate(models.Model):
@@ -154,26 +249,31 @@ class BankStatementTransactionCandidate(models.Model):
     category = models.CharField(max_length=60)
     date = models.DateField()
     amount = models.DecimalField(max_digits=14, decimal_places=2)
+    # Products and their candidates are both derived from an import batch.  They
+    # must be removed together when the source statement is deleted; PROTECT
+    # blocks that otherwise-valid cascade.
+    source_product = models.ForeignKey(BankStatementImportProduct, related_name="outgoing_candidates", null=True, blank=True, on_delete=models.CASCADE)
+    destination_product = models.ForeignKey(BankStatementImportProduct, related_name="incoming_candidates", null=True, blank=True, on_delete=models.CASCADE)
     account_fk = models.ForeignKey(
         "account.Account",
         related_name="bank_statement_candidates",
         null=True,
         blank=True,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
     )
     from_account_fk = models.ForeignKey(
         "account.Account",
         related_name="outgoing_bank_statement_candidates",
         null=True,
         blank=True,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
     )
     to_account_fk = models.ForeignKey(
         "account.Account",
         related_name="incoming_bank_statement_candidates",
         null=True,
         blank=True,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
     )
     possible_matches = models.JSONField(default=list, blank=True)
     linked_transaction = models.ForeignKey(

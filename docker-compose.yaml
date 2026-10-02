@@ -21,7 +21,8 @@ services:
     hostname: money-management-api
     container_name: money-management-api
     build: ./API
-    environment:
+    image: homemoneymanagement-money-management-api
+    environment: &api-environment
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-moneymanagement}"
       POSTGRES_DB: "${POSTGRES_DB:-moneymanagement}"
       POSTGRES_USER: "${POSTGRES_USER:-postgres}"
@@ -31,7 +32,7 @@ services:
       DB_CONN_MAX_AGE: "${DB_CONN_MAX_AGE:-60}"
       GUNICORN_WORKERS: "${GUNICORN_WORKERS:-4}"
       GUNICORN_THREADS: "${GUNICORN_THREADS:-2}"
-      GUNICORN_TIMEOUT: "${GUNICORN_TIMEOUT:-60}"
+      GUNICORN_TIMEOUT: "${GUNICORN_TIMEOUT:-180}"
       SECRET_KEY: "${SECRET_KEY:-django-insecure-local-docker-key}"
       DEBUG: "${DEBUG:-True}"
       ALLOWED_HOSTS: "${ALLOWED_HOSTS:-*}"
@@ -45,8 +46,11 @@ services:
       GOOGLE_AI_API_KEY: "${GOOGLE_AI_API_KEY:-}"
       GOOGLE_API_KEY: "${GOOGLE_API_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
-      GOOGLE_AI_MODEL: "${GOOGLE_AI_MODEL:-gemini-2.5-flash}"
-    command: bash -c "python /HomeMoneyManagement/manage.py migrate && python /HomeMoneyManagement/create_superuser.py && gunicorn --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-2} --timeout ${GUNICORN_TIMEOUT:-60} --access-logfile - --error-logfile - MoneyManagement.wsgi:application"
+      GOOGLE_AI_MODEL: "${GOOGLE_AI_MODEL:-gemini-3.8-flash}"
+      GOOGLE_AI_FALLBACK_MODELS: "${GOOGLE_AI_FALLBACK_MODELS:-gemini-3.5-flash-lite}"
+      GOOGLE_AI_TRANSIENT_RETRIES: "${GOOGLE_AI_TRANSIENT_RETRIES:-0}"
+      GOOGLE_AI_REQUEST_TIMEOUT: "${GOOGLE_AI_REQUEST_TIMEOUT:-45}"
+    command: bash -c "python /HomeMoneyManagement/manage.py migrate && python /HomeMoneyManagement/create_superuser.py && gunicorn --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-2} --timeout ${GUNICORN_TIMEOUT:-180} --access-logfile - --error-logfile - MoneyManagement.wsgi:application"
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
     volumes:
@@ -54,6 +58,22 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  money-management-worker:
+    hostname: money-management-worker
+    container_name: money-management-worker
+    image: homemoneymanagement-money-management-api
+    restart: unless-stopped
+    environment: *api-environment
+    command: python /HomeMoneyManagement/manage.py process_bank_statements --poll-interval 2
+    volumes:
+      - media_files:/HomeMoneyManagement/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      money-management-api:
+        condition: service_started
+
   money-management-ui:
     hostname: money-management-ui
     container_name: money-management-ui

@@ -254,7 +254,10 @@ GOOGLE_AI_API_KEY = (
     or os.getenv("GOOGLE_API_KEY")
     or os.getenv("GEMINI_API_KEY")
 )
-GOOGLE_AI_MODEL = os.getenv("GOOGLE_AI_MODEL", "gemini-2.5-flash")
+GOOGLE_AI_MODEL = os.getenv("GOOGLE_AI_MODEL", "gemini-3.8-flash")
+GOOGLE_AI_FALLBACK_MODELS = os.getenv("GOOGLE_AI_FALLBACK_MODELS", "")
+GOOGLE_AI_TRANSIENT_RETRIES = int(os.getenv("GOOGLE_AI_TRANSIENT_RETRIES", "0"))
+GOOGLE_AI_REQUEST_TIMEOUT = int(os.getenv("GOOGLE_AI_REQUEST_TIMEOUT", "45"))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

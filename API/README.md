@@ -76,7 +76,7 @@ Development defaults are intentionally convenient. Production must be explicit:
 - `DATABASE_URL` or `USE_POSTGRES=true`: enables PostgreSQL. Otherwise local SQLite is used.
 - `API_DOCS_ENABLED`: enables `/schema/` and `/docs/`; defaults to the value of `DEBUG`.
 - `GOOGLE_AI_API_KEY`: enables Gemini-powered statement extraction and report insights. `GOOGLE_API_KEY` and `GEMINI_API_KEY` are accepted as aliases for local compatibility.
-- `GOOGLE_AI_MODEL`: optional Gemini model override; defaults to `gemini-2.5-flash`.
+- `GOOGLE_AI_MODEL`: optional Gemini model override; defaults to `gemini-3.8-flash`.
 - `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, and `SECURE_HSTS_SECONDS`: default to secure production values when `DEBUG=False`; override only if a trusted proxy handles the behavior.
 - `SECURE_HSTS_PRELOAD`: defaults to `False`; set to `True` only when the production domain and subdomains are ready for HSTS preload behavior.
 

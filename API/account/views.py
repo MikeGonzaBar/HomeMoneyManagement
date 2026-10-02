@@ -22,6 +22,8 @@ def _decimal_value(value: object, field_name: str, required: bool = False) -> De
 
 def _account_payload(account: Account) -> dict[str, object]:
     """Return the public API representation for an account."""
+    latest_snapshot = account.product_statement_snapshots.order_by("-statement_date", "-id").first()
+    latest_card_snapshot = account.credit_card_statement_snapshots.order_by("-statement_date", "-id").first()
     return {
         "id": account.id,
         "account_name": account.account_name,
@@ -30,6 +32,17 @@ def _account_payload(account: Account) -> dict[str, object]:
         "total": float(account.total),
         "owner": account.owner,
         "credit_limit": float(account.credit_limit) if account.credit_limit is not None else None,
+        "retirement_metadata": account.retirement_metadata if account.account_type == "Retirement" else {},
+        "credit_card_metadata": account.credit_card_metadata if account.is_credit_card else {},
+        "credit_card_statement_snapshot": (
+            {"statement_date": latest_card_snapshot.statement_date.isoformat(), "summary": latest_card_snapshot.summary,
+             "deferred_purchases": latest_card_snapshot.deferred_purchases}
+            if latest_card_snapshot else None
+        ),
+        "statement_snapshot": (
+            {"statement_date": latest_snapshot.statement_date.isoformat(), "closing_balance": float(latest_snapshot.closing_balance), "positions": latest_snapshot.positions}
+            if latest_snapshot else None
+        ),
     }
 
 
@@ -61,6 +74,7 @@ class AccountCreate(generics.CreateAPIView):
                 total=total,
                 owner_user=request.user,
                 credit_limit=credit_limit,
+                retirement_metadata=request.data.get("retirement_metadata") or {},
             )
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -119,7 +133,7 @@ class AccountOps(generics.RetrieveUpdateAPIView):
             used_credit = old_credit_limit - account.total
             data["total"] = max(Decimal("0.00"), new_credit_limit - used_credit)
 
-        allowed_fields = {"account_name", "account_type", "bank", "total", "credit_limit"}
+        allowed_fields = {"account_name", "account_type", "bank", "total", "credit_limit", "retirement_metadata", "credit_card_metadata"}
         for key, value in data.items():
             if key in allowed_fields:
                 setattr(account, key, value)

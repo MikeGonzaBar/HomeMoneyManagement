@@ -14,15 +14,17 @@ from .reconciliation import (
     batch_payload,
     candidate_payload,
     commit_batch,
-    create_import_batch,
+    create_candidate,
+    update_deferred_purchases,
     update_candidate,
+    update_import_product,
 )
 from .serializers import (
     BankStatementResponseSerializer,
     BankStatementUploadSerializer,
     with_review_data,
 )
-from .services import extract_transactions_from_pdf, is_pdf_password_protected, decrypt_pdf_file
+from .services import is_pdf_password_protected, decrypt_pdf_file
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ logger = logging.getLogger(__name__)
 @extend_schema(
     request=BankStatementUploadSerializer,
     responses={
-        200: OpenApiResponse(description="Bank statement uploaded and processed"),
+        202: OpenApiResponse(description="Bank statement uploaded and queued"),
         400: OpenApiResponse(description="Invalid upload or password required"),
         502: OpenApiResponse(description="AI processing failed"),
         503: OpenApiResponse(description="AI API key missing"),
@@ -153,69 +155,8 @@ def upload_bank_statement(request: Request) -> Response:
             processing_status='pending'
         )
         
-        # Process the PDF with AI to extract transactions
-        extracted_data = None
-        try:
-            # Update status to processing
-            bank_statement.processing_status = 'processing'
-            bank_statement.save()
-            
-            # Get the full path to the saved file
-            pdf_file_path = bank_statement.file.path
-            
-            # Extract transactions using AI
-            extracted_data = extract_transactions_from_pdf(pdf_file_path)
-            
-            # Update processing status based on results
-            if extracted_data.get('error'):
-                bank_statement.processing_status = 'failed'
-                bank_statement.error_message = extracted_data.get('error', 'Unknown error')
-                bank_statement.save()
-                error_message = bank_statement.error_message
-                status_code = (
-                    status.HTTP_503_SERVICE_UNAVAILABLE
-                    if 'api key not configured' in error_message.lower()
-                    else status.HTTP_502_BAD_GATEWAY
-                )
-                return Response({
-                    'error': 'AI processing failed',
-                    'message': error_message,
-                    'file_details': {
-                        'id': bank_statement.id,
-                        'filename': bank_statement.original_filename,
-                        'file_size': bank_statement.file_size,
-                        'file_size_display': bank_statement.get_file_size_display(),
-                        'upload_date': bank_statement.upload_date.isoformat(),
-                        'processing_status': bank_statement.processing_status
-                    },
-                    'status': 'failed',
-                    'extracted_data': {
-                        'transactions': extracted_data.get('transactions', []),
-                        'account_name': extracted_data.get('account_name'),
-                        'account_type': extracted_data.get('account_type'),
-                        'statement_period': extracted_data.get('statement_period'),
-                        'initial_balance': extracted_data.get('initial_balance'),
-                        'processing_error': error_message
-                    }
-                }, status=status_code)
-            else:
-                # Processing completed successfully (with or without transactions)
-                bank_statement.processing_status = 'completed'
-                # Mark as processed if we have transactions, or if processing completed without errors
-                # (empty transactions list means AI successfully analyzed but found no transactions)
-                bank_statement.processed = True
-                bank_statement.save()
-                
-        except Exception as e:
-            logger.error(f"Error during AI processing: {str(e)}", exc_info=True)
-            bank_statement.processing_status = 'failed'
-            bank_statement.error_message = f'AI processing error: {str(e)}'
-            bank_statement.save()
-            # Continue with response even if AI processing fails
-        
-        # Prepare response data
         response_data = {
-            'message': 'Bank statement uploaded successfully',
+            'message': 'Bank statement uploaded and queued for processing',
             'file_details': {
                 'id': bank_statement.id,
                 'filename': bank_statement.original_filename,
@@ -224,30 +165,9 @@ def upload_bank_statement(request: Request) -> Response:
                 'upload_date': bank_statement.upload_date.isoformat(),
                 'processing_status': bank_statement.processing_status
             },
-            'status': 'success'
+            'status': 'processing'
         }
-        
-        # Add extracted transaction data if available
-        if extracted_data:
-            review_batch = None
-            if not extracted_data.get('error'):
-                try:
-                    review_batch = create_import_batch(bank_statement, extracted_data)
-                except Exception as e:
-                    logger.error(f"Error creating import review batch: {str(e)}", exc_info=True)
-            response_data['extracted_data'] = {
-                'transactions': extracted_data.get('transactions', []),
-                'account_name': extracted_data.get('account_name'),
-                'account_type': extracted_data.get('account_type'),  # Credit Card, Debit Card, etc.
-                'statement_period': extracted_data.get('statement_period'),
-                'initial_balance': extracted_data.get('initial_balance'),  # Add this line
-                'processing_error': extracted_data.get('error')
-            }
-            if review_batch:
-                response_data['review_batch_id'] = review_batch.id
-                response_data['import_batch'] = batch_payload(review_batch)
-        
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response(response_data, status=status.HTTP_202_ACCEPTED)
         
     except Exception as e:
         return Response({
@@ -326,6 +246,32 @@ def get_bank_statement_details(request: Request, statement_id: int) -> Response:
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@extend_schema(responses={202: OpenApiResponse(description="Bank statement queued for retry")})
+@api_view(['POST'])
+def retry_bank_statement(request: Request, statement_id: int) -> Response:
+    """Queue a failed statement for another background-processing attempt."""
+    try:
+        bank_statement = BankStatement.objects.get(id=statement_id, owner_user=request.user)
+        if bank_statement.processing_status != 'failed':
+            return Response({
+                'error': 'Statement cannot be retried',
+                'message': 'Only failed bank statements can be retried.'
+            }, status=status.HTTP_409_CONFLICT)
+        bank_statement.processing_status = 'pending'
+        bank_statement.processed = False
+        bank_statement.error_message = None
+        bank_statement.save(update_fields=['processing_status', 'processed', 'error_message'])
+        return Response({
+            'message': 'Bank statement queued for retry',
+            'statement': BankStatementResponseSerializer(bank_statement).data,
+        }, status=status.HTTP_202_ACCEPTED)
+    except BankStatement.DoesNotExist:
+        return Response({
+            'error': 'Bank statement not found',
+            'message': f'No bank statement found with ID {statement_id}'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
 @extend_schema(responses={200: OpenApiResponse(description="Bank statement deleted")})
 @api_view(['DELETE'])
 def delete_bank_statement(request: Request, statement_id: int) -> Response:
@@ -385,6 +331,8 @@ def get_import_batch(request: Request, batch_id: int) -> Response:
             "account_id": serializers.CharField(required=False, allow_blank=True),
             "from_account_id": serializers.CharField(required=False, allow_blank=True),
             "to_account_id": serializers.CharField(required=False, allow_blank=True),
+            "source_product_id": serializers.CharField(required=False, allow_blank=True),
+            "destination_product_id": serializers.CharField(required=False, allow_blank=True),
             "status": serializers.CharField(required=False),
             "linked_transaction_id": serializers.IntegerField(required=False),
         },
@@ -402,6 +350,49 @@ def update_import_candidate(request: Request, candidate_id: int) -> Response:
             'error': 'Failed to update import candidate',
             'message': str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def create_import_candidate(request: Request, batch_id: int) -> Response:
+    """Add one user-entered transaction to an owned review batch."""
+    try:
+        candidate = create_candidate(request.user, batch_id, request.data)
+        return Response({'candidate': candidate_payload(candidate)}, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': 'Failed to add import candidate', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="ImportProductUpdateRequest",
+        fields={
+            "name": serializers.CharField(required=False),
+            "bank_name": serializers.CharField(required=False, allow_blank=True),
+            "product_type": serializers.CharField(required=False),
+            "opening_balance": serializers.DecimalField(max_digits=14, decimal_places=2, required=False),
+            "closing_balance": serializers.DecimalField(max_digits=14, decimal_places=2, required=False),
+        },
+    ),
+    responses={200: OpenApiResponse(description="Detected statement account updated")},
+)
+@api_view(['PATCH'])
+def update_import_batch_product(request: Request, product_id: int) -> Response:
+    """Update one detected account and return its refreshed review batch."""
+    try:
+        product = update_import_product(request.user, product_id, request.data)
+        return Response({'import_batch': batch_payload(product.import_batch)}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': 'Failed to update detected account', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PATCH'])
+def update_import_batch_msi(request: Request, batch_id: int) -> Response:
+    """Save the reviewed MSI schedule for a credit-card import batch."""
+    try:
+        batch = update_deferred_purchases(request.user, batch_id, request.data.get('deferred_purchases'))
+        return Response({'deferred_purchases': batch.deferred_purchases}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': 'Failed to update MSI details', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(

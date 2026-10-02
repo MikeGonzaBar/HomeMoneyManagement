@@ -9,7 +9,7 @@ def with_review_data(queryset):
     """Annotate each statement with its latest review batch data in the same query."""
     latest_batch = BankStatementImportBatch.objects.filter(
         bank_statement=OuterRef("pk"),
-    ).order_by("-created_at")
+    ).order_by("-created_at", "-id")
     latest_batch_id = Subquery(latest_batch.values("id")[:1])
     candidate_count = (
         BankStatementTransactionCandidate.objects
@@ -18,10 +18,22 @@ def with_review_data(queryset):
         .annotate(total=Count("id"))
         .values("total")[:1]
     )
+    resolved_count = (
+        BankStatementTransactionCandidate.objects
+        .filter(import_batch=OuterRef("review_batch_id"))
+        .exclude(status=BankStatementTransactionCandidate.STATUS_PENDING)
+        .values("import_batch")
+        .annotate(total=Count("id"))
+        .values("total")[:1]
+    )
     return queryset.annotate(
         review_batch_id=latest_batch_id,
         review_batch_status=Subquery(latest_batch.values("status")[:1]),
         review_candidate_count=Coalesce(Subquery(candidate_count), 0),
+        review_resolved_count=Coalesce(Subquery(resolved_count), 0),
+        review_period_start=Subquery(latest_batch.values("statement_period_start")[:1]),
+        review_period_end=Subquery(latest_batch.values("statement_period_end")[:1]),
+        review_account_name=Subquery(latest_batch.values("detected_account_name")[:1]),
     )
 
 
@@ -73,6 +85,10 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
     review_batch_id = serializers.SerializerMethodField()
     review_batch_status = serializers.SerializerMethodField()
     review_candidate_count = serializers.SerializerMethodField()
+    review_resolved_count = serializers.SerializerMethodField()
+    review_period_start = serializers.SerializerMethodField()
+    review_period_end = serializers.SerializerMethodField()
+    review_account_name = serializers.SerializerMethodField()
     
     class Meta:
         model = BankStatement
@@ -89,6 +105,10 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
             'review_batch_id',
             'review_batch_status',
             'review_candidate_count',
+            'review_resolved_count',
+            'review_period_start',
+            'review_period_end',
+            'review_account_name',
         ]
         read_only_fields = fields
     
@@ -107,7 +127,7 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
     def get_review_batch(self, obj: BankStatement) -> BankStatementImportBatch | None:
         """Return or cache the latest review batch for an unannotated statement."""
         if obj.pk not in self._review_batches:
-            self._review_batches[obj.pk] = obj.import_batches.order_by('-created_at').first()
+            self._review_batches[obj.pk] = obj.import_batches.order_by('-created_at', '-id').first()
         return self._review_batches[obj.pk]
 
     def get_review_batch_id(self, obj: BankStatement) -> int | None:
@@ -130,3 +150,39 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
             return obj.review_candidate_count
         batch = self.get_review_batch(obj)
         return batch.candidates.count() if batch else 0
+
+    def get_review_resolved_count(self, obj: BankStatement) -> int:
+        """Return the resolved (non-pending) candidates in the most recent review batch."""
+        if hasattr(obj, "review_resolved_count"):
+            return obj.review_resolved_count
+        batch = self.get_review_batch(obj)
+        if not batch:
+            return 0
+        return batch.candidates.exclude(
+            status=BankStatementTransactionCandidate.STATUS_PENDING
+        ).count()
+
+    def get_review_period_start(self, obj: BankStatement) -> str | None:
+        """Return the statement period start detected during extraction."""
+        if hasattr(obj, "review_period_start"):
+            value = obj.review_period_start
+        else:
+            batch = self.get_review_batch(obj)
+            value = batch.statement_period_start if batch else None
+        return value.isoformat() if value else None
+
+    def get_review_period_end(self, obj: BankStatement) -> str | None:
+        """Return the statement period end detected during extraction."""
+        if hasattr(obj, "review_period_end"):
+            value = obj.review_period_end
+        else:
+            batch = self.get_review_batch(obj)
+            value = batch.statement_period_end if batch else None
+        return value.isoformat() if value else None
+
+    def get_review_account_name(self, obj: BankStatement) -> str | None:
+        """Return the bank/account detected during extraction."""
+        if hasattr(obj, "review_account_name"):
+            return obj.review_account_name
+        batch = self.get_review_batch(obj)
+        return batch.detected_account_name if batch else None

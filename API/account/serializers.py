@@ -29,5 +29,7 @@ class AccountSerializer(serializers.ModelSerializer):
             "owner",
             "owner_user",
             "credit_limit",
+            "retirement_metadata",
+            "credit_card_metadata",
         )
         read_only_fields = ("id", "owner", "owner_user")
