@@ -1,6 +1,6 @@
 # UI Overhaul — Plan & Progress Registry
 
-_Last updated: 2026-10-01 · Current phase: 4 · Status: done_
+_Last updated: 2026-10-01 · Current phase: 5 · Status: done_
 
 This file **is** the plan. It is the agent's persistent memory across phases and across
 sessions. Read it in full before starting any phase; update it before ending any phase.
@@ -53,7 +53,7 @@ sessions. Read it in full before starting any phase; update it before ending any
 | 2 | Import Review workspace | ✅ | `views/ImportReview.vue`, `router/index.ts`, `App.vue`, `MainPage.vue`, `services/importReviewStatus.ts` | full page, default filter Needs review, 50 rows, draft save |
 | 3 | Statements page | ✅ | `views/Statements.vue`, `router/index.ts`, `AppHeader.vue`, `serializers.py`, `tests.py`, `Profile.vue` | `21/35 resolved` + filters + Resume review |
 | 4 | Accounts page | ✅ | `views/Accounts.vue`, `services/accountGroups.ts` + check, `router/index.ts`, `AppHeader.vue`, `MainPage.vue`, `tsconfig.json` | grouping, search, visible `N accounts` count |
-| 5 | Dashboard + terminology | ☐ | `MainPage.vue`, all views | decisions-first layout, consistent terms, empty states |
+| 5 | Dashboard + terminology | ✅ | `MainPage.vue`, `AccountSummary.vue` (was `AccountsCarousel.vue`), `accountGroups.ts` + check, `PieChart.vue`, `Projections.vue`, `Reports.vue`, `Accounts.vue`; deleted `IncomeExpense.vue` | decision-first top area, group summary, consistent terms, empty states |
 
 Status key: ☐ not started · ◐ in progress · ✅ done
 
@@ -203,6 +203,50 @@ Compact decision-first top area (net worth, available cash, card debt/credit, mo
 expense; investments secondary); replace the carousel with an account-group summary; apply
 consistent terminology across all views; add empty states.
 
+**Delivered.** The five summary cards are replaced by a two-block top area: **net worth**,
+**available cash** and **card debt** (with limit) lead, and this month's income / spending /
+what's left sit beside them. Investments lost their card on purpose — they are secondary and
+the group summary below already carries them. All five numbers come from one
+`dashboardSnapshot(accounts, transactions)` call, so the dashboard, the Accounts page and the
+API cannot disagree; the old cards each re-derived their own total (and `income`/`expense`
+silently aggregated *every* transaction while the badge beside them compared *one month* — both
+computeds and `calculateIncomeAndExpense` are gone).
+
+`AccountsCarousel.vue` → **`AccountSummary.vue`** (renamed with `git mv`): the arrow-scrolling
+carousel of cards becomes a net worth header, an account filter dropdown, and one collapsible
+row per group showing count + group subtotal, with the accounts inside. It keeps the add/edit/
+delete dialogs and the parent contract (`accountSelected` / `allAccountSelected` /
+`accountsModified`, `accountTotalUpdated`, `openNewAccountModal`), so `MainPage`'s wiring is
+unchanged apart from the ref name. Its private `getAccountNetWorthContribution` and the
+1.5×-available-credit guess for a missing card limit are **deleted** in favour of the shared
+rules — a fabricated limit is worse than an honest blank. All three `location.reload()` calls
+after a mutation now refetch instead, so editing an account no longer throws away the page.
+The AFORE / investment-position / MSI panels moved into the account row rather than being lost.
+
+Terminology: the chart's third line was labelled "Balance" while plotting income − expenses,
+which collided with account balance — it is now "Net (income − spending)", and the duplicated
+"Transaction History" title inside `Projections` (the dashboard already had that heading) is
+now "Income and spending", matching the new panel title and the Reports card. "Net Worth
+Growth" → "Net worth", "Monthly Income vs. Expenses" → "Income and spending".
+`GROUP_ICONS` moved into `accountGroups.ts` so the Accounts page and the summary share one map.
+`components/IncomeExpense.vue` was dead (never imported) and is deleted.
+
+Empty states: `PieChart` rendered two blank pies with no transactions; it now shows one clear
+"no transactions to chart" state linking to the Transactions page. `AccountSummary` covers
+loading / load-failed+retry / no-accounts / no-filter-match, and hides the account filter until
+there is something to filter.
+
+**Verified:** `npm run build` passes (`✓ built in 15.38s`; `Home` 258 → 254 kB JS, 29.6 → 28.1
+kB CSS); `node --experimental-strip-types src/services/accountGroups.check.mjs` and
+`importReviewStatus.check.mjs` both pass. The new snapshot rules are covered by 7 added
+assert groups (available cash excludes cards; investments include retirement; card debt skips
+limit-less cards, excludes loans and floors overpayment at 0; month flow scopes to the month
+and excludes transfers; undated rows fall back to the whole list; snapshot net worth ≠ sum of
+raw balances). Sweep over `src/**` finds no `AccountsCarousel`, `IncomeExpense`,
+`getAccountNetWorthContribution` or `calculateIncomeAndExpense` left.
+**Leftover:** visual sign-off of the new top area and group rows still needs a live account;
+the 7-pill header at ~1024px is still unverified by eye.
+
 ---
 
 ## Verification (record result in the progress log)
@@ -216,6 +260,22 @@ consistent terminology across all views; add empty states.
 
 ## Progress log (append-only, newest first)
 
+- **2026-10-01 · Phase 5** — Dashboard rebuilt decision-first. Five summary cards → a top area
+  of net worth / available cash / card debt plus this month's income, spending and what's left
+  (investments dropped from the top as secondary). Every number comes from one
+  `dashboardSnapshot()` call into the shared, checked rules. `AccountsCarousel.vue` renamed to
+  `AccountSummary.vue` and rebuilt as a net worth header + account filter + one collapsible row
+  per group, keeping the add/edit/delete dialogs, the parent's emit contract and the AFORE /
+  investment / MSI statement detail. Deleted the component's duplicate net-worth maths and its
+  1.5× guess for a missing card limit; replaced 3 `location.reload()` calls with refetches.
+  Terminology: the chart's "Balance" line (really income − expenses) → "Net (income −
+  spending)", duplicated "Transaction History" chart title → "Income and spending", "Net Worth
+  Growth" → "Net worth", "Monthly Income vs. Expenses" → "Income and spending"; `GROUP_ICONS`
+  shared from `accountGroups.ts`; dead `IncomeExpense.vue` deleted. `PieChart` gained a real
+  empty state (it used to draw two blank pies). **Verified:** `npm run build` passes
+  (`✓ built in 15.38s`; `Home` 258 → 254 kB JS); both `.check.mjs` suites pass, with 7 new
+  assert groups covering the snapshot rules. **Leftovers:** visual sign-off needs a live
+  account.
 - **2026-10-01 · Phase 4** — Built the Accounts page. New route `/accounts` →
   `views/Accounts.vue` (self-loaded: own `AppHeader`, `getStoredSession`, one
   `/accounts/details/<username>/0` fetch). Grouped into the fixed `ACCOUNT_GROUPS` order
@@ -322,6 +382,26 @@ consistent terminology across all views; add empty states.
   `services/accountGroups.ts` can import `./money.ts` with an explicit extension; that is what
   lets `node --experimental-strip-types` run `accountGroups.check.mjs` without a build step.
 
+- **2026-10-01 (Phase 5)** — Deviation: the spec said "investments secondary", so `Investment
+  Returns` and `Investment Balance` lost their cards entirely rather than being demoted to a
+  smaller tile. The group summary lists the investment balance per group and the Accounts page
+  breaks it down per account, so the number is still one click away and the top stays
+  decision-first. `Investment Returns` (realized income categorised as `investments`) had no
+  equivalent anywhere else and was dropped with them.
+- **2026-10-01 (Phase 5)** — Root cause fixed, not just moved: the old cards labelled "Total
+  Income" / "Total Expenses" summed **every** loaded transaction, while the "% from last month"
+  badge beside them compared a **single month**. Both numbers were correct and both were on
+  screen, which is the bug. The top area is now explicitly month-scoped ("October income") and
+  the all-time view is what the Accounts page and Reports are for.
+- **2026-10-01 (Phase 5)** — `getCreditLimit`'s 1.5×-available-credit fallback was removed rather
+  than ported. It invented a limit for any card missing one, so the dashboard's "used of limit"
+  could contradict the Accounts page, which shows nothing. The shared `creditUtilization` already
+  treats a limit-less card as "not applicable".
+- **2026-10-01 (Phase 5)** — The 3 `location.reload()` calls after an account mutation became
+  refetches. A full reload discarded the page you came from and every filter on it; this was the
+  only reason the component needed `splice`-and-reload logic at all. (`LoginRegister.vue:165`
+  still reloads after register/login and is left alone — that one is correct there.)
+
 ---
 
 ## Risks / open questions
@@ -340,11 +420,12 @@ consistent terminology across all views; add empty states.
 
 ## Next action (update before ending every phase)
 
-> **Start Phase 5:** dashboard + terminology. Compact decision-first top area (net worth,
-> available cash, card debt/credit, month income vs expense; investments secondary) and replace
-> `AccountsCarousel.vue` with an account-group summary — its statement snapshots (MSI/deferred
-> purchases, retirement breakdown, investment positions) must be re-homed or deliberately
-> dropped, not silently lost. Then consistent terminology across all views and empty states.
-> Reuse `services/accountGroups.ts` for the summary; verify with `npm run build`.
+> **Overhaul complete (phases 0–5).** Nothing is queued: the next step is human sign-off, not
+> more code. Open the dashboard with a real account and check, in this order: (1) the new top
+> area against the Accounts page — net worth and card debt must match exactly, and the month
+> figures must be labelled as one month; (2) the group rows expand, filter transactions and keep
+> the AFORE / MSI / investment detail reachable; (3) both layouts on `/accounts`; (4) the 7-pill
+> header at ~1024px, which has never been looked at. Then run the API suite — 3 pre-existing
+> `transaction/tests.py` failures remain (SQLite `select_for_update`), unrelated to this work.
 
 

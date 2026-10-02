@@ -168,17 +168,9 @@ import {
   healthBadge,
   netWorthContribution,
   sortAccounts,
+  GROUP_ICONS,
 } from '@/services/accountGroups';
 import type { AccountGroupKey, AccountLike, AccountSort, GroupKey, HealthTone } from '@/services/accountGroups';
-
-const GROUP_ICONS: Record<GroupKey, string> = {
-  cash: 'mdi-wallet-outline',
-  savings: 'mdi-piggy-bank-outline',
-  investments: 'mdi-chart-line',
-  credit: 'mdi-credit-card-outline',
-  loans: 'mdi-bank-transfer',
-  other: 'mdi-bank',
-};
 
 interface CardModel {
   id: number;

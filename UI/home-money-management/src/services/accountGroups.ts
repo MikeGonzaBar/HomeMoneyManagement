@@ -31,6 +31,16 @@ export const ACCOUNT_GROUPS: ReadonlyArray<{ key: GroupKey; label: string }> = [
   { key: 'other', label: 'Other' },
 ]
 
+/** One icon per group, shared by the Accounts page and the dashboard summary. */
+export const GROUP_ICONS: Readonly<Record<GroupKey, string>> = {
+  cash: 'mdi-wallet-outline',
+  savings: 'mdi-piggy-bank-outline',
+  investments: 'mdi-chart-line',
+  credit: 'mdi-credit-card-outline',
+  loans: 'mdi-bank-transfer',
+  other: 'mdi-bank',
+}
+
 const CREDIT_TYPES = new Set(['crédito', 'credit'])
 const DEBT_TYPES = new Set(['loan', 'mortgage'])
 
@@ -127,6 +137,117 @@ export function sortAccounts(accounts: AccountLike[], sort: AccountSort): Accoun
     const right = (key === 'bank' ? b.bank : b.account_name).toLowerCase()
     return left.localeCompare(right) * direction
   })
+}
+
+/** Extra rows the dashboard needs that the Accounts page has no reason to show. */
+export interface SnapshotAccount extends AccountLike {
+  statement_snapshot?: { statement_date?: string; positions?: Array<{ investment_id?: string; name?: string; total?: number; capital?: number }> } | null
+  credit_card_statement_snapshot?: {
+    statement_date?: string
+    summary?: { deferred_balance?: number }
+    deferred_purchases?: Array<{ source_key?: string; merchant?: string; remaining_balance?: number; installment_number?: number; installment_count?: number }>
+  } | null
+  retirement_metadata?: { institution?: string; statement_date?: string; breakdown?: { subaccounts?: Record<string, number> } } | null
+}
+
+export interface CardDebt {
+  /** Sum of every card's limit. 0 when no card has a recorded limit. */
+  limit: number
+  /** limit - available credit, per card, floored at 0. */
+  used: number
+  /** Cards actually contributing (i.e. those with a limit). */
+  cards: number
+}
+
+/**
+ * Card debt for the top-of-dashboard. A card with no recorded limit is skipped
+ * entirely — same call the API makes in `net_worth_value`, so the number here
+ * can never disagree with the Accounts page.
+ */
+export function cardDebt(accounts: SnapshotAccount[]): CardDebt {
+  return accounts.reduce<CardDebt>((debt, account) => {
+    const limit = toMoneyNumber(account.credit_limit)
+    if (groupKeyFor(account.account_type) !== 'credit' || limit <= 0) return debt
+    const used = limit - toMoneyNumber(account.total)
+    return { limit: debt.limit + limit, used: debt.used + Math.max(used, 0), cards: debt.cards + 1 }
+  }, { limit: 0, used: 0, cards: 0 })
+}
+
+/**
+ * Money you could spend right now: checking + savings + cash on hand. Excludes
+ * investments, and deliberately excludes cards (their `total` is *available*
+ * credit, not money in the bank).
+ */
+export function availableCash(accounts: SnapshotAccount[]): number {
+  return accounts
+    .filter((account) => ['cash', 'savings'].includes(groupKeyFor(account.account_type)))
+    .reduce((total, account) => total + toMoneyNumber(account.total), 0)
+}
+
+/** Balance held in investment + retirement accounts. */
+export function investmentsTotal(accounts: SnapshotAccount[]): number {
+  return accounts
+    .filter((account) => groupKeyFor(account.account_type) === 'investments')
+    .reduce((total, account) => total + toMoneyNumber(account.total), 0)
+}
+
+export interface FlowTransaction {
+  transaction_type: string
+  total: number | string
+  date: string
+}
+
+export interface MonthFlow {
+  income: number
+  expense: number
+  net: number
+}
+
+const monthKey = (date: string | Date): string => {
+  const parsed = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(parsed.getTime())) return ''
+  return `${parsed.getFullYear()}-${parsed.getMonth()}`
+}
+
+/**
+ * Income / expense for the calendar month containing `at`, with transfers
+ * excluded from both (they are neither). Falls back to the whole list when no
+ * transaction carries a parseable date, so a bad date never blanks the cards.
+ */
+export function monthFlow(transactions: FlowTransaction[], at: Date = new Date()): MonthFlow {
+  const scoped = transactions.filter((transaction) => monthKey(transaction.date) === monthKey(at))
+  const source = scoped.length > 0 ? scoped : transactions
+  let income = 0
+  let expense = 0
+  for (const transaction of source) {
+    const amount = toMoneyNumber(transaction.total)
+    if (transaction.transaction_type === 'Income') income += amount
+    else if (transaction.transaction_type === 'Expense') expense += Math.abs(amount)
+  }
+  return { income, expense, net: income - expense }
+}
+
+export interface DashboardSnapshot {
+  netWorth: number
+  availableCash: number
+  card: CardDebt
+  investments: number
+  flow: MonthFlow
+}
+
+/** Everything the dashboard's top area renders, in one call. */
+export function dashboardSnapshot(
+  accounts: SnapshotAccount[],
+  transactions: FlowTransaction[],
+  at: Date = new Date(),
+): DashboardSnapshot {
+  return {
+    netWorth: accounts.reduce((total, account) => total + netWorthContribution(account), 0),
+    availableCash: availableCash(accounts),
+    card: cardDebt(accounts),
+    investments: investmentsTotal(accounts),
+    flow: monthFlow(transactions, at),
+  }
 }
 
 export interface InstitutionSection {

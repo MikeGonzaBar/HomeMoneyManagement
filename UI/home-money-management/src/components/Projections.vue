@@ -4,9 +4,9 @@
         <div class="projections-header">
             <div class="header-content">
                 <v-icon color="primary" class="me-2">mdi-chart-line</v-icon>
-                <span class="text-h5 font-weight-bold">Transaction History</span>
+                <span class="text-h5 font-weight-bold">Income and spending</span>
             </div>
-            <p class="text-subtitle-1 text-grey-darken-1 mb-0">View your income, expenses, and balance over time
+            <p class="text-subtitle-1 text-grey-darken-1 mb-0">Where your money came from and where it went, month by month
             </p>
         </div>
 
@@ -64,7 +64,7 @@
                 <v-col cols="12" md="4">
                     <div class="legend-item">
                         <div class="legend-color balance-color"></div>
-                        <span class="legend-text">Balance</span>
+                        <span class="legend-text">Net (income − spending)</span>
                     </div>
                 </v-col>
             </v-row>

@@ -94,7 +94,7 @@
         <div class="reports-card reports-chart-card lg:col-span-2">
           <div class="reports-card-header">
             <div>
-              <h3 class="text-lg font-bold text-gray-900">Monthly Income vs. Expenses</h3>
+              <h3 class="text-lg font-bold text-gray-900">Income and spending</h3>
               <p class="text-sm text-gray-500">Overview of the last 6 months</p>
             </div>
             <div class="flex items-center gap-4 text-xs font-bold">
@@ -126,10 +126,10 @@
           </div>
         </div>
 
-        <!-- Net Worth Growth -->
+        <!-- Net worth -->
         <div class="reports-card reports-chart-card">
           <div class="mb-6">
-            <h3 class="text-lg font-bold text-gray-900">Net Worth Growth</h3>
+            <h3 class="text-lg font-bold text-gray-900">Net worth</h3>
             <p class="text-sm text-gray-500">Cumulative performance</p>
           </div>
           <div class="mb-8">

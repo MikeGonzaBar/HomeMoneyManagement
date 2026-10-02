@@ -1,24 +1,35 @@
 <template>
     <div class="chart-container">
-        <div class="chart-section">
-            <div class="chart-header">
-                <h2 class="chart-title">Income</h2>
-                <p class="chart-subtitle">Visual breakdown of your income sources</p>
-            </div>
-            <div class="chart-wrapper">
-                <Pie :data="(this as any).incomeChartData" :options="(this as any).incomeOptions" />
-            </div>
+        <!-- Nothing to break down yet. Two blank pies read as a bug, not as
+             "no data", so say it and point at the way to fix it. -->
+        <div v-if="!hasTransactions" class="chart-empty">
+            <v-icon size="40" color="grey-lighten-1" class="mb-2">mdi-chart-pie</v-icon>
+            <p class="chart-empty__title">No transactions to chart yet</p>
+            <p class="chart-empty__text">Add or import transactions and your income and spending breakdown appears here.</p>
+            <router-link to="/transactions" class="chart-empty__link">Go to transactions</router-link>
         </div>
 
-        <div class="chart-section">
-            <div class="chart-header">
-                <h2 class="chart-title">Expense</h2>
-                <p class="chart-subtitle">Visual breakdown of your expenses</p>
+        <template v-else>
+            <div class="chart-section">
+                <div class="chart-header">
+                    <h2 class="chart-title">Income</h2>
+                    <p class="chart-subtitle">Visual breakdown of your income sources</p>
+                </div>
+                <div class="chart-wrapper">
+                    <Pie :data="(this as any).incomeChartData" :options="(this as any).incomeOptions" />
+                </div>
             </div>
-            <div class="chart-wrapper">
-                <Pie :data="(this as any).expenseChartData" :options="(this as any).expenseOptions" />
+
+            <div class="chart-section">
+                <div class="chart-header">
+                    <h2 class="chart-title">Expense</h2>
+                    <p class="chart-subtitle">Visual breakdown of your expenses</p>
+                </div>
+                <div class="chart-wrapper">
+                    <Pie :data="(this as any).expenseChartData" :options="(this as any).expenseOptions" />
+                </div>
             </div>
-        </div>
+        </template>
     </div>
 </template>
 
@@ -65,6 +76,43 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.chart-empty {
+    align-items: center;
+    background: #f9fafb;
+    border: 1px dashed #e5e7eb;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem 1rem;
+    text-align: center;
+    width: 100%;
+}
+
+.chart-empty__title {
+    color: #1f2937;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+}
+
+.chart-empty__text {
+    color: #6b7280;
+    font-size: 0.8125rem;
+    margin: 0 0 0.75rem;
+    max-width: 22rem;
+}
+
+.chart-empty__link {
+    color: #16a34a;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.chart-empty__link:hover {
+    text-decoration: underline;
 }
 
 /* Responsive behavior */
@@ -132,6 +180,7 @@ interface PieChartComponentInstance {
     incomeOptions: any;
     expenseOptions: any;
     prepareChartData(): void;
+    hasTransactions: boolean;
     reduction(transactionType: string): { [key: string]: number };
     prepareExpenseChartData(): void;
     prepareIncomeChartData(): void;
@@ -218,6 +267,12 @@ export default {
     }),
     mounted() {
         (this as any).prepareChartData();
+    },
+    computed: {
+        /** Drives the empty state: blank pies read as a bug, not as "no data". */
+        hasTransactions(): boolean {
+            return (this.transactions || []).length > 0;
+        }
     },
     watch: {
         transactions: {

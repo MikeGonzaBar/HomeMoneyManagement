@@ -4,117 +4,58 @@
 
     <main class="w-full">
       <div class="px-4 sm:px-6 py-6">
-        <!-- Summary Cards -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
-          <!-- Income Card -->
-          <div class="dashboard-summary-card">
-            <div class="dashboard-summary-content">
-              <p class="dashboard-metric-label">Total Income</p>
-              <h3 class="text-3xl font-bold text-income leading-tight mb-2">${{ income.toLocaleString('en-US', {
-                minimumFractionDigits: 2, maximumFractionDigits: 2
-              }) }}</h3>
-              <span class="text-sm text-green-600 font-medium flex items-center" v-if="incomeChange !== 0">
-                <svg class="w-4 h-4 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path clip-rule="evenodd"
-                    d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L10 10.586 13.586 7H12z"
-                    fill-rule="evenodd"></path>
-                </svg>
-                {{ incomeChange > 0 ? '+' : '' }}{{ incomeChange.toFixed(1) }}% from last month
-              </span>
+        <!-- Decision-first summary: what you have, what you owe, what moved this
+             month. Investments are secondary and live in the account summary. -->
+        <section class="dashboard-top-area">
+          <div class="dashboard-top-primary">
+            <div class="dashboard-hero">
+              <p class="dashboard-metric-label">Net worth</p>
+              <p class="dashboard-hero__value" :class="snapshot.netWorth >= 0 ? 'text-income' : 'text-expense'">
+                {{ formatMoney(snapshot.netWorth) }}
+              </p>
+              <p class="dashboard-hero__hint">
+                Assets minus card debt and what you owe. See
+                <router-link to="/accounts" class="dashboard-hero__link">all accounts</router-link>.
+              </p>
             </div>
-            <div class="dashboard-summary-icon bg-green-50 text-income">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path d="M7 11l5-5m0 0l5 5m-5-5v12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                </path>
-              </svg>
+            <div class="dashboard-hero">
+              <p class="dashboard-metric-label">Available cash</p>
+              <p class="dashboard-hero__value">{{ formatMoney(snapshot.availableCash) }}</p>
+              <p class="dashboard-hero__hint">Checking, savings and cash on hand.</p>
             </div>
-          </div>
-
-          <!-- Expense Card -->
-          <div class="dashboard-summary-card">
-            <div class="dashboard-summary-content">
-              <p class="dashboard-metric-label">Total Expenses</p>
-              <h3 class="text-3xl font-bold text-expense leading-tight mb-2">${{ expense.toLocaleString('en-US', {
-                minimumFractionDigits: 2, maximumFractionDigits: 2
-              }) }}</h3>
-              <span class="text-sm text-red-600 font-medium flex items-center" v-if="expenseChange !== 0">
-                <svg class="w-4 h-4 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path clip-rule="evenodd"
-                    d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L10 9.414 13.586 13H12z"
-                    fill-rule="evenodd"></path>
-                </svg>
-                {{ expenseChange > 0 ? '+' : '' }}{{ expenseChange.toFixed(1) }}% from last month
-              </span>
-            </div>
-            <div class="dashboard-summary-icon bg-red-50 text-expense">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path d="M17 13l-5 5m0 0l-5-5m5 5V6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                </path>
-              </svg>
+            <div class="dashboard-hero">
+              <p class="dashboard-metric-label">
+                Card debt<span v-if="snapshot.card.cards"> ({{ snapshot.card.cards }})</span>
+              </p>
+              <p class="dashboard-hero__value" :class="snapshot.card.used > 0 ? 'text-expense' : ''">
+                {{ formatMoney(snapshot.card.used) }}
+              </p>
+              <p class="dashboard-hero__hint">
+                <template v-if="snapshot.card.limit">
+                  of {{ formatMoney(snapshot.card.limit) }} limit
+                </template>
+                <template v-else>No card limit recorded yet.</template>
+              </p>
             </div>
           </div>
 
-          <!-- Net Balance Card -->
-          <div class="dashboard-summary-card">
-            <div class="dashboard-summary-content">
-              <p class="dashboard-metric-label">Net Balance</p>
-              <h3 class="text-3xl font-bold leading-tight mb-2"
-                :class="netBalance >= 0 ? 'text-balance' : 'text-expense'">
-                {{ netBalance >= 0 ? '+' : '' }}${{ Math.abs(netBalance).toLocaleString('en-US', {
-                  minimumFractionDigits:
-                    2, maximumFractionDigits: 2
-                }) }}
-              </h3>
-              <span class="text-sm text-blue-600 font-medium block" v-if="netBalance > 0">Keep it up! Your savings are
-                growing.</span>
-              <span class="text-sm text-gray-500 block" v-else-if="netBalance === 0">Track your expenses to see your
-                balance grow.</span>
-              <span class="text-sm text-red-600 font-medium block" v-else>Consider reducing expenses to improve your
-                balance.</span>
+          <div class="dashboard-top-flow">
+            <div>
+              <p class="dashboard-metric-label">{{ monthLabel }} income</p>
+              <p class="dashboard-flow__value text-income">{{ formatMoney(snapshot.flow.income) }}</p>
             </div>
-            <div class="dashboard-summary-icon bg-blue-50 text-balance">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-              </svg>
+            <div>
+              <p class="dashboard-metric-label">{{ monthLabel }} spending</p>
+              <p class="dashboard-flow__value text-expense">{{ formatMoney(snapshot.flow.expense) }}</p>
             </div>
-          </div>
-
-          <!-- Investment Returns Card -->
-          <div class="dashboard-summary-card">
-            <div class="dashboard-summary-content">
-              <p class="dashboard-metric-label">Investment Returns</p>
-              <h3 class="text-3xl font-bold text-income leading-tight mb-2">${{ investmentReturns.toLocaleString('en-US', {
-                minimumFractionDigits: 2, maximumFractionDigits: 2
-              }) }}</h3>
-              <span class="text-sm text-gray-500 block">Realized investment income</span>
+            <div>
+              <p class="dashboard-metric-label">Left this month</p>
+              <p class="dashboard-flow__value" :class="snapshot.flow.net >= 0 ? 'text-income' : 'text-expense'">
+                {{ formatMoney(snapshot.flow.net) }}
+              </p>
             </div>
-            <div class="dashboard-summary-icon bg-emerald-50 text-emerald-600">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 17l6-6 4 4 8-9M15 6h6v6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-              </svg>
-            </div>
-          </div>
-
-          <!-- Investment Balance Card -->
-          <div class="dashboard-summary-card">
-            <div class="dashboard-summary-content">
-              <p class="dashboard-metric-label">Investment Balance</p>
-              <h3 class="text-3xl font-bold text-balance leading-tight mb-2">${{ investmentBalance.toLocaleString('en-US', {
-                minimumFractionDigits: 2, maximumFractionDigits: 2
-              }) }}</h3>
-              <span class="text-sm text-gray-500 block">Value across investment accounts</span>
-            </div>
-            <div class="dashboard-summary-icon bg-blue-50 text-balance">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 19V9m5 10V5m5 14v-7m5 7V3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-              </svg>
+            <div class="dashboard-top-flow__actions">
+              <router-link to="/transactions" class="bb-button bb-button-secondary">Transactions</router-link>
             </div>
           </div>
         </section>
@@ -230,7 +171,7 @@
                 </div>
               </div>
               <div class="custom-scrollbar">
-                <AccountsCarousel ref="accountsCarousel" :userData="userData" @accountSelected="handleAccountSelected"
+                <AccountSummary ref="accountSummary" :userData="userData" @accountSelected="handleAccountSelected"
                   @allAccountSelected="handleAllAccountSelected" @accountsModified="handleAccountsModified" />
               </div>
             </section>
@@ -301,8 +242,8 @@
         <section class="dashboard-panel financial-performance-panel mt-8 w-full">
           <div class="dashboard-panel-header compact financial-performance-header">
             <div>
-              <h2 class="dashboard-section-title">Financial Performance</h2>
-              <p class="text-sm text-gray-500">Track your income and balance over the past year</p>
+              <h2 class="dashboard-section-title">Income and spending</h2>
+              <p class="text-sm text-gray-500">Where your money came from and where it went</p>
             </div>
             <v-select v-model="chartPeriod" :items="chartPeriodOptions" density="compact" variant="outlined"
               rounded="lg" hide-details class="chart-period-select financial-period-select shrink-0 text-sm"></v-select>
@@ -315,7 +256,7 @@
 </template>
 
 <script lang="ts">
-import AccountsCarousel from '@/components/AccountsCarousel.vue'
+import AccountSummary from '@/components/AccountSummary.vue'
 import TableData from '@/components/TableData.vue'
 import PieChart from '@/components/PieChart.vue'
 import Projections from '@/components/Projections.vue'
@@ -323,8 +264,10 @@ import BankStatementUpload from '@/components/BankStatementUpload.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import axios, { getAllPages } from '@/services/api'
 import { trackBankStatement } from '@/services/bankStatementTracking'
+import { dashboardSnapshot } from '@/services/accountGroups'
+import type { DashboardSnapshot, FlowTransaction, SnapshotAccount } from '@/services/accountGroups'
 
-interface AccountsCarousel {
+interface AccountSummaryRef {
   accountTotalUpdated: () => void;
   openNewAccountModal: () => void;
 }
@@ -359,10 +302,6 @@ interface Data {
   year: number;
   transactions: Transaction[];
   accounts: Account[];
-  income: number;
-  expense: number;
-  incomeChange: number;
-  expenseChange: number;
   searchQuery: string;
   chartPeriod: string;
   chartPeriodOptions: Array<{ title: string; value: string }>;
@@ -376,7 +315,7 @@ interface Data {
 export default {
   name: 'MainPage',
   components: {
-    AccountsCarousel,
+    AccountSummary,
     TableData,
     PieChart,
     Projections,
@@ -396,10 +335,6 @@ export default {
       year: 0,
       transactions: [],
       accounts: [],
-      income: 0,
-      expense: 0,
-      incomeChange: 0,
-      expenseChange: 0,
       searchQuery: '',
       chartPeriod: '12',
       chartPeriodOptions: [
@@ -415,21 +350,18 @@ export default {
     }
   },
   computed: {
-    netBalance(): number {
-      return (this as any).income - (this as any).expense;
+    /**
+     * The top area's numbers. One call into the shared, tested rules so the
+     * dashboard can never disagree with the Accounts page about net worth.
+     */
+    snapshot(): DashboardSnapshot {
+      return dashboardSnapshot(
+        (this as any).accounts as SnapshotAccount[],
+        (this as any).transactions as FlowTransaction[],
+      );
     },
-    investmentReturns(): number {
-      return (this as any).transactions
-        .filter((transaction: Transaction) =>
-          transaction.transaction_type === 'Income'
-          && transaction.category?.trim().toLowerCase() === 'investments'
-        )
-        .reduce((total: number, transaction: Transaction) => total + (Number(transaction.total) || 0), 0);
-    },
-    investmentBalance(): number {
-      return (this as any).accounts
-        .filter((account: Account) => account.account_type?.trim().toLowerCase() === 'investment')
-        .reduce((total: number, account: Account) => total + (Number(account.total) || 0), 0);
+    monthLabel(): string {
+      return new Date().toLocaleDateString('en-US', { month: 'long' });
     },
     filteredTransactions(): Transaction[] {
       if (!(this as any).searchQuery) {
@@ -456,10 +388,10 @@ export default {
       (this as any).getTransactions();
     },
     handleUpdateAccountsMethod() {
-      ((this as any).$refs.accountsCarousel as AccountsCarousel).accountTotalUpdated();
+      ((this as any).$refs.accountSummary as AccountSummaryRef).accountTotalUpdated();
     },
     openAddAccount() {
-      ((this as any).$refs.accountsCarousel as AccountsCarousel).openNewAccountModal();
+      ((this as any).$refs.accountSummary as AccountSummaryRef).openNewAccountModal();
     },
     handleDatePicked(date: DateObject) {
       (this as any).month = date.month;
@@ -477,73 +409,12 @@ export default {
     handleAccountsModified(accs: Array<Account>) {
       (this as any).accounts = accs;
     },
-    calculateIncomeAndExpense() {
-      if (!(this as any).transactions || (this as any).transactions.length === 0) {
-        (this as any).income = 0;
-        (this as any).expense = 0;
-        (this as any).incomeChange = 0;
-        (this as any).expenseChange = 0;
-        return;
-      }
-
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth(); // 0-11
-      const currentYear = currentDate.getFullYear();
-      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-      // Current month transactions - properly parse dates
-      const currentTransactions = (this as any).transactions.filter((t: Transaction) => {
-        if (!t.date) return false;
-        const tDate = new Date(t.date);
-        // Check if date is valid
-        if (isNaN(tDate.getTime())) return false;
-        return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
-      });
-
-      // Last month transactions
-      const lastMonthTransactions = (this as any).transactions.filter((t: Transaction) => {
-        if (!t.date) return false;
-        const tDate = new Date(t.date);
-        if (isNaN(tDate.getTime())) return false;
-        return tDate.getMonth() === lastMonth && tDate.getFullYear() === lastMonthYear;
-      });
-
-      // These cards are labelled Total Income / Total Expenses, so aggregate
-      // every loaded transaction (or every transaction for the selected
-      // account). Month-scoped rows are used only for the comparison badges.
-      (this as any).income = (this as any).transactions
-        .filter((t: Transaction) => t.transaction_type === 'Income')
-        .reduce((acc: number, t: Transaction) => acc + (Number(t.total) || 0), 0);
-
-      (this as any).expense = (this as any).transactions
-        .filter((t: Transaction) => t.transaction_type === 'Expense')
-        .reduce((acc: number, t: Transaction) => acc + Math.abs(Number(t.total) || 0), 0);
-
-      const currentMonthIncome = currentTransactions
-        .filter((t: Transaction) => t.transaction_type === 'Income')
-        .reduce((acc: number, t: Transaction) => acc + (Number(t.total) || 0), 0);
-      const currentMonthExpense = currentTransactions
-        .filter((t: Transaction) => t.transaction_type === 'Expense')
-        .reduce((acc: number, t: Transaction) => acc + Math.abs(Number(t.total) || 0), 0);
-
-      // Calculate last month for comparison
-      const lastMonthIncome = lastMonthTransactions
-        .filter((t: Transaction) => t.transaction_type === 'Income')
-        .reduce((acc: number, t: Transaction) => acc + (Number(t.total) || 0), 0);
-
-      const lastMonthExpense = lastMonthTransactions
-        .filter((t: Transaction) => t.transaction_type === 'Expense')
-        .reduce((acc: number, t: Transaction) => acc + Math.abs(Number(t.total) || 0), 0);
-
-      // Calculate percentage changes
-      (this as any).incomeChange = lastMonthIncome > 0
-        ? ((currentMonthIncome - lastMonthIncome) / lastMonthIncome) * 100
-        : (currentMonthIncome > 0 && lastMonthIncome === 0) ? 100 : 0;
-
-      (this as any).expenseChange = lastMonthExpense > 0
-        ? ((currentMonthExpense - lastMonthExpense) / lastMonthExpense) * 100
-        : (currentMonthExpense > 0 && lastMonthExpense === 0) ? 100 : 0;
+    formatMoney(value: number): string {
+      const amount = Number(value || 0);
+      return `${amount < 0 ? '-' : ''}$${Math.abs(amount).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
     },
     getTransactions() {
       const accountId = (this as any).accountSelected === null
@@ -555,7 +426,6 @@ export default {
       )
         .then((transactions) => {
           (this as any).transactions = transactions;
-          (this as any).calculateIncomeAndExpense();
         })
         .catch((error) => {
           console.log('ERROR', error);
@@ -615,43 +485,105 @@ export default {
 </script>
 
 <style scoped>
-.dashboard-panel,
-.dashboard-summary-card {
+.dashboard-panel {
   background: #ffffff;
   border: 1px solid #f3f4f6;
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
-.dashboard-summary-card {
-  display: flex;
+/* Decision-first top area. Net worth and cash lead; the month flow sits
+   beside them. Investments deliberately have no card here — the account
+   summary below carries them, so the top stays scannable. */
+.dashboard-top-area {
   align-items: stretch;
-  gap: 1.5rem;
-  justify-content: space-between;
-  min-height: 9rem;
-  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 2rem;
 }
 
-.dashboard-summary-content {
+@media (min-width: 1024px) {
+  .dashboard-top-area {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+.dashboard-top-primary {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.dashboard-hero {
+  background: #ffffff;
+  border: 1px solid #f3f4f6;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   display: flex;
-  flex: 1;
-  min-width: 0;
   flex-direction: column;
   justify-content: center;
+  min-height: 7rem;
+  padding: 1.25rem;
 }
 
-.dashboard-summary-icon {
-  display: flex;
-  flex-shrink: 0;
+.dashboard-hero__value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.25rem 0 0;
+}
+
+.dashboard-hero__hint {
+  color: #6b7280;
+  font-size: 0.8125rem;
+  margin: 0.375rem 0 0;
+}
+
+.dashboard-hero__link {
+  color: #16a34a;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dashboard-hero__link:hover {
+  text-decoration: underline;
+}
+
+.dashboard-top-flow {
   align-items: center;
-  justify-content: center;
-  align-self: center;
-  border-radius: 0.75rem;
-  height: 4rem;
-  padding: 1rem;
-  width: 4rem;
+  background: #ffffff;
+  border: 1px solid #f3f4f6;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  padding: 1.25rem;
 }
 
+.dashboard-flow__value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.25rem 0 0;
+}
+
+.dashboard-top-flow__actions {
+  align-items: center;
+  display: flex;
+}
+
+@media (max-width: 640px) {
+  .dashboard-hero,
+  .dashboard-top-flow {
+    padding: 1rem;
+  }
+
+  .dashboard-top-flow__actions {
+    grid-column: 1 / -1;
+  }
+}
 .dashboard-budget-panel {
   min-height: 12rem;
   padding: 1.5rem !important;
@@ -991,17 +923,6 @@ export default {
     width: 100%;
   }
 
-  .dashboard-summary-card {
-    gap: 1rem;
-    min-height: auto;
-    padding: 1.25rem;
-  }
-
-  .dashboard-summary-icon {
-    height: 3.5rem;
-    padding: 0.875rem;
-    width: 3.5rem;
-  }
 
   .budget-empty-state {
     align-items: flex-start;

@@ -4,11 +4,16 @@
 import assert from 'node:assert/strict';
 import {
   ACCOUNT_GROUPS,
+  availableCash,
+  cardDebt,
   creditUtilization,
+  dashboardSnapshot,
   filterAccounts,
   groupAccounts,
   groupKeyFor,
   healthBadge,
+  investmentsTotal,
+  monthFlow,
   netWorthContribution,
   normalizeType,
   sortAccounts,
@@ -135,5 +140,66 @@ assert.deepEqual(
 );
 assert.deepEqual(sortAccounts(accounts, '-networth').map((item) => item.id), [1, 3, 4, 2]);
 assert.deepEqual(sortAccounts(accounts, 'bank').map((item) => item.id), [3, 4, 1, 2]);
+
+// --- Dashboard top area -------------------------------------------------
+// Available cash counts checking + savings, never a card's available credit.
+assert.equal(availableCash(accounts), 150); // 100 checking + 50 savings
+assert.equal(availableCash([account({ account_type: 'Credit Card', total: 300, credit_limit: 1000 })]), 0);
+
+// Investments cover both Investment and Retirement.
+assert.equal(
+  investmentsTotal([
+    account({ account_type: 'Investment', total: 900 }),
+    account({ account_type: 'Retirement', total: 400 }),
+    account({ account_type: 'Savings', total: 50 }),
+  ]),
+  1300,
+);
+
+// Card debt: only cards with a limit count, and overpayment never shows as credit.
+assert.deepEqual(
+  cardDebt([
+    account({ account_type: 'Credit Card', total: 300, credit_limit: 1000 }),
+    account({ account_type: 'Credit Card', total: 300 }), // no limit recorded
+    account({ account_type: 'Loan', total: 400, credit_limit: 9000 }), // not a card
+    account({ account_type: 'Credit Card', total: 1200, credit_limit: 1000 }), // overpaid
+  ]),
+  { limit: 2000, used: 700, cards: 2 },
+);
+
+// Month flow: scoped to the month of `at`, transfers excluded from both sides.
+const at = new Date(2026, 9, 15); // October 2026, local time
+const flow = monthFlow(
+  [
+    { transaction_type: 'Income', total: 1000, date: '2026-10-02' },
+    { transaction_type: 'Expense', total: -250, date: '2026-10-04' },
+    { transaction_type: 'Transfer', total: 500, date: '2026-10-05' },
+    { transaction_type: 'Income', total: 9999, date: '2026-09-30' },
+    { transaction_type: 'Expense', total: -1, date: 'garbage' },
+  ],
+  at,
+);
+assert.deepEqual(flow, { income: 1000, expense: 250, net: 750 });
+
+// Undated transactions must not blank the cards: the whole list is the fallback.
+assert.deepEqual(
+  monthFlow(
+    [
+      { transaction_type: 'Income', total: 10, date: 'garbage' },
+      { transaction_type: 'Expense', total: -4, date: '' },
+    ],
+    at,
+  ),
+  { income: 10, expense: 4, net: 6 },
+);
+assert.deepEqual(monthFlow([], at), { income: 0, expense: 0, net: 0 });
+
+// Snapshot = net worth (100 + 50 - 700 - 0), not the sum of raw balances.
+const snapshot = dashboardSnapshot(accounts, [], at);
+assert.equal(snapshot.netWorth, -550);
+assert.equal(snapshot.availableCash, 150);
+assert.deepEqual(snapshot.card, { limit: 2000, used: 700, cards: 2 }); // id 4 is fully available credit
+assert.equal(snapshot.investments, 0);
+assert.deepEqual(snapshot.flow, { income: 0, expense: 0, net: 0 });
 
 console.log('accountGroups: all checks passed');
