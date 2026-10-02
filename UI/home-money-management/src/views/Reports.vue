@@ -338,8 +338,8 @@
 }
 
 .reports-card {
-  background: #ffffff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   min-width: 0;

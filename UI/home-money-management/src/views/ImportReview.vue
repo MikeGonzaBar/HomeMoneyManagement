@@ -1408,8 +1408,8 @@ export default {
 <style scoped>
 /* Review dialog specific styles */
 .modern-dialog {
-    background: #ffffff;
-    border: 1px solid #f3f4f6;
+    background: var(--bb-surface, #ffffff);
+    border: 1px solid var(--bb-border-soft, #f3f4f6);
     box-shadow: 0 18px 44px rgba(15, 23, 42, 0.14);
 }
 
@@ -1418,7 +1418,7 @@ export default {
 }
 
 .close-btn:hover {
-    background: #f9fafb;
+    background: var(--bb-surface-soft, #f9fafb);
     transform: none;
 }
 
@@ -1461,15 +1461,15 @@ export default {
 }
 
 :deep(.v-data-table__tr:nth-child(even)) {
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
 }
 
 :deep(.v-data-table__tr:nth-child(odd)) {
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
 }
 
 :deep(.v-data-table__td) {
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--bb-border-soft, #f3f4f6);
     padding: 12px 8px;
 }
 
@@ -1480,7 +1480,7 @@ export default {
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.5px;
-    background: #f9fafb;
+    background: var(--bb-surface-soft, #f9fafb);
 }
 
 /* Selection styling */
@@ -1533,7 +1533,7 @@ export default {
 
 /* Account create form styling */
 .account-create-form {
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
     border-radius: 12px;
     padding: 16px;
     border: 1px solid rgba(76, 175, 80, 0.35);
@@ -1572,7 +1572,7 @@ export default {
 /* ===== Import Review workspace ===== */
 .review-progress-bar {
     align-items: center;
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
     border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 16px;
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
@@ -1616,7 +1616,7 @@ export default {
 
 .review-filter-bar {
     align-items: center;
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
     border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 12px;
     display: flex;
@@ -1627,7 +1627,7 @@ export default {
 }
 
 .review-cell-text {
-    color: #374151;
+    color: var(--bb-text-muted, #374151);
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1645,6 +1645,6 @@ export default {
 }
 
 .review-table :deep(.v-data-table__th) {
-    background: #f9fafb;
+    background: var(--bb-surface-soft, #f9fafb);
 }
 </style>

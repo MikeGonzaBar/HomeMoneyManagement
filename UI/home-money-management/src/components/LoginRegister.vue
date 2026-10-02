@@ -275,7 +275,7 @@ export default {
 <style scoped>
 /* Modern Login/Register Container */
 .login-register-container {
-    --auth-field-background: #ffffff;
+    --auth-field-background: var(--bb-surface, #ffffff);
     --auth-field-border: #94a3b8;
     --auth-field-text: #1f2937;
     position: relative;
@@ -307,8 +307,8 @@ export default {
 
 .modern-auth-card {
     width: 100%;
-    background: #ffffff;
-    border: 1px solid #f3f4f6;
+    background: var(--bb-surface, #ffffff);
+    border: 1px solid var(--bb-border-soft, #f3f4f6);
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.10);
     animation: slideInUp 0.6s ease-out;
 }

@@ -335,13 +335,13 @@ export default {
 <style scoped>
 .profile-container {
     min-height: 100vh;
-    background: #f9fafb;
+    background: var(--bb-surface-soft, #f9fafb);
     padding: 24px;
 }
 
 .glass-card {
-    background: #ffffff;
-    border: 1px solid #f3f4f6;
+    background: var(--bb-surface, #ffffff);
+    border: 1px solid var(--bb-border-soft, #f3f4f6);
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 

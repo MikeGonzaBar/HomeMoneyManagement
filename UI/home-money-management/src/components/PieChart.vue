@@ -80,8 +80,8 @@
 
 .chart-empty {
     align-items: center;
-    background: #f9fafb;
-    border: 1px dashed #e5e7eb;
+    background: var(--bb-surface-soft, #f9fafb);
+    border: 1px dashed var(--bb-border-soft, #e5e7eb);
     border-radius: 12px;
     display: flex;
     flex-direction: column;
@@ -91,21 +91,21 @@
 }
 
 .chart-empty__title {
-    color: #1f2937;
+    color: var(--bb-text-strong, #1f2937);
     font-size: 0.9375rem;
     font-weight: 600;
     margin: 0 0 0.25rem;
 }
 
 .chart-empty__text {
-    color: #6b7280;
+    color: var(--bb-text-muted, #6b7280);
     font-size: 0.8125rem;
     margin: 0 0 0.75rem;
     max-width: 22rem;
 }
 
 .chart-empty__link {
-    color: #16a34a;
+    color: var(--color-brand-primary, #16a34a);
     font-size: 0.8125rem;
     font-weight: 600;
     text-decoration: none;

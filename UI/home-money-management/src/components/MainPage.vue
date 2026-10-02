@@ -514,7 +514,7 @@ export default {
 }
 
 .dashboard-hero__hint {
-  color: #6b7280;
+  color: var(--bb-text-muted, #6b7280);
   font-size: 0.8125rem;
   margin: 0.375rem 0 0;
 }
@@ -601,7 +601,7 @@ export default {
 
 .budget-widget-row {
   align-items: center;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--bb-border-soft, #f3f4f6);
   display: flex;
   gap: 1rem;
   justify-content: space-between;
@@ -652,7 +652,7 @@ export default {
 
 .budget-empty-icon {
   align-items: center;
-  background: #ffffff;
+  background: var(--bb-surface, #ffffff);
   border: 1px solid rgba(76, 175, 80, 0.24);
   border-radius: 0.75rem;
   color: #2e7d32;
@@ -695,7 +695,7 @@ export default {
 
 .due-empty-icon {
   align-items: center;
-  background: #ffffff;
+  background: var(--bb-surface, #ffffff);
   border: 1px solid rgba(59, 130, 246, 0.22);
   border-radius: 0.75rem;
   color: #2563eb;
@@ -736,7 +736,7 @@ export default {
 
 .dashboard-panel-header {
   flex-wrap: wrap;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--bb-border-soft, #f3f4f6);
   margin-bottom: 0;
   padding: 1.5rem;
 }
@@ -788,8 +788,8 @@ export default {
 }
 
 .dashboard-upload-body {
-  background: #f9fafb;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface-soft, #f9fafb);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 0.875rem;
   padding: 0.75rem;
 }
@@ -809,7 +809,7 @@ export default {
 }
 
 .financial-period-select :deep(.v-field) {
-  background: #ffffff;
+  background: var(--bb-surface, #ffffff);
   border-radius: 0.75rem;
   min-height: 2.75rem;
 }

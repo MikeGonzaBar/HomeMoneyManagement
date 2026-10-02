@@ -507,8 +507,8 @@ export default {
 
 /* Modern dialog styling */
 .modern-dialog {
-    background: #ffffff;
-    border: 1px solid #f3f4f6;
+    background: var(--bb-surface, #ffffff);
+    border: 1px solid var(--bb-border-soft, #f3f4f6);
     box-shadow: 0 18px 44px rgba(15, 23, 42, 0.14);
 }
 

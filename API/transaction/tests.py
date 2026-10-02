@@ -161,8 +161,12 @@ class TransactionBalanceTests(APITestCase):
             if 'FROM "account_account"' in query["sql"] and "FOR UPDATE" in query["sql"]
         ]
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(len(lock_queries), 1)
-        self.assertIn('ORDER BY "account_account"."id" ASC', lock_queries[0])
+        # `select_for_update()` is a no-op on SQLite, so the locking assertion
+        # only means something on a backend that actually locks rows. The
+        # balance assertions below run everywhere.
+        if connection.features.has_select_for_update:
+            self.assertEqual(len(lock_queries), 1)
+            self.assertIn('ORDER BY "account_account"."id" ASC', lock_queries[0])
         self.checking.refresh_from_db()
         self.savings.refresh_from_db()
         self.assertEqual(self.checking.total, Decimal("105.00"))
@@ -199,8 +203,10 @@ class TransactionBalanceTests(APITestCase):
             if 'FROM "account_account"' in query["sql"] and "FOR UPDATE" in query["sql"]
         ]
         self.assertEqual(updated.status_code, 200)
-        self.assertEqual(len(lock_queries), 1)
-        self.assertIn('ORDER BY "account_account"."id" ASC', lock_queries[0])
+        # See the note in test_reverse_direction_transfer_locks_accounts_in_id_order.
+        if connection.features.has_select_for_update:
+            self.assertEqual(len(lock_queries), 1)
+            self.assertIn('ORDER BY "account_account"."id" ASC', lock_queries[0])
         self.checking.refresh_from_db()
         self.savings.refresh_from_db()
         self.assertEqual(self.checking.total, Decimal("110.00"))
@@ -216,10 +222,16 @@ class TransactionBalanceTests(APITestCase):
             if 'UPDATE "account_account"' in query["sql"]
         ]
         self.assertEqual(len(update_queries), 1)
-        self.assertIn('"total" + 2.5', update_queries[0])
+        # The point is that the database does the arithmetic rather than Python
+        # reading and rewriting the row. How the value is rendered is
+        # backend-specific (both Postgres and SQLite wrap it in a CAST), so
+        # assert the arithmetic on the column, not the exact expression.
+        self.assertIn('"total" +', update_queries[0])
+        self.assertIn("2.50", update_queries[0])
         self.assertEqual(self.checking.total, Decimal("102.50"))
         self.checking.refresh_from_db()
         self.assertEqual(self.checking.total, Decimal("102.50"))
+
     def test_transaction_list_is_paginated(self) -> None:
         for index in range(24):
             Transaction.objects.create(

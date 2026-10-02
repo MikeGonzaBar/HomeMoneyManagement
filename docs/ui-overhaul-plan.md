@@ -406,17 +406,22 @@ the 7-pill header at ~1024px is still unverified by eye.
 
 ## Follow-up audit (after Phase 5)
 
-Found by sweeping `src/**` for unreachable code and unthemed surfaces. Fixed in the same
-commit as Phase 5's follow-ups unless marked otherwise.
+**Correction to an earlier note in this file:** the "Still open" line under item 1 previously
+claimed only two files in the app carry `app-dark` rules and that the other views "use tokens
+without ever defining the semantic aliases". That was wrong — a `Select-String -Path 'src/**/*'`
+sweep silently skipped `src/App.vue`, which actually holds the token definitions *and* a
+60-rule `.app-dark` override block. The theme system was real and largely working; what was
+missing was that ~70 individual surfaces across 12 components hardcoded the light values and so
+ignored it. That is what is fixed below.
 
-1. **Dark mode was silently broken on the new UI** *(fixed)*. `App.vue` defines a real
-   `--bb-*` token set and an `.app-dark` override block, and `theme.ts` toggles `app-dark` on
-   `<html>`. The top area, the group summary and the Accounts cards hardcoded
-   `background: #ffffff`, so they stayed white-on-white in dark mode. Now on
-   `var(--bb-surface, #ffffff)` / `var(--bb-border-soft, #f3f4f6)`. **Still open:** only 2 files
-   in the whole app (`LoginRegister.vue`, `Projections.vue`) have any `app-dark` rules, and
-   Budgets/Recurring/Reports/Statements/Transactions use tokens without ever defining the
-   semantic aliases they lean on — a full dark-mode pass is a separate phase, not a patch.
+1. **Hardcoded light surfaces ignored the dark theme** *(fixed)*. `--bb-surface`,
+   `--bb-surface-soft`, `--bb-border-soft`, `--bb-text-strong` and `--bb-text-muted` hold
+   exactly the light values that were inlined (`#ffffff`, `#f9fafb`, `#f3f4f6`, `#1f2937`/`#111827`,
+   `#6b7280`/`#374151`), so replacing the literals is **pixel-identical in light mode** and
+   correct in dark. 65 declarations across 12 components. Deliberately *not* touched:
+   `App.vue` (it defines the tokens — rewriting it would be circular, and inside an `.app-dark`
+   block `--bb-text-strong` resolves to the *light* value, inverting the intent), and the
+   semantic money colours (green/red) which are literal by design.
 2. **`components/DatePicker.vue` was dead** *(fixed — deleted)*. Nothing imported it, and its
    only caller was `MainPage.handleDatePicked`, which nothing invoked.
 3. **`src/layouts/default/*` was dead** *(fixed — deleted)*. `AppBar.vue`, `Default.vue`,
@@ -425,14 +430,26 @@ commit as Phase 5's follow-ups unless marked otherwise.
 4. **`MainPage` carried dead state** *(fixed)*: `month`, `year`, `DateObject`,
    `handleDatePicked`, `showAddAccountDialog`, `showNewTransactionDialog` — none read by the
    template or any caller.
-5. **Hardcoded hex in the new files** *(partly fixed)*: ~70 raw hex values remain across
-   `MainPage.vue`, `AccountSummary.vue`, `Accounts.vue` (text colours, group-icon tints, focus
-   rings). Harmless in light mode; they are what will look wrong in a future dark pass. The
-   green/red money colours are intentionally literal (they are semantic, not themed).
-6. **Not done, by choice**: `Transaction.test_transfer_*` (3 pre-existing SQLite
-   `select_for_update` failures) still fail; the 7-pill header and the new dashboard have never
-   been seen by a human; `verify-tests-exit.txt` is still an untracked stray claiming
-   `TEST_EXIT=0`; and the branch is still unpushed.
+5. **3 failing API tests** *(fixed)*. `transaction/tests.py` asserted that `select_for_update()`
+   emits `FOR UPDATE` — a no-op on SQLite, so it never can pass on the default dev DB — and that
+   the generated SQL contains the literal `"total" + 2.5`, which both Postgres and SQLite wrap in
+   a `CAST`. They now assert the intent: locking only where
+   `connection.features.has_select_for_update` (so the lock-order guarantee is still enforced on
+   Postgres), and arithmetic on the column rather than exact SQL text. **Suite: 65 tests, OK.**
+6. **`verify-tests-exit.txt`** *(fixed — deleted)*. An untracked stray claiming `TEST_EXIT=0`,
+   which contradicted the actual run. It was referenced only by this registry.
+
+**Still genuinely open:**
+
+- **No human has seen any of it.** The rebuilt dashboard, the group rows, both `/accounts`
+  layouts, the 7-pill header at ~1024px, and dark mode itself are build-verified only. This is
+  the largest remaining risk in the work.
+- **Dark mode is improved, not certified.** Chart series colours, Vuetify internals and the
+  `text-[#…]` arbitrary-value utilities in templates still carry literal colours, and Vuetify's
+  own theme is never told about `app-dark`. A full pass means a real Vuetify dark theme, not
+  more token swaps.
+- **Nothing is pushed.** 5 commits sit on `dbOptimization`; `origin/dbOptimization` is at
+  `b25a6db`.
 
 ---
 
@@ -457,7 +474,7 @@ commit as Phase 5's follow-ups unless marked otherwise.
 > area against the Accounts page — net worth and card debt must match exactly, and the month
 > figures must be labelled as one month; (2) the group rows expand, filter transactions and keep
 > the AFORE / MSI / investment detail reachable; (3) both layouts on `/accounts`; (4) the 7-pill
-> header at ~1024px, which has never been looked at. Then run the API suite — 3 pre-existing
-> `transaction/tests.py` failures remain (SQLite `select_for_update`), unrelated to this work.
+> header at ~1024px, which has never been looked at. Toggle the theme to dark on every view —
+> that is the one surface no automated check here can vouch for. API suite: 65 tests, OK.
 
 

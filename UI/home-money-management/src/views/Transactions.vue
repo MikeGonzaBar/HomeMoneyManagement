@@ -219,8 +219,8 @@
 <style scoped>
 .transactions-filter-panel {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   display: flex;
@@ -231,7 +231,7 @@
 
 .filter-heading {
   align-items: center;
-  color: #6b7280;
+  color: var(--bb-text-muted, #6b7280);
   display: flex;
   flex: 0 0 auto;
   gap: 0.75rem;
@@ -265,7 +265,7 @@
 }
 
 .filter-reset-button {
-  background: #ffffff;
+  background: var(--bb-surface, #ffffff);
   border: 1px solid rgba(76, 175, 80, 0.35);
   border-radius: 0.75rem;
   color: #2E7D32;
@@ -279,9 +279,9 @@
 }
 
 :deep(.filter-select .v-field) {
-  background: #f9fafb;
+  background: var(--bb-surface-soft, #f9fafb);
   border-radius: 0.75rem;
-  color: #374151;
+  color: var(--bb-text-muted, #374151);
   min-height: 2.5rem;
 }
 
@@ -302,8 +302,8 @@
 }
 
 .transactions-total-footer {
-  background: #ffffff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   display: grid;
@@ -313,8 +313,8 @@
 }
 
 .transactions-total-card {
-  background: #f9fafb;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface-soft, #f9fafb);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 0.875rem;
   display: flex;
   flex-direction: column;
@@ -357,7 +357,7 @@
 }
 
 .transactions-total-label {
-  color: #374151;
+  color: var(--bb-text-muted, #374151);
   font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.25rem;
@@ -373,7 +373,7 @@
 }
 
 .transactions-total-value {
-  color: #111827;
+  color: var(--bb-text-strong, #111827);
   font-size: 1.75rem;
   font-weight: 800;
   line-height: 1;

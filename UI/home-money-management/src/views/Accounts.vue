@@ -357,7 +357,7 @@ export default {
   background: transparent;
   border: 0;
   border-radius: 9999px;
-  color: #6b7280;
+  color: var(--bb-text-muted, #6b7280);
   cursor: pointer;
   display: inline-flex;
   height: 32px;
@@ -366,14 +366,14 @@ export default {
 }
 
 .accounts-view-button.is-active {
-  background: #ffffff;
+  background: var(--bb-surface, #ffffff);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1);
   color: #2e7d32;
 }
 
 .accounts-group-header {
   align-items: center;
-  background: #f9fafb;
+  background: var(--bb-surface-soft, #f9fafb);
   display: flex;
   gap: 16px;
   justify-content: space-between;
@@ -399,7 +399,7 @@ export default {
 
 .accounts-inst-header {
   align-items: center;
-  background: #f9fafb;
+  background: var(--bb-surface-soft, #f9fafb);
   display: flex;
   gap: 12px;
   padding: 10px 20px;

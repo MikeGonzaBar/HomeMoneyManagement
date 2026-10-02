@@ -325,12 +325,12 @@ export default {
 .upload-title {
     font-size: 1.1rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--bb-text-muted, #374151);
 }
 
 .upload-hint {
     font-size: 0.9rem;
-    color: #6b7280;
+    color: var(--bb-text-muted, #6b7280);
 }
 
 .upload-badge {
@@ -387,7 +387,7 @@ export default {
 }
 
 :deep(.v-file-input .v-field-label--floating) {
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
     padding: 0 6px;
 }
 
@@ -395,7 +395,7 @@ export default {
 :deep(.pdf-password-field .v-field) {
     border: 1px solid #d1d5db;
     border-radius: 12px;
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
     box-shadow: none;
     transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
@@ -415,7 +415,7 @@ export default {
 }
 
 :deep(.pdf-password-field .v-field-label--floating) {
-    background: #ffffff;
+    background: var(--bb-surface, #ffffff);
     padding: 0 6px;
 }
 
