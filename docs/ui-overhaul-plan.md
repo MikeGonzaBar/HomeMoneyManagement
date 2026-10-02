@@ -444,12 +444,27 @@ ignored it. That is what is fixed below.
 - **No human has seen any of it.** The rebuilt dashboard, the group rows, both `/accounts`
   layouts, the 7-pill header at ~1024px, and dark mode itself are build-verified only. This is
   the largest remaining risk in the work.
-- **Dark mode is improved, not certified.** Chart series colours, Vuetify internals and the
-  `text-[#…]` arbitrary-value utilities in templates still carry literal colours, and Vuetify's
-  own theme is never told about `app-dark`. A full pass means a real Vuetify dark theme, not
-  more token swaps.
-- **Nothing is pushed.** 5 commits sit on `dbOptimization`; `origin/dbOptimization` is at
-  `b25a6db`.
+- **Dark mode: chart canvases fixed.** New `services/chartTheme.ts` resolves `--bb-*` tokens to
+  real colour strings (a canvas cannot take `var()`), with `chartInk` / `axisInk` / `legendInk`
+  / `tooltipInk` on top and a `chartTheme.check.mjs`. `PieChart` set **no** colours at all and
+  took chart.js's light-mode defaults (`#666` ticks, near-black grid) — invisible on
+  `--bb-surface: #111827`; it now builds its options from the tokens. `Projections` already had
+  a `getChartTheme()` but hardcoded the dark values (free to drift from `App.vue`) — it now
+  reads the tokens. Neither re-rendered on a theme flip, because both read the class
+  non-reactively; both now watch Vuetify's `theme.global.name`, the same signal `ThemeToggle`
+  writes. `Reports` has the same staleness in its inline `:style` bar colours, fixed the same
+  way. The one `text-[#4CAF50]` in the app is now `text-brand-primary`.
+- **Correcting two claims made in this session.** (1) "Vuetify's own theme is never told about
+  `app-dark`" — false: `plugins/vuetify.ts:57` defines a full `dark` theme and `ThemeToggle`
+  sets `theme.global.name`. (2) "`text-[#…]` arbitrary-value utilities" — there was exactly one.
+  Both came from greps that silently skipped files (`src/**/*.vue` misses `src/App.vue`), so
+  **verify with a direct read before repeating a claim about this codebase.**
+- **`App.vue`'s 60 hand-written `.app-dark` rules now largely duplicate Vuetify's real dark
+  theme.** Deleting them is the tidy end state, but it is a visual change on every view and no
+  human has looked at the app yet, so it is deliberately left alone.
+- **Still open:** nothing has been seen by a human — dashboard, group rows, both `/accounts`
+  layouts, the 7-pill header at ~1024px, and dark mode itself. Nothing is pushed (6 commits on
+  `dbOptimization`; `origin/dbOptimization` at `b25a6db`).
 
 ---
 

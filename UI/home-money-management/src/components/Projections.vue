@@ -239,6 +239,8 @@
 <script lang="ts">
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'vue-chartjs'
+import { useTheme } from 'vuetify'
+import { chartInk, cssVar } from '@/services/chartTheme'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -294,6 +296,11 @@ interface ProjectionsComponentInstance {
 
 export default {
     name: 'Projections',
+    setup() {
+        // Same source of truth ThemeToggle writes to, so the `themeName` watcher
+        // below fires without this component owning any theme state.
+        return { vuetifyTheme: useTheme() };
+    },
     components: {
         Line
     },
@@ -380,6 +387,15 @@ export default {
         accounts: {
             handler: 'initializeAccountOptions',
             deep: true
+        },
+        // Axis ticks, grid and tooltip are painted onto the canvas, so a theme
+        // flip has to rebuild the options — CSS cannot reach them.
+        themeName: 'updateChart'
+    },
+    computed: {
+        /** Active Vuetify theme name; the same signal ThemeToggle writes to. */
+        themeName(): string {
+            return (this as any).vuetifyTheme?.global?.name?.value ?? 'light';
         }
     },
     methods: {
@@ -407,13 +423,17 @@ export default {
         },
 
         getChartTheme() {
-            const isDark = document.documentElement.classList.contains('app-dark');
+            // Single source of truth: the same tokens the rest of the UI uses,
+            // resolved for the canvas. Reading the class here (as this used to)
+            // meant the values could drift from App.vue's dark overrides.
+            const ink = chartInk();
+            const strong = cssVar('--bb-text-strong', '#1f2937');
             return {
-                textColor: isDark ? '#f8fafc' : '#1f2937',
-                mutedColor: isDark ? '#cbd5e1' : '#6b7280',
-                gridColor: isDark ? 'rgba(203, 213, 225, 0.16)' : 'rgba(107, 114, 128, 0.16)',
-                tooltipBackground: isDark ? '#111827' : '#ffffff',
-                tooltipText: isDark ? '#f8fafc' : '#1f2937'
+                textColor: strong,
+                mutedColor: ink.text,
+                gridColor: ink.grid,
+                tooltipBackground: ink.surface,
+                tooltipText: strong
             };
         },
 

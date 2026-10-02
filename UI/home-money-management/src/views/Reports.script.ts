@@ -1,5 +1,6 @@
 import axios from '@/services/api';
 import { defineComponent } from 'vue';
+import { useTheme } from 'vuetify';
 import { getCategoryColor } from '@/constants/categoryStyles';
 import { getStoredSession } from '@/services/session';
 import AppHeader from '@/components/AppHeader.vue';
@@ -66,6 +67,11 @@ function fallbackDarkCategoryColor(category: string): string {
 export default defineComponent({
   name: 'Reports',
   components: { AppHeader },
+  setup() {
+    // Same source of truth ThemeToggle writes to. Reading it inside
+    // getReportCategoryColor is what makes a theme flip repaint the bars.
+    return { vuetifyTheme: useTheme() };
+  },
   data() {
     return {
       userData: { user: {} } as any,
@@ -79,6 +85,10 @@ export default defineComponent({
     };
   },
   computed: {
+    /** Active Vuetify theme name; the signal a theme flip broadcasts. */
+    themeName(): string {
+      return (this as any).vuetifyTheme?.global?.name?.value ?? 'light';
+    },
     dateRangeLabel(): string {
       if (this.analytics?.start_date && this.analytics?.end_date) {
         const s = new Date(this.analytics.start_date);
@@ -241,6 +251,10 @@ export default defineComponent({
       return `${(tc.amount / max) * 100}%`;
     },
     getReportCategoryColor(category: string): string {
+      // Touch the reactive theme first: without this dependency the inline
+      // :style bindings would keep the old colours until something unrelated
+      // forced a re-render, because reading the DOM class is not reactive.
+      void (this as any).themeName;
       const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('app-dark');
       return isDark ? (DARK_CATEGORY_COLORS[category] || fallbackDarkCategoryColor(category)) : getCategoryColor(category);
     },
