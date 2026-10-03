@@ -341,7 +341,7 @@ HomeMoneyManagement/
 │       │   │   ├── index.ts
 │       │   │   └── vuetify.ts
 │       │   ├── types/           # TypeScript type definitions
-│       │   │   └── global.d.ts
+│       │   │   └── vue-custom-properties.d.ts
 │       │   ├── services/        # API, session, and theme helpers
 │       │   ├── styles/          # SCSS styles
 │       │   │   └── settings.scss

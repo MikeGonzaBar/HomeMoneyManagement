@@ -26,8 +26,7 @@
   },
   "vueCompilerOptions": {
     "target": 3,
-    "strictTemplates": false,
-    "globalTypesPath": "./src/types/global.d.ts"
+    "strictTemplates": false
   },
   "include": [
     "src/**/*.ts",
