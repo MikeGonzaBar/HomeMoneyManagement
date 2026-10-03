@@ -16,7 +16,9 @@ COPY . .
 RUN npm run build
 
 # Use a smaller, secure base image for the runtime
-FROM nginx:stable-alpine3.23
+# alpine3.24, not 3.23: nginx:stable on 3.23 carries 38 OS HIGH/CRIT CVEs
+# (libssl3, libcrypto3, curl, pcre2). The same tag on 3.24 scans to 2.
+FROM nginx:stable-alpine3.24
 
 # Copy the pre-built app from the previous stage
 COPY --from=builder /app/dist /usr/share/nginx/html
