@@ -18,21 +18,78 @@
  * With no client ID the app is unchanged: callers fall back to their own avatar.
  */
 
-/** Curated name -> domain map for banks we actually see in the data. */
-const BANK_DOMAINS: Readonly<Record<string, string>> = {
-  // Mexico
+/**
+ * Curated name -> domain map.
+ *
+ * Every domain here was looked up rather than guessed: a wrong domain costs a
+ * wasted CDN request and a fallback avatar, and the logos are the whole point.
+ * Covering *retail store cards* as well as banks matters, because a credit
+ * card account is usually issued by a retailer (Suburbia, Liverpool, Coppel),
+ * not a bank.
+ */
+export const BANK_DOMAINS: Readonly<Record<string, string>> = {
+  // --- Mexico: banks ----------------------------------------------------
   bbva: 'bbva.com',
   banorte: 'banorte.com',
   banamex: 'banamex.com',
-  profuturo: 'profuturo.mx',
-  hey: 'hey.com',
-  'pagare hey': 'hey.com',
   santander: 'santander.com.mx',
   hsbc: 'hsbc.com.mx',
   scotiabank: 'scotiabank.com.mx',
   citibanamex: 'citibanamex.com',
-  inmBanco: 'inmBanco.com',
-  // United States
+  'bancoazteca': 'bancoazteca.com.mx',
+  // Spaced keys matter: "Banco Azteca" normalises to "banco azteca" and would
+  // otherwise fall through to the slug guess, which picks the wrong domain.
+  'banco azteca': 'bancoazteca.com.mx',
+  azteca: 'bancoazteca.com.mx',
+  bienestar: 'bancodelbienestar.mex.com',
+  inbursa: 'inbursa.com',
+  actiniver: 'actinver.com',
+  bajio: 'bb.com.mx',
+  'banco del bajio': 'bb.com.mx',
+  'ban bajio': 'bb.com.mx',
+  orthogonal: 'orthogonal.mx',
+
+  // --- Mexico: brokerages / retirement ---------------------------------
+  gbm: 'gbm.com',
+  profuturo: 'profuturo.mx',
+  zurich: 'zurich.com.mx',
+  // Retirement accounts are typed as the scheme, not the bank. There is no
+  // brand to look up, so this maps to "no logo" - see resolveBankDomain,
+  // which treats a present-but-empty entry as a deliberate miss.
+  afore: '',
+
+  // --- Mexico: neobanks / fintech --------------------------------------
+  didi: 'didiglobal.com',
+  'didi cuenta': 'didiglobal.com',
+  nu: 'nu.com.mx',
+  nubank: 'nu.com.mx',
+  klar: 'klar.mx',
+  stori: 'storicard.com',
+  cashi: 'cashi.com.mx',
+  'cuenta cashi': 'cashi.com.mx',
+  hey: 'hey.com',
+  'pagare hey': 'hey.com',
+  uala: 'uala.mx',
+  konfio: 'konfio.mx',
+  kueski: 'kueski.com',
+  'kueski pay': 'kueski.com',
+  spin: 'spinbyoxxo.com.mx',
+  'spin by oxxo': 'spinbyoxxo.com.mx',
+  oxxo: 'oxxo.com',
+  'mercado pago': 'mercadopago.com.mx',
+  mercadopago: 'mercadopago.com.mx',
+  paypal: 'paypal.com',
+
+  // --- Mexico: retailer store cards ------------------------------------
+  // These are the "banks" on a credit-card account in practice.
+  suburbia: 'suburbia.com.mx',
+  liverpool: 'liverpool.com.mx',
+  coppel: 'coppel.com',
+  sanborns: 'sanborns.com.mx',
+  walmart: 'walmart.com.mx',
+  amazon: 'amazon.com.mx',
+
+  // --- United States ----------------------------------------------------
   chase: 'chase.com',
   boa: 'bankofamerica.com',
   'bank of america': 'bankofamerica.com',
@@ -67,13 +124,17 @@ export const normalizeBankName = (bank?: string | null): string =>
 export const resolveBankDomain = (bank?: string | null): string | null => {
   const name = normalizeBankName(bank);
   if (!name || NOT_A_BANK.has(name)) return null;
-  if (BANK_DOMAINS[name]) return BANK_DOMAINS[name];
+
+  // `in` rather than a truthiness check: a present-but-empty value is a
+  // deliberate "known, but no brand" (e.g. AFORE) and must not fall through to
+  // the slug guess below.
+  if (name in BANK_DOMAINS) return BANK_DOMAINS[name] || null;
 
   // "Chase Checking", "BOA Savings" -> try the leading words.
   const words = name.split(' ');
   for (let take = words.length; take > 0; take -= 1) {
-    const candidate = BANK_DOMAINS[words.slice(0, take).join(' ')];
-    if (candidate) return candidate;
+    const candidate = words.slice(0, take).join(' ');
+    if (candidate in BANK_DOMAINS) return BANK_DOMAINS[candidate] || null;
   }
 
   // Last resort: guess the domain. Usually wrong, and `fallback/404` makes

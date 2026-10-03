@@ -4,7 +4,7 @@
 // and a missing `fallback/404` means the Brandfetch wordmark gets shown to the
 // user as if it were their bank.
 import assert from 'node:assert/strict';
-import { bankInitial, bankLogoUrl, brandfetchEnabled, normalizeBankName, resolveBankDomain } from './bankLogos.ts';
+import { BANK_DOMAINS, bankInitial, bankLogoUrl, brandfetchEnabled, normalizeBankName, resolveBankDomain } from './bankLogos.ts';
 
 const KEY = 'test-client-id';
 
@@ -36,6 +36,42 @@ assert.equal(resolveBankDomain(undefined), null);
 
 // Unknown but plausible: a guess, so the URL is still well-formed.
 assert.equal(resolveBankDomain('Fidelity Investments'), 'fidelityinvestments.com');
+
+// Mexican neobanks, brokerages and retailer store cards. A credit-card account
+// is usually issued by a retailer, so these matter as much as the banks.
+assert.equal(resolveBankDomain('DiDi'), 'didiglobal.com');
+assert.equal(resolveBankDomain('Didi Cuenta'), 'didiglobal.com');
+assert.equal(resolveBankDomain('GBM'), 'gbm.com');
+assert.equal(resolveBankDomain('Suburbia'), 'suburbia.com.mx', 'store card, not a bank');
+assert.equal(resolveBankDomain('Cashi'), 'cashi.com.mx');
+assert.equal(resolveBankDomain('Liverpool'), 'liverpool.com.mx');
+assert.equal(resolveBankDomain('Coppel'), 'coppel.com');
+assert.equal(resolveBankDomain('Mercado Pago'), 'mercadopago.com.mx');
+assert.equal(resolveBankDomain('Spin by OXXO'), 'spinbyoxxo.com.mx');
+assert.equal(resolveBankDomain('Nu México'), 'nu.com.mx', 'accented neobank');
+assert.equal(resolveBankDomain('Banco Azteca'), 'bancoazteca.com.mx');
+
+// A retirement account is typed as the scheme, not the bank. AFORE has no brand
+// to look up, and it must NOT be slug-guessed into "afore.com" - that is a real
+// domain belonging to someone else, so the request would silently miss.
+assert.equal(resolveBankDomain('Afore'), null, 'deliberate miss, not a guess');
+assert.equal(resolveBankDomain('Zurich'), 'zurich.com.mx');
+
+// Every map key must be in normalised form, or it is unreachable: lookup always
+// runs the key through normalizeBankName first. Every non-empty value must look
+// like a bare domain. The sole exception is the empty string, meaning "known,
+// but there is no brand to look up" - see resolveBankDomain.
+const intentionalMisses = Object.entries(BANK_DOMAINS).filter(([, v]) => v === '');
+for (const [key, value] of Object.entries(BANK_DOMAINS)) {
+  assert.equal(key, normalizeBankName(key), `"${key}" is not in normalised form`);
+  if (value === '') continue;
+  assert.ok(/^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/.test(value), `bad domain "${value}" for "${key}"`);
+}
+assert.deepEqual(
+  intentionalMisses.map(([k]) => k),
+  ['afore'],
+  'an empty value means "no brand"; adding more needs a deliberate decision',
+);
 
 // --- feature gate -------------------------------------------------------
 assert.equal(brandfetchEnabled(KEY), true);
