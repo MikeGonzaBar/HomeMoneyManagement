@@ -4,6 +4,7 @@ export interface SessionUser {
   first_name: string
   last_name: string
   theme_preference?: 'system' | 'light' | 'dark'
+  is_admin?: boolean
 }
 
 export interface StoredSession {

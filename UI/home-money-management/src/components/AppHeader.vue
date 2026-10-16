@@ -38,7 +38,7 @@
             <div class="text-right hidden sm:block">
               <p class="text-sm font-semibold text-gray-900 leading-none">{{ userData?.user?.first_name }} {{
                 userData?.user?.last_name }}</p>
-              <p class="text-xs text-gray-500 mt-1">Premium Member</p>
+              <p class="text-xs text-gray-500 mt-1">{{ membershipLabel }}</p>
             </div>
             <div
               class="h-9 w-9 rounded-full bg-brand-primary flex items-center justify-center text-white font-semibold cursor-pointer shadow-sm"
@@ -84,6 +84,13 @@ export default {
       navActiveClass: 'rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary shadow-sm',
       navInactiveClass: 'rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700',
     };
+  },
+  computed: {
+    // The auth payload already carries `is_admin`; show the real role rather
+    // than a static placeholder.
+    membershipLabel(): string {
+      return (this as any).userData?.user?.is_admin ? 'Administrator' : 'Member';
+    },
   },
   methods: {
     isActive(path: string): boolean {
