@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen flex flex-col">
+  <div class="bg-gray-50 text-gray-900 font-sans antialiased flex flex-col">
     <AppHeader :userData="userData" />
 
     <main class="reports-main flex-1 w-full max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
@@ -234,25 +234,17 @@
         </div>
       </div>
     </main>
-
-    <!-- Footer -->
-    <footer class="mt-auto border-t border-gray-200 py-8 px-6 bg-white">
-      <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-        <div class="flex items-center gap-2 opacity-50">
-          <img src="@/assets/logo-192.png" alt="" class="w-5 h-5 rounded object-contain" />
-          <span class="text-sm font-bold">Budget Buddy © {{ new Date().getFullYear() }}</span>
-        </div>
-        <div class="flex gap-8 text-sm font-medium text-gray-500">
-          <a href="#" class="hover:text-brand-primary transition-colors">Privacy Policy</a>
-          <a href="#" class="hover:text-brand-primary transition-colors">Terms of Service</a>
-          <a href="#" class="hover:text-brand-primary transition-colors">Help Center</a>
-        </div>
-      </div>
-    </footer>
   </div>
 </template>
 
-<script lang="ts" src="./Reports.script.ts"></script>
+<script lang="ts">
+import ReportsScript from './Reports.script'
+
+export default {
+  name: 'Reports',
+  ...ReportsScript
+}
+</script>
 
 <style scoped>
 .reports-main {
