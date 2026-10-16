@@ -205,16 +205,23 @@ def generate_due_occurrences(user: User, through: object) -> QuerySet[RecurringO
         if rule.end_date and due > rule.end_date:
             rule.active = False
         rule.save(update_fields=["next_due_date", "active", "updated_at"])
-    return RecurringOccurrence.objects.filter(owner_user=user, due_date__lte=through_date).order_by("due_date", "id")
+    return (
+        RecurringOccurrence.objects
+        .filter(owner_user=user, due_date__lte=through_date)
+        .select_related("recurring_transaction", "posted_transaction")
+        .order_by("due_date", "id")
+    )
 
 
 @db_transaction.atomic
 def post_occurrence(user: User, occurrence_id: int) -> RecurringOccurrence:
     """Post a due occurrence by creating the corresponding transaction."""
     try:
-        occurrence = RecurringOccurrence.objects.select_for_update().select_related("recurring_transaction").get(
-            owner_user=user,
-            id=occurrence_id,
+        occurrence = (
+            RecurringOccurrence.objects
+            .select_for_update(of=("self",))
+            .select_related("recurring_transaction", "posted_transaction")
+            .get(owner_user=user, id=occurrence_id)
         )
     except RecurringOccurrence.DoesNotExist as exc:
         raise RecurringOccurrence.DoesNotExist("Recurring occurrence not found") from exc
@@ -246,7 +253,12 @@ def post_occurrence(user: User, occurrence_id: int) -> RecurringOccurrence:
 def skip_occurrence(user: User, occurrence_id: int) -> RecurringOccurrence:
     """Mark an unposted occurrence as skipped."""
     try:
-        occurrence = RecurringOccurrence.objects.select_for_update().get(owner_user=user, id=occurrence_id)
+        occurrence = (
+            RecurringOccurrence.objects
+            .select_for_update(of=("self",))
+            .select_related("recurring_transaction", "posted_transaction")
+            .get(owner_user=user, id=occurrence_id)
+        )
     except RecurringOccurrence.DoesNotExist as exc:
         raise RecurringOccurrence.DoesNotExist("Recurring occurrence not found") from exc
     if occurrence.status == RecurringOccurrence.STATUS_POSTED:

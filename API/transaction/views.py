@@ -4,6 +4,8 @@ from rest_framework import generics, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from MoneyManagement.pagination import RelativePageNumberPagination
+
 from .models import Transaction
 from .serializers import TransactionSerializer
 from .services import (
@@ -67,6 +69,15 @@ class TransactionRetrieve(generics.RetrieveAPIView):
 
         base_query = Transaction.objects.filter(owner_user=request.user)
 
+        statement_batch = request.query_params.get("statement_batch")
+        if statement_batch:
+            try:
+                base_query = base_query.filter(
+                    imported_bank_statement_candidates__import_batch_id=int(statement_batch)
+                ).distinct()
+            except (TypeError, ValueError):
+                return Response({"error": "statement_batch must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
         if account_id != "0":
             base_query = base_query.filter(
                 models.Q(account_fk_id=account_id)
@@ -81,7 +92,12 @@ class TransactionRetrieve(generics.RetrieveAPIView):
         elif year != 0:
             base_query = base_query.filter(date__year=year)
 
-        return Response([transaction_payload(item) for item in base_query.order_by("date", "id")])
+        query = base_query.order_by("date", "id")
+        paginator = RelativePageNumberPagination()
+        page = paginator.paginate_queryset(query, request, view=self)
+        return paginator.get_paginated_response(
+            [transaction_payload(item) for item in page]
+        )
 
 
 class TransactionUpdate(generics.UpdateAPIView):

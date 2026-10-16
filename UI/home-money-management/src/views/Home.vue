@@ -1,5 +1,5 @@
 <template>
-  <div class="component-container">
+  <div class="component-container flex flex-col flex-1">
 
     <div v-if="Object.keys((this as any).userData).length == 0" class="centered-container">
       <LoginRegister @userDataSent="(this as any).handleUserData" @forceRemount="(this as any).forceRemount" />
@@ -60,7 +60,6 @@ export default {
 <style scoped>
 .component-container {
   width: 100%;
-  min-height: 100vh;
   background: transparent;
 }
 
@@ -69,7 +68,7 @@ export default {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  flex: 1;
   background: transparent;
 }
 </style>

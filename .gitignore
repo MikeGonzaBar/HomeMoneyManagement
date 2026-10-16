@@ -67,3 +67,6 @@ visual-review-screenshots/
 
 # Ignore local vulnerability scan artifacts
 .codex-scan/
+
+# Ignore local scratch/QA output
+tmp/

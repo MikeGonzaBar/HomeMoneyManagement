@@ -1,151 +1,61 @@
 <template>
-  <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
-    <!-- Header -->
-    <header class="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-0 z-50">
-      <div class="w-full px-4 sm:px-6 lg:px-10">
-        <div class="bb-phone-header-grid grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 h-[72px]">
-          <!-- Logo and Brand -->
-          <div class="bb-phone-brand flex items-center gap-3 min-w-0">
-            <img src="@/assets/logo-192.png" alt="Budget Buddy" class="w-10 h-10 rounded-lg object-contain" />
-            <span class="bb-phone-brand-text text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Budget Buddy</span>
-          </div>
-          <!-- Desktop Navigation -->
-          <nav class="hidden md:flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 p-1 shadow-sm">
-            <router-link to="/" class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary shadow-sm">
-              Dashboard
-            </router-link>
-            <router-link to="/transactions"
-              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Transactions
-            </router-link>
-            <router-link to="/budgets"
-              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Budgets
-            </router-link>
-            <router-link to="/recurring"
-              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Recurring
-            </router-link>
-            <router-link to="/reports"
-              class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Reports
-            </router-link>
-          </nav>
-          <!-- User Profile -->
-          <div class="bb-phone-actions flex items-center justify-end gap-3 min-w-0">
-            <details class="bb-phone-nav">
-              <summary class="bb-phone-nav-button" aria-label="Open navigation">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path>
-                </svg>
-              </summary>
-              <nav class="bb-phone-nav-panel" aria-label="Phone navigation">
-                <router-link to="/" class="bb-phone-nav-link">Dashboard</router-link>
-                <router-link to="/transactions" class="bb-phone-nav-link">Transactions</router-link>
-                <router-link to="/budgets" class="bb-phone-nav-link">Budgets</router-link>
-                <router-link to="/recurring" class="bb-phone-nav-link">Recurring</router-link>
-                <router-link to="/reports" class="bb-phone-nav-link">Reports</router-link>
-                <button type="button" class="bb-phone-nav-link" @click="goToProfile">Profile</button>
-              </nav>
-            </details>
-            <AlertCenter />
-            <ThemeToggle />
-            <div class="bb-phone-user-shell flex items-center gap-3 rounded-full border border-gray-100 bg-gray-50 py-1 pl-4 pr-1.5">
-              <div class="text-right hidden sm:block">
-                <p class="text-sm font-semibold text-gray-900 leading-none">{{ userData.user.first_name }} {{
-                  userData.user.last_name }}</p>
-                <p class="text-xs text-gray-500 mt-1">Premium Member</p>
-              </div>
-              <div
-                class="h-9 w-9 rounded-full bg-brand-primary flex items-center justify-center text-white font-semibold cursor-pointer shadow-sm"
-                @click="goToProfile">
-                {{ userData.user.first_name.charAt(0) }}{{ userData.user.last_name.charAt(0) }}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
+  <div class="bg-gray-50 text-gray-900 font-sans antialiased">
+    <AppHeader :userData="userData" />
 
     <main class="w-full">
       <div class="px-4 sm:px-6 py-6">
-        <!-- Summary Cards -->
-        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <!-- Income Card -->
-          <div class="dashboard-summary-card">
-            <div class="dashboard-summary-content">
-              <p class="dashboard-metric-label">Total Income</p>
-              <h3 class="text-3xl font-bold text-income leading-tight mb-2">${{ income.toLocaleString('en-US', {
-                minimumFractionDigits: 2, maximumFractionDigits: 2
-              }) }}</h3>
-              <span class="text-sm text-green-600 font-medium flex items-center" v-if="incomeChange !== 0">
-                <svg class="w-4 h-4 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path clip-rule="evenodd"
-                    d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L10 10.586 13.586 7H12z"
-                    fill-rule="evenodd"></path>
-                </svg>
-                {{ incomeChange > 0 ? '+' : '' }}{{ incomeChange.toFixed(1) }}% from last month
-              </span>
+        <!-- Decision-first summary: what you have, what you owe, what moved this
+             month. Investments are secondary and live in the account summary. -->
+        <section class="dashboard-top-area">
+          <div class="dashboard-top-primary">
+            <div class="dashboard-hero">
+              <p class="dashboard-metric-label">Net worth</p>
+              <p class="dashboard-hero__value" :class="snapshot.netWorth >= 0 ? 'text-income' : 'text-expense'">
+                {{ formatMoney(snapshot.netWorth) }}
+              </p>
+              <p class="dashboard-hero__hint">
+                Assets minus card debt and what you owe. See
+                <router-link to="/accounts" class="dashboard-hero__link">all accounts</router-link>.
+              </p>
             </div>
-            <div class="dashboard-summary-icon bg-green-50 text-income">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path d="M7 11l5-5m0 0l5 5m-5-5v12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                </path>
-              </svg>
+            <div class="dashboard-hero">
+              <p class="dashboard-metric-label">Available cash</p>
+              <p class="dashboard-hero__value">{{ formatMoney(snapshot.availableCash) }}</p>
+              <p class="dashboard-hero__hint">Checking, savings and cash on hand.</p>
             </div>
-          </div>
-
-          <!-- Expense Card -->
-          <div class="dashboard-summary-card">
-            <div class="dashboard-summary-content">
-              <p class="dashboard-metric-label">Total Expenses</p>
-              <h3 class="text-3xl font-bold text-expense leading-tight mb-2">${{ expense.toLocaleString('en-US', {
-                minimumFractionDigits: 2, maximumFractionDigits: 2
-              }) }}</h3>
-              <span class="text-sm text-red-600 font-medium flex items-center" v-if="expenseChange !== 0">
-                <svg class="w-4 h-4 mr-1.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path clip-rule="evenodd"
-                    d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L10 9.414 13.586 13H12z"
-                    fill-rule="evenodd"></path>
-                </svg>
-                {{ expenseChange > 0 ? '+' : '' }}{{ expenseChange.toFixed(1) }}% from last month
-              </span>
-            </div>
-            <div class="dashboard-summary-icon bg-red-50 text-expense">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path d="M17 13l-5 5m0 0l-5-5m5 5V6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
-                </path>
-              </svg>
+            <div class="dashboard-hero">
+              <p class="dashboard-metric-label">
+                Card debt<span v-if="snapshot.card.cards"> ({{ snapshot.card.cards }})</span>
+              </p>
+              <p class="dashboard-hero__value" :class="snapshot.card.used > 0 ? 'text-expense' : ''">
+                {{ formatMoney(snapshot.card.used) }}
+              </p>
+              <p class="dashboard-hero__hint">
+                <template v-if="snapshot.card.limit">
+                  of {{ formatMoney(snapshot.card.limit) }} limit
+                </template>
+                <template v-else>No card limit recorded yet.</template>
+              </p>
             </div>
           </div>
 
-          <!-- Net Balance Card -->
-          <div class="dashboard-summary-card">
-            <div class="dashboard-summary-content">
-              <p class="dashboard-metric-label">Net Balance</p>
-              <h3 class="text-3xl font-bold leading-tight mb-2"
-                :class="netBalance >= 0 ? 'text-balance' : 'text-expense'">
-                {{ netBalance >= 0 ? '+' : '' }}${{ Math.abs(netBalance).toLocaleString('en-US', {
-                  minimumFractionDigits:
-                    2, maximumFractionDigits: 2
-                }) }}
-              </h3>
-              <span class="text-sm text-blue-600 font-medium block" v-if="netBalance > 0">Keep it up! Your savings are
-                growing.</span>
-              <span class="text-sm text-gray-500 block" v-else-if="netBalance === 0">Track your expenses to see your
-                balance grow.</span>
-              <span class="text-sm text-red-600 font-medium block" v-else>Consider reducing expenses to improve your
-                balance.</span>
+          <div class="dashboard-top-flow">
+            <div>
+              <p class="dashboard-metric-label">{{ monthLabel }} income</p>
+              <p class="dashboard-flow__value text-income">{{ formatMoney(snapshot.flow.income) }}</p>
             </div>
-            <div class="dashboard-summary-icon bg-blue-50 text-balance">
-              <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-              </svg>
+            <div>
+              <p class="dashboard-metric-label">{{ monthLabel }} spending</p>
+              <p class="dashboard-flow__value text-expense">{{ formatMoney(snapshot.flow.expense) }}</p>
+            </div>
+            <div>
+              <p class="dashboard-metric-label">Left this month</p>
+              <p class="dashboard-flow__value" :class="snapshot.flow.net >= 0 ? 'text-income' : 'text-expense'">
+                {{ formatMoney(snapshot.flow.net) }}
+              </p>
+            </div>
+            <div class="dashboard-top-flow__actions">
+              <router-link to="/transactions" class="bb-button bb-button-secondary">Transactions</router-link>
             </div>
           </div>
         </section>
@@ -241,17 +151,27 @@
             <section>
               <div class="dashboard-section-header px-1">
                 <h2 class="dashboard-section-title">My Accounts</h2>
-                <button class="bb-button bb-button-secondary"
-                  @click="openAddAccount">
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-                  </svg>
-                  Add Account
-                </button>
+                <div class="flex items-center gap-2">
+                  <router-link to="/accounts" class="bb-button bb-button-secondary">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg">
+                      <path d="M4 6h16M4 12h16M4 18h10" stroke-linecap="round" stroke-linejoin="round"
+                        stroke-width="2"></path>
+                    </svg>
+                    View all
+                  </router-link>
+                  <button class="bb-button bb-button-secondary"
+                    @click="openAddAccount">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                    </svg>
+                    Add Account
+                  </button>
+                </div>
               </div>
               <div class="custom-scrollbar">
-                <AccountsCarousel ref="accountsCarousel" :userData="userData" @accountSelected="handleAccountSelected"
+                <AccountSummary ref="accountSummary" :userData="userData" @accountSelected="handleAccountSelected"
                   @allAccountSelected="handleAllAccountSelected" @accountsModified="handleAccountsModified" />
               </div>
             </section>
@@ -298,7 +218,7 @@
               <div class="dashboard-upload-header">
                 <div class="dashboard-widget-header">
                   <div
-                    class="w-12 h-12 bg-brand-light rounded-xl flex items-center justify-center text-[#4CAF50] shrink-0">
+                    class="w-12 h-12 bg-brand-light rounded-xl flex items-center justify-center text-brand-primary shrink-0">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                         stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
@@ -322,8 +242,8 @@
         <section class="dashboard-panel financial-performance-panel mt-8 w-full">
           <div class="dashboard-panel-header compact financial-performance-header">
             <div>
-              <h2 class="dashboard-section-title">Financial Performance</h2>
-              <p class="text-sm text-gray-500">Track your income and balance over the past year</p>
+              <h2 class="dashboard-section-title">Income and spending</h2>
+              <p class="text-sm text-gray-500">Where your money came from and where it went</p>
             </div>
             <v-select v-model="chartPeriod" :items="chartPeriodOptions" density="compact" variant="outlined"
               rounded="lg" hide-details class="chart-period-select financial-period-select shrink-0 text-sm"></v-select>
@@ -332,32 +252,25 @@
         </section>
       </div>
     </main>
-
-    <!-- Bank Statement Review Dialog -->
-    <BankStatementReview ref="bankStatementReview" :userData="userData" :accounts="accounts"
-      @transactionsImported="handleTransactionsImported" @importError="handleImportError" />
   </div>
 </template>
 
 <script lang="ts">
-import AccountsCarousel from '@/components/AccountsCarousel.vue'
+import AccountSummary from '@/components/AccountSummary.vue'
 import TableData from '@/components/TableData.vue'
 import PieChart from '@/components/PieChart.vue'
 import Projections from '@/components/Projections.vue'
 import BankStatementUpload from '@/components/BankStatementUpload.vue'
-import BankStatementReview from '@/components/BankStatementReview.vue'
-import AlertCenter from '@/components/AlertCenter.vue'
-import ThemeToggle from '@/components/ThemeToggle.vue'
-import axios from '@/services/api'
+import AppHeader from '@/components/AppHeader.vue'
+import axios, { getAllPages } from '@/services/api'
+import { trackBankStatement } from '@/services/bankStatementTracking'
+import { monthLocalKey, todayLocalISO } from '@/services/calendarDate'
+import { dashboardSnapshot } from '@/services/accountGroups'
+import type { DashboardSnapshot, FlowTransaction, SnapshotAccount } from '@/services/accountGroups'
 
-interface AccountsCarousel {
+interface AccountSummaryRef {
   accountTotalUpdated: () => void;
   openNewAccountModal: () => void;
-}
-
-interface DateObject {
-  month: number;
-  year: number;
 }
 
 interface Account {
@@ -381,19 +294,11 @@ interface Transaction {
 
 interface Data {
   accountSelected: null | Account;
-  month: number;
-  year: number;
   transactions: Transaction[];
   accounts: Account[];
-  income: number;
-  expense: number;
-  incomeChange: number;
-  expenseChange: number;
   searchQuery: string;
   chartPeriod: string;
   chartPeriodOptions: Array<{ title: string; value: string }>;
-  showAddAccountDialog: boolean;
-  showNewTransactionDialog: boolean;
   budgetSummary: any;
   dueSoon: any[];
   openedReviewBatchId: string | null;
@@ -402,14 +307,12 @@ interface Data {
 export default {
   name: 'MainPage',
   components: {
-    AccountsCarousel,
+    AccountSummary,
     TableData,
     PieChart,
     Projections,
     BankStatementUpload,
-    BankStatementReview,
-    AlertCenter,
-    ThemeToggle
+    AppHeader
   },
   props: {
     userData: {
@@ -420,14 +323,8 @@ export default {
   data(): Data {
     return {
       accountSelected: null,
-      month: 0,
-      year: 0,
       transactions: [],
       accounts: [],
-      income: 0,
-      expense: 0,
-      incomeChange: 0,
-      expenseChange: 0,
       searchQuery: '',
       chartPeriod: '12',
       chartPeriodOptions: [
@@ -435,16 +332,24 @@ export default {
         { title: 'Last 6 Months', value: '6' },
         { title: 'Year to Date', value: 'ytd' }
       ],
-      showAddAccountDialog: false,
-      showNewTransactionDialog: false,
       budgetSummary: { overall: null, over_budget: [], warnings: [], categories: [] },
       dueSoon: [],
       openedReviewBatchId: null
     }
   },
   computed: {
-    netBalance(): number {
-      return (this as any).income - (this as any).expense;
+    /**
+     * The top area's numbers. One call into the shared, tested rules so the
+     * dashboard can never disagree with the Accounts page about net worth.
+     */
+    snapshot(): DashboardSnapshot {
+      return dashboardSnapshot(
+        (this as any).accounts as SnapshotAccount[],
+        (this as any).transactions as FlowTransaction[],
+      );
+    },
+    monthLabel(): string {
+      return new Date().toLocaleDateString('en-US', { month: 'long' });
     },
     filteredTransactions(): Transaction[] {
       if (!(this as any).searchQuery) {
@@ -458,31 +363,20 @@ export default {
     }
   },
   mounted() {
-    const currentDate = new Date();
-    (this as any).month = currentDate.getMonth() + 1;
-    (this as any).year = currentDate.getFullYear();
     (this as any).getAccounts();
     (this as any).getTransactions();
     (this as any).getBudgetSummary();
     (this as any).getDueSoon();
   },
   methods: {
-    goToProfile() {
-      (this as any).$router.push('/profile');
-    },
     handleUpdateIncomeExpense() {
       (this as any).getTransactions();
     },
     handleUpdateAccountsMethod() {
-      ((this as any).$refs.accountsCarousel as AccountsCarousel).accountTotalUpdated();
+      ((this as any).$refs.accountSummary as AccountSummaryRef).accountTotalUpdated();
     },
     openAddAccount() {
-      ((this as any).$refs.accountsCarousel as AccountsCarousel).openNewAccountModal();
-    },
-    handleDatePicked(date: DateObject) {
-      (this as any).month = date.month;
-      (this as any).year = date.year;
-      (this as any).getTransactions();
+      ((this as any).$refs.accountSummary as AccountSummaryRef).openNewAccountModal();
     },
     handleAllAccountSelected() {
       (this as any).accountSelected = null;
@@ -495,87 +389,27 @@ export default {
     handleAccountsModified(accs: Array<Account>) {
       (this as any).accounts = accs;
     },
-    calculateIncomeAndExpense() {
-      if (!(this as any).transactions || (this as any).transactions.length === 0) {
-        (this as any).income = 0;
-        (this as any).expense = 0;
-        (this as any).incomeChange = 0;
-        (this as any).expenseChange = 0;
-        return;
-      }
-
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth(); // 0-11
-      const currentYear = currentDate.getFullYear();
-      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-      // Current month transactions - properly parse dates
-      const currentTransactions = (this as any).transactions.filter((t: Transaction) => {
-        if (!t.date) return false;
-        const tDate = new Date(t.date);
-        // Check if date is valid
-        if (isNaN(tDate.getTime())) return false;
-        return tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
-      });
-
-      // Last month transactions
-      const lastMonthTransactions = (this as any).transactions.filter((t: Transaction) => {
-        if (!t.date) return false;
-        const tDate = new Date(t.date);
-        if (isNaN(tDate.getTime())) return false;
-        return tDate.getMonth() === lastMonth && tDate.getFullYear() === lastMonthYear;
-      });
-
-      // Calculate current month - sum all income transactions
-      (this as any).income = currentTransactions
-        .filter((t: Transaction) => t.transaction_type === 'Income')
-        .reduce((acc: number, t: Transaction) => acc + (Number(t.total) || 0), 0);
-
-      // Calculate current month expenses - use absolute value
-      (this as any).expense = currentTransactions
-        .filter((t: Transaction) => t.transaction_type === 'Expense')
-        .reduce((acc: number, t: Transaction) => acc + Math.abs(Number(t.total) || 0), 0);
-
-      // Calculate last month for comparison
-      const lastMonthIncome = lastMonthTransactions
-        .filter((t: Transaction) => t.transaction_type === 'Income')
-        .reduce((acc: number, t: Transaction) => acc + (Number(t.total) || 0), 0);
-
-      const lastMonthExpense = lastMonthTransactions
-        .filter((t: Transaction) => t.transaction_type === 'Expense')
-        .reduce((acc: number, t: Transaction) => acc + Math.abs(Number(t.total) || 0), 0);
-
-      // Calculate percentage changes
-      (this as any).incomeChange = lastMonthIncome > 0
-        ? (((this as any).income - lastMonthIncome) / lastMonthIncome) * 100
-        : ((this as any).income > 0 && lastMonthIncome === 0) ? 100 : 0;
-
-      (this as any).expenseChange = lastMonthExpense > 0
-        ? (((this as any).expense - lastMonthExpense) / lastMonthExpense) * 100
-        : ((this as any).expense > 0 && lastMonthExpense === 0) ? 100 : 0;
+    formatMoney(value: number): string {
+      const amount = Number(value || 0);
+      return `${amount < 0 ? '-' : ''}$${Math.abs(amount).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
     },
     getTransactions() {
-      // Fetch all transactions (month=0, year=0) so the chart has access to last 12 months of data
-      if ((this as any).accountSelected === null) {
-        axios.get(`/transactions/retrieve/${(this as any).userData.user.username}/0/0/0`)
-          .then((response) => {
-            (this as any).transactions = response.data;
-            (this as any).calculateIncomeAndExpense();
-          })
-          .catch((error) => {
-            console.log('ERROR', error);
-          });
-      } else {
-        axios.get(`/transactions/retrieve/${(this as any).userData.user.username}/${(this as any).accountSelected.id}/0/0`)
-          .then((response) => {
-            (this as any).transactions = response.data;
-            (this as any).calculateIncomeAndExpense();
-          })
-          .catch((error) => {
-            console.log('ERROR', error);
-          });
-      }
+      const accountId = (this as any).accountSelected === null
+        ? '0'
+        : (this as any).accountSelected.id;
+      getAllPages<Transaction>(
+        `/transactions/retrieve/${(this as any).userData.user.username}/${accountId}/0/0`,
+        (data) => data.results,
+      )
+        .then((transactions) => {
+          (this as any).transactions = transactions;
+        })
+        .catch((error) => {
+          console.log('ERROR', error);
+        });
       // Also fetch accounts
       (this as any).getAccounts();
     },
@@ -583,31 +417,20 @@ export default {
       axios.get(`/accounts/details/${(this as any).userData.user.username}/0`)
         .then((response) => {
           (this as any).accounts = response.data;
-          (this as any).openReviewBatchFromRoute();
+          (this as any).redirectLegacyReviewLink();
         })
         .catch((error) => {
           console.log('ERROR fetching accounts:', error);
         });
     },
-    openReviewBatchFromRoute() {
+    redirectLegacyReviewLink() {
       const reviewBatch = (this as any).$route?.query?.reviewBatch;
       if (!reviewBatch || (this as any).openedReviewBatchId === reviewBatch) return;
       (this as any).openedReviewBatchId = reviewBatch;
-      axios.get(`/bank-statements/import-batches/${reviewBatch}/`)
-        .then((response) => {
-          (this as any).$refs.bankStatementReview.openDialog({
-            review_batch_id: response.data.id,
-            import_batch: response.data
-          });
-        })
-        .catch((error) => {
-          console.log('ERROR loading import batch:', error);
-          alert('Unable to load that import review batch.');
-        });
+      (this as any).$router.push({ path: `/statements/${reviewBatch}/review` });
     },
     getBudgetSummary() {
-      const month = new Date().toISOString().slice(0, 7);
-      axios.get('/budgets/summary/', { params: { month } })
+      axios.get('/budgets/summary/', { params: { month: monthLocalKey() } })
         .then((response) => {
           (this as any).budgetSummary = response.data;
         })
@@ -616,7 +439,7 @@ export default {
     getDueSoon() {
       const through = new Date();
       through.setDate(through.getDate() + 3);
-      axios.get('/recurring-transactions/due/', { params: { through: through.toISOString().slice(0, 10) } })
+      axios.get('/recurring-transactions/due/', { params: { through: todayLocalISO(through) } })
         .then((response) => {
           (this as any).dueSoon = (response.data || []).filter((item: any) => item.status === 'due');
         })
@@ -624,72 +447,122 @@ export default {
     },
     handleStatementProcessed(bankStatementData: any) {
       if (bankStatementData.status === 'uploaded') {
-        console.log('Bank statement uploaded successfully:', bankStatementData.file_details);
-        if (bankStatementData.file_details.processing_status === 'failed') {
-          alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded but processing failed.\n\nPlease try again or process manually.`);
-        } else {
-          alert(`Bank statement "${bankStatementData.file_details.filename}" uploaded successfully!\n\nFile size: ${bankStatementData.file_details.file_size_display}\nStatus: ${bankStatementData.file_details.processing_status}`);
-        }
-      } else if (bankStatementData.status === 'processed' && bankStatementData.extracted_data) {
-        (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
-      } else {
-        (this as any).$refs.bankStatementReview.openDialog(bankStatementData);
+        trackBankStatement({
+          id: bankStatementData.file_details.id,
+          filename: bankStatementData.file_details.filename,
+        });
+      } else if (bankStatementData.review_batch_id) {
+        (this as any).$router.push({ path: `/statements/${bankStatementData.review_batch_id}/review` });
       }
     },
     handleUploadError(errorMessage: string) {
       console.error('Upload error:', errorMessage);
       alert(`Upload Error: ${errorMessage}`);
-    },
-    handleTransactionsImported(data: any) {
-      (this as any).getTransactions();
-      (this as any).handleUpdateAccountsMethod();
-      console.log(`Successfully imported ${data.importedCount} transactions`);
-    },
-    handleImportError(errorMessage: string) {
-      console.error('Import error:', errorMessage);
     }
   }
 }
 </script>
 
 <style scoped>
-.dashboard-panel,
-.dashboard-summary-card {
-  background: #ffffff;
-  border: 1px solid #f3f4f6;
+.dashboard-panel {
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
-.dashboard-summary-card {
-  display: flex;
+/* Decision-first top area. Net worth and cash lead; the month flow sits
+   beside them. Investments deliberately have no card here — the account
+   summary below carries them, so the top stays scannable. */
+.dashboard-top-area {
   align-items: stretch;
-  gap: 1.5rem;
-  justify-content: space-between;
-  min-height: 9rem;
-  padding: 1.5rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 2rem;
 }
 
-.dashboard-summary-content {
+@media (min-width: 1024px) {
+  .dashboard-top-area {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+.dashboard-top-primary {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.dashboard-hero {
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   display: flex;
-  flex: 1;
-  min-width: 0;
   flex-direction: column;
   justify-content: center;
+  min-height: 7rem;
+  padding: 1.25rem;
 }
 
-.dashboard-summary-icon {
-  display: flex;
-  flex-shrink: 0;
+.dashboard-hero__value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.25rem 0 0;
+}
+
+.dashboard-hero__hint {
+  color: var(--bb-text-muted, #6b7280);
+  font-size: 0.8125rem;
+  margin: 0.375rem 0 0;
+}
+
+.dashboard-hero__link {
+  color: #16a34a;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dashboard-hero__link:hover {
+  text-decoration: underline;
+}
+
+.dashboard-top-flow {
   align-items: center;
-  justify-content: center;
-  align-self: center;
-  border-radius: 0.75rem;
-  height: 4rem;
-  padding: 1rem;
-  width: 4rem;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  padding: 1.25rem;
 }
 
+.dashboard-flow__value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.25rem 0 0;
+}
+
+.dashboard-top-flow__actions {
+  align-items: center;
+  display: flex;
+}
+
+@media (max-width: 640px) {
+  .dashboard-hero,
+  .dashboard-top-flow {
+    padding: 1rem;
+  }
+
+  .dashboard-top-flow__actions {
+    grid-column: 1 / -1;
+  }
+}
 .dashboard-budget-panel {
   min-height: 12rem;
   padding: 1.5rem !important;
@@ -728,7 +601,7 @@ export default {
 
 .budget-widget-row {
   align-items: center;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--bb-border-soft, #f3f4f6);
   display: flex;
   gap: 1rem;
   justify-content: space-between;
@@ -779,7 +652,7 @@ export default {
 
 .budget-empty-icon {
   align-items: center;
-  background: #ffffff;
+  background: var(--bb-surface, #ffffff);
   border: 1px solid rgba(76, 175, 80, 0.24);
   border-radius: 0.75rem;
   color: #2e7d32;
@@ -822,7 +695,7 @@ export default {
 
 .due-empty-icon {
   align-items: center;
-  background: #ffffff;
+  background: var(--bb-surface, #ffffff);
   border: 1px solid rgba(59, 130, 246, 0.22);
   border-radius: 0.75rem;
   color: #2563eb;
@@ -863,7 +736,7 @@ export default {
 
 .dashboard-panel-header {
   flex-wrap: wrap;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--bb-border-soft, #f3f4f6);
   margin-bottom: 0;
   padding: 1.5rem;
 }
@@ -915,8 +788,8 @@ export default {
 }
 
 .dashboard-upload-body {
-  background: #f9fafb;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface-soft, #f9fafb);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 0.875rem;
   padding: 0.75rem;
 }
@@ -936,7 +809,7 @@ export default {
 }
 
 .financial-period-select :deep(.v-field) {
-  background: #ffffff;
+  background: var(--bb-surface, #ffffff);
   border-radius: 0.75rem;
   min-height: 2.75rem;
 }
@@ -1029,17 +902,6 @@ export default {
     width: 100%;
   }
 
-  .dashboard-summary-card {
-    gap: 1rem;
-    min-height: auto;
-    padding: 1.25rem;
-  }
-
-  .dashboard-summary-icon {
-    height: 3.5rem;
-    padding: 0.875rem;
-    width: 3.5rem;
-  }
 
   .budget-empty-state {
     align-items: flex-start;

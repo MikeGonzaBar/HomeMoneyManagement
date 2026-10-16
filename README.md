@@ -341,12 +341,12 @@ HomeMoneyManagement/
 │       │   │   ├── index.ts
 │       │   │   └── vuetify.ts
 │       │   ├── types/           # TypeScript type definitions
-│       │   │   └── global.d.ts
+│       │   │   └── vue-custom-properties.d.ts
 │       │   ├── services/        # API, session, and theme helpers
 │       │   ├── styles/          # SCSS styles
 │       │   │   └── settings.scss
 │       │   ├── assets/          # Static assets
-│       │   │   ├── logo.png
+│       │   │   ├── logo-192.png
 │       │   │   └── logo.svg
 │       │   ├── App.vue          # Main app component
 │       │   ├── main.ts          # Application entry point
@@ -693,7 +693,7 @@ export ALLOWED_HOSTS=example.com
 export CORS_ALLOWED_ORIGINS=https://example.com
 export CORS_ALLOW_ALL_ORIGINS=False
 export GOOGLE_AI_API_KEY=<google-ai-studio-key>
-export GOOGLE_AI_MODEL=gemini-2.5-flash
+export GOOGLE_AI_MODEL=gemini-3.8-flash
 export SECURE_SSL_REDIRECT=True
 export SESSION_COOKIE_SECURE=True
 export CSRF_COOKIE_SECURE=True
@@ -817,21 +817,31 @@ For support and questions:
   <tr>
     <td width="50%">
       <strong>Dashboard Overview</strong><br />
-      <img src="docs/screenshots/dashboard-overview.png" alt="Dashboard overview" width="100%" />
+      <img src="docs/screenshots/dashboard-overview.png" alt="Dashboard overview with net worth, account groups, and spending analysis" width="100%" />
     </td>
     <td width="50%">
-      <strong>Bank Statement Upload</strong><br />
-      <img src="docs/screenshots/bank-statement-upload.png" alt="Bank statement upload" width="100%" />
+      <strong>Statement Upload &amp; Review Queue</strong><br />
+      <img src="docs/screenshots/bank-statement-upload.png" alt="Statement upload page with the review queue and import status" width="100%" />
     </td>
   </tr>
   <tr>
     <td width="50%">
+      <strong>Statement Import Review</strong><br />
+      <img src="docs/screenshots/statement-review.png" alt="Statement import review with inline snapshot confirmation" width="100%" />
+    </td>
+    <td width="50%">
       <strong>Transactions Ledger</strong><br />
-      <img src="docs/screenshots/transactions-ledger.png" alt="Transactions ledger" width="100%" />
+      <img src="docs/screenshots/transactions-ledger.png" alt="Transactions ledger with filters, categories, and row actions" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>Accounts Overview</strong><br />
+      <img src="docs/screenshots/accounts-overview.png" alt="Accounts grouped by type with balances and net worth" width="100%" />
     </td>
     <td width="50%">
       <strong>Financial Reports</strong><br />
-      <img src="docs/screenshots/financial-reports.png" alt="Financial reports" width="100%" />
+      <img src="docs/screenshots/financial-reports.png" alt="Financial reports with KPIs, cashflow forecast, and charts" width="100%" />
     </td>
   </tr>
 </table>

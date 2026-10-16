@@ -1,9 +1,10 @@
-import axios from '@/services/api';
+import axios, { getAllPages } from '@/services/api';
 import { defineComponent } from 'vue';
 import { getCategoryStyle } from '@/constants/categoryStyles';
 import { getStoredSession } from '@/services/session';
-import AlertCenter from '@/components/AlertCenter.vue';
-import ThemeToggle from '@/components/ThemeToggle.vue';
+import { parseCalendarDate, formatCalendarDate, todayLocalISO } from '@/services/calendarDate';
+import AppHeader from '@/components/AppHeader.vue';
+import TransactionDialog from '@/components/TransactionDialog.vue';
 
 interface Transaction {
   id: number;
@@ -24,7 +25,7 @@ interface Account {
 
 export default defineComponent({
   name: 'Transactions',
-  components: { AlertCenter, ThemeToggle },
+  components: { AppHeader, TransactionDialog },
   data() {
     return {
       userData: { user: {} } as any,
@@ -37,7 +38,10 @@ export default defineComponent({
       currentPage: 1,
       itemsPerPage: 10,
       searchQuery: '' as string,
+      statementBatch: '' as string,
+      statementBatchFilename: '' as string,
       periodOptions: [
+        { title: 'All time', value: 'all' },
         { title: 'Last 7 Days', value: '7' },
         { title: 'Last 30 Days', value: '30' },
         { title: 'Last 90 Days', value: '90' },
@@ -52,17 +56,22 @@ export default defineComponent({
       const cats = [...new Set(this.transactions.map((t) => t.category).filter(Boolean))].sort();
       return [{ title: 'All Categories', value: '' }, ...cats.map((c) => ({ title: c, value: c }))];
     },
+    periodLabel(): string {
+      return this.filterPeriod === 'all' ? 'All time' : `Last ${this.filterPeriod} days`;
+    },
     filteredTransactions(): Transaction[] {
       let list = [...this.transactions];
       const now = new Date();
-      const days = parseInt(this.filterPeriod || '30', 10);
-      const cutout = new Date(now);
-      cutout.setDate(cutout.getDate() - days);
-      list = list.filter((t) => {
-        const d = new Date(t.date);
-        if (isNaN(d.getTime())) return false;
-        return d >= cutout;
-      });
+      if (this.filterPeriod !== 'all') {
+        const days = parseInt(this.filterPeriod || '30', 10);
+        const cutout = new Date(now);
+        cutout.setDate(cutout.getDate() - days);
+        list = list.filter((t) => {
+          const d = parseCalendarDate(t.date);
+          if (!d) return false;
+          return d >= cutout;
+        });
+      }
       if (this.filterAccount) {
         list = list.filter((t) => {
           if (t.transaction_type === 'Transfer') {
@@ -135,6 +144,19 @@ export default defineComponent({
     filterCategory: { handler() { this.currentPage = 1; } },
     filterPeriod: { handler() { this.currentPage = 1; } },
     searchQuery: { handler() { this.currentPage = 1; } },
+    // Back/Forward and links that add or drop the statement
+    // query must re-scope the list, not just the URL.
+    $route: {
+      handler(to: { query: Record<string, string | string[] | undefined> }) {
+        const batch = typeof to.query.statementBatch === 'string' ? to.query.statementBatch : '';
+        if (batch === this.statementBatch) return;
+        this.statementBatch = batch;
+        if (batch) this.filterPeriod = 'all';
+        this.currentPage = 1;
+        this.getTransactions();
+        this.getStatementBatchInfo();
+      },
+    },
   },
   mounted() {
     const session = getStoredSession();
@@ -143,16 +165,66 @@ export default defineComponent({
       this.$router.replace('/');
       return;
     }
+    if (typeof this.$route.query.statementBatch === 'string') {
+      this.statementBatch = this.$route.query.statementBatch;
+      this.filterPeriod = 'all';
+    }
     this.getTransactions();
     this.getAccounts();
+    this.getStatementBatchInfo();
   },
   methods: {
+    openCreate() {
+      (this.$refs.txDialog as any).openCreate();
+    },
+    openEdit(item: Transaction) {
+      (this.$refs.txDialog as any).openEdit(item);
+    },
+    openDelete(item: Transaction) {
+      (this.$refs.txDialog as any).openDelete(item);
+    },
+    onTxChanged() {
+      this.getTransactions();
+      this.getAccounts();
+    },
     getTransactions() {
       const username = this.userData?.user?.username;
       if (!username) return;
-      axios.get(`/transactions/retrieve/${username}/0/0/0`)
-        .then((res) => { this.transactions = res.data || []; })
+      const suffix = this.statementBatch
+        ? `?statement_batch=${encodeURIComponent(this.statementBatch)}`
+        : '';
+      getAllPages<Transaction>(`/transactions/retrieve/${username}/0/0/0${suffix}`, (data) => data.results)
+        .then((items) => { this.transactions = items; })
         .catch((err) => console.error('Transactions fetch error:', err));
+    },
+    getStatementBatchInfo() {
+      this.statementBatchFilename = '';
+      const batchId = Number(this.statementBatch);
+      if (!this.statementBatch || !Number.isInteger(batchId)) return;
+      axios.get(`/bank-statements/import-batches/${batchId}/`)
+        .then((res) => {
+          this.statementBatchFilename = String(res.data?.bank_statement_filename || '');
+        })
+        .catch(() => {
+          // The chip falls back to the raw batch id when the
+          // batch metadata cannot be loaded.
+          this.statementBatchFilename = '';
+        });
+    },
+    // Remove only the statement scope; every other deliberate
+    // filter stays exactly as the user set it.
+    clearStatementScope() {
+      if (!this.statementBatch) return;
+      const query = { ...this.$route.query };
+      delete query.statementBatch;
+      this.$router.replace({ path: '/transactions', query });
+    },
+    // Full escape hatch: no statement scope and the All time period.
+    viewAllTransactions() {
+      this.filterPeriod = 'all';
+      const query = { ...this.$route.query };
+      delete query.statementBatch;
+      this.$router.replace({ path: '/transactions', query });
     },
     getAccounts() {
       const username = this.userData?.user?.username;
@@ -173,8 +245,7 @@ export default defineComponent({
       return acc?.account_name || '-';
     },
     formatDate(dateStr: string): string {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+      return formatCalendarDate(dateStr);
     },
     getCategoryStyle,
     resetFilters() {
@@ -182,9 +253,9 @@ export default defineComponent({
       this.filterCategory = '';
       this.filterPeriod = '30';
       this.currentPage = 1;
-    },
-    goToProfile() {
-      this.$router.push('/profile');
+      // A full reset also drops the statement scope so no
+      // hidden restriction survives the advertised reset.
+      this.clearStatementScope();
     },
     exportTransactions() {
       const rows = this.filteredTransactions.map((t) => ({
@@ -192,14 +263,18 @@ export default defineComponent({
         Description: t.title,
         Category: t.category,
         Account: this.getAccountName(t),
-        Amount: t.transaction_type === 'Income' ? t.total : t.transaction_type === 'Expense' ? -Math.abs(t.total) : t.total,
+        Amount: t.transaction_type === 'Income' || t.transaction_type === 'External Deposit'
+          ? t.total
+          : t.transaction_type === 'Expense' || t.transaction_type === 'External Withdrawal'
+            ? -Math.abs(t.total)
+            : t.total,
       }));
       const headers = ['Date', 'Description', 'Category', 'Account', 'Amount'];
       const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => `"${String(r[h as keyof typeof r]).replace(/"/g, '""')}"`).join(','))].join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `transactions-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `transactions-${todayLocalISO()}.csv`;
       a.click();
       URL.revokeObjectURL(a.href);
     },

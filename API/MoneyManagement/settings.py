@@ -198,6 +198,8 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+DATABASES["default"]["CONN_MAX_AGE"] = env_int("DB_CONN_MAX_AGE", 60)
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 
 # Password validation
@@ -252,7 +254,53 @@ GOOGLE_AI_API_KEY = (
     or os.getenv("GOOGLE_API_KEY")
     or os.getenv("GEMINI_API_KEY")
 )
-GOOGLE_AI_MODEL = os.getenv("GOOGLE_AI_MODEL", "gemini-2.5-flash")
+GOOGLE_AI_MODEL = os.getenv("GOOGLE_AI_MODEL", "gemini-3.8-flash")
+GOOGLE_AI_FALLBACK_MODELS = os.getenv("GOOGLE_AI_FALLBACK_MODELS", "")
+GOOGLE_AI_TRANSIENT_RETRIES = int(os.getenv("GOOGLE_AI_TRANSIENT_RETRIES", "0"))
+GOOGLE_AI_REQUEST_TIMEOUT = int(os.getenv("GOOGLE_AI_REQUEST_TIMEOUT", "120"))
+GOOGLE_AI_LOCAL_ANCHORS_MODE = os.getenv("GOOGLE_AI_LOCAL_ANCHORS_MODE", "observe")
+BANK_STATEMENT_MAX_AUTO_RETRIES = int(os.getenv("BANK_STATEMENT_MAX_AUTO_RETRIES", "3"))
+BANK_STATEMENT_RETRY_BASE_SECONDS = int(os.getenv("BANK_STATEMENT_RETRY_BASE_SECONDS", "60"))
+BANK_STATEMENT_RETRY_MAX_SECONDS = int(os.getenv("BANK_STATEMENT_RETRY_MAX_SECONDS", "3600"))
+BANK_STATEMENT_RATE_LIMIT_RETRY_BASE_SECONDS = int(os.getenv("BANK_STATEMENT_RATE_LIMIT_RETRY_BASE_SECONDS", "300"))
+BANK_STATEMENT_RATE_LIMIT_RETRY_MAX_SECONDS = int(os.getenv("BANK_STATEMENT_RATE_LIMIT_RETRY_MAX_SECONDS", "3600"))
+BANK_STATEMENT_RATE_LIMIT_JITTER_SECONDS = int(os.getenv("BANK_STATEMENT_RATE_LIMIT_JITTER_SECONDS", "30"))
+BANK_STATEMENT_DB_RETRY_MAX_SECONDS = int(os.getenv("BANK_STATEMENT_DB_RETRY_MAX_SECONDS", "30"))
+
+# Logging: Django's default config only attaches handlers to ``django.*``
+# loggers, so app loggers (e.g. the bank-statement worker) fall through to
+# the handler-less root logger and INFO records vanish. Route root + app
+# output to stdout; the explicit ``propagate: False`` entries keep Django /
+# gunicorn records from doubling up through the root handler.
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+if LOG_LEVEL not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+    LOG_LEVEL = "INFO"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": "default",
+        },
+    },
+    "root": {"handlers": ["console"], "level": LOG_LEVEL},
+    "loggers": {
+        "bankstatements": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "django.server": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "gunicorn.error": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "gunicorn.access": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        # Prevent resumable-upload and file identifiers from entering container logs.
+        "httpx": {"handlers": ["console"], "level": "WARNING", "propagate": False},
+    },
+}
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

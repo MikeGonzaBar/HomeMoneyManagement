@@ -1,24 +1,35 @@
 <template>
     <div class="chart-container">
-        <div class="chart-section">
-            <div class="chart-header">
-                <h2 class="chart-title">Income</h2>
-                <p class="chart-subtitle">Visual breakdown of your income sources</p>
-            </div>
-            <div class="chart-wrapper">
-                <Pie :data="(this as any).incomeChartData" :options="(this as any).incomeOptions" />
-            </div>
+        <!-- Nothing to break down yet. Two blank pies read as a bug, not as
+             "no data", so say it and point at the way to fix it. -->
+        <div v-if="!hasTransactions" class="chart-empty">
+            <v-icon size="40" color="grey-lighten-1" class="mb-2">mdi-chart-pie</v-icon>
+            <p class="chart-empty__title">No transactions to chart yet</p>
+            <p class="chart-empty__text">Add or import transactions and your income and spending breakdown appears here.</p>
+            <router-link to="/transactions" class="chart-empty__link">Go to transactions</router-link>
         </div>
 
-        <div class="chart-section">
-            <div class="chart-header">
-                <h2 class="chart-title">Expense</h2>
-                <p class="chart-subtitle">Visual breakdown of your expenses</p>
+        <template v-else>
+            <div class="chart-section">
+                <div class="chart-header">
+                    <h2 class="chart-title">Income</h2>
+                    <p class="chart-subtitle">Visual breakdown of your income sources</p>
+                </div>
+                <div class="chart-wrapper">
+                    <Pie :data="(this as any).incomeChartData" :options="(this as any).incomeOptions" />
+                </div>
             </div>
-            <div class="chart-wrapper">
-                <Pie :data="(this as any).expenseChartData" :options="(this as any).expenseOptions" />
+
+            <div class="chart-section">
+                <div class="chart-header">
+                    <h2 class="chart-title">Expense</h2>
+                    <p class="chart-subtitle">Visual breakdown of your expenses</p>
+                </div>
+                <div class="chart-wrapper">
+                    <Pie :data="(this as any).expenseChartData" :options="(this as any).expenseOptions" />
+                </div>
             </div>
-        </div>
+        </template>
     </div>
 </template>
 
@@ -67,6 +78,43 @@
     justify-content: center;
 }
 
+.chart-empty {
+    align-items: center;
+    background: var(--bb-surface-soft, #f9fafb);
+    border: 1px dashed var(--bb-border-soft, #e5e7eb);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem 1rem;
+    text-align: center;
+    width: 100%;
+}
+
+.chart-empty__title {
+    color: var(--bb-text-strong, #1f2937);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+}
+
+.chart-empty__text {
+    color: var(--bb-text-muted, #6b7280);
+    font-size: 0.8125rem;
+    margin: 0 0 0.75rem;
+    max-width: 22rem;
+}
+
+.chart-empty__link {
+    color: var(--color-brand-primary, #16a34a);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.chart-empty__link:hover {
+    text-decoration: underline;
+}
+
 /* Responsive behavior */
 @media (max-width: 1200px) {
     .chart-section {
@@ -112,7 +160,9 @@
 // import * as Vue from 'vue';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Pie } from 'vue-chartjs'
+import { useTheme } from 'vuetify'
 import { getCategoryColor } from '@/constants/categoryStyles'
+import { legendInk, tooltipInk } from '@/services/chartTheme'
 ChartJS.register(ArcElement, Tooltip, Legend)
 interface Transaction {
     id: number;
@@ -131,16 +181,24 @@ interface PieChartComponentInstance {
     incomeChartData: any;
     incomeOptions: any;
     expenseOptions: any;
+    themeName: string;
     prepareChartData(): void;
+    hasTransactions: boolean;
     reduction(transactionType: string): { [key: string]: number };
     prepareExpenseChartData(): void;
     prepareIncomeChartData(): void;
+    applyChartTheme(): void;
 }
 
 export default {
     name: 'TransactionPieChart',
     components: {
         Pie
+    },
+    setup() {
+        // Same source of truth ThemeToggle writes to, so `themeName` below is
+        // reactive without this component owning any theme state.
+        return { vuetifyTheme: useTheme() };
     },
     props: {
         transactions: {
@@ -163,72 +221,65 @@ export default {
                 backgroundColor: [] as string[],
             }]
         },
-        incomeOptions: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        padding: 10,
-                        usePointStyle: true,
-                        font: {
-                            size: 10
-                        }
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context: { dataset: { data: any[]; }; dataIndex: any; label: any; }) {
-                            const total = context.dataset.data.reduce((acc, value) => acc + value, 0);
-                            const value = context.dataset.data[Number(context.dataIndex)];
-                            const percentage = value / total * 100;
-                            return `${context.label}: $${value.toFixed(2)} (${percentage.toFixed(1)}%)`;
-                        }
-                    }
-                }
-            }
-        },
-        expenseOptions: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        padding: 10,
-                        usePointStyle: true,
-                        font: {
-                            size: 10
-                        }
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function (context: { dataset: { data: any[]; }; dataIndex: any; label: any; }) {
-                            const total = context.dataset.data.reduce((acc, value) => acc + value, 0);
-                            const value = context.dataset.data[Number(context.dataIndex)];
-                            const percentage = value / total * 100;
-                            return `${context.label}: $${value.toFixed(2)} (${percentage.toFixed(1)}%)`;
-                        }
-                    }
-                }
-            }
-        }
+        // Rebuilt by applyChartTheme() at render time: a canvas cannot read
+        // var(--token), and chart.js's defaults are drawn for a light surface.
+        incomeOptions: {} as Record<string, unknown>,
+        expenseOptions: {} as Record<string, unknown>
     }),
     mounted() {
         (this as any).prepareChartData();
+    },
+    computed: {
+        /** Drives the empty state: blank pies read as a bug, not as "no data". */
+        hasTransactions(): boolean {
+            return (this.transactions || []).length > 0;
+        },
+        /**
+         * The active Vuetify theme name ('light' | 'dark'). Read from the real
+         * theme so the watcher fires on the same signal ThemeToggle sets, rather
+         * than polling the class on <html>.
+         */
+        themeName(): string {
+            return (this as any).vuetifyTheme?.global?.name?.value ?? 'light';
+        }
     },
     watch: {
         transactions: {
             handler: 'prepareChartData',
             deep: true,
         },
+        // The legend and tooltip are painted onto the canvas, so flipping the
+        // theme has to rebuild the options — CSS alone cannot reach them.
+        themeName: 'applyChartTheme',
     },
     methods: {
+        /**
+         * Legend/tooltip colours, rebuilt whenever the theme changes. These are
+         * the only themed parts of a pie — the slices use the shared category
+         * palette, which is legible on both surfaces.
+         */
+        applyChartTheme(this: PieChartComponentInstance) {
+            const percentLabel = function (context: { dataset: { data: any[] }; dataIndex: any; label: any; }) {
+                const total = context.dataset.data.reduce((acc, value) => acc + value, 0);
+                const value = context.dataset.data[Number(context.dataIndex)];
+                const percentage = value / total * 100;
+                return `${context.label}: $${value.toFixed(2)} (${percentage.toFixed(1)}%)`;
+            };
+            const options = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: legendInk(10) },
+                    tooltip: { callbacks: { label: percentLabel } },
+                },
+            };
+            this.incomeOptions = { ...options };
+            this.expenseOptions = { ...options };
+        },
         prepareChartData(this: PieChartComponentInstance) {
             this.prepareExpenseChartData();
             this.prepareIncomeChartData();
+            this.applyChartTheme();
         },
         reduction(this: PieChartComponentInstance, transactionType: string) {
             return this.transactions.reduce((acc: { [key: string]: number }, transaction: Transaction) => {

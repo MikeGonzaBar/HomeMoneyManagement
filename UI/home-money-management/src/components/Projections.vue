@@ -4,9 +4,9 @@
         <div class="projections-header">
             <div class="header-content">
                 <v-icon color="primary" class="me-2">mdi-chart-line</v-icon>
-                <span class="text-h5 font-weight-bold">Transaction History</span>
+                <span class="text-h5 font-weight-bold">Income and spending</span>
             </div>
-            <p class="text-subtitle-1 text-grey-darken-1 mb-0">View your income, expenses, and balance over time
+            <p class="text-subtitle-1 text-grey-darken-1 mb-0">Where your money came from and where it went, month by month
             </p>
         </div>
 
@@ -64,7 +64,7 @@
                 <v-col cols="12" md="4">
                     <div class="legend-item">
                         <div class="legend-color balance-color"></div>
-                        <span class="legend-text">Balance</span>
+                        <span class="legend-text">Net (income − spending)</span>
                     </div>
                 </v-col>
             </v-row>
@@ -239,6 +239,9 @@
 <script lang="ts">
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 import { Line } from 'vue-chartjs'
+import { useTheme } from 'vuetify'
+import { chartInk, cssVar } from '@/services/chartTheme'
+import { parseCalendarDate } from '@/services/calendarDate'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -294,6 +297,11 @@ interface ProjectionsComponentInstance {
 
 export default {
     name: 'Projections',
+    setup() {
+        // Same source of truth ThemeToggle writes to, so the `themeName` watcher
+        // below fires without this component owning any theme state.
+        return { vuetifyTheme: useTheme() };
+    },
     components: {
         Line
     },
@@ -380,6 +388,15 @@ export default {
         accounts: {
             handler: 'initializeAccountOptions',
             deep: true
+        },
+        // Axis ticks, grid and tooltip are painted onto the canvas, so a theme
+        // flip has to rebuild the options — CSS cannot reach them.
+        themeName: 'updateChart'
+    },
+    computed: {
+        /** Active Vuetify theme name; the same signal ThemeToggle writes to. */
+        themeName(): string {
+            return (this as any).vuetifyTheme?.global?.name?.value ?? 'light';
         }
     },
     methods: {
@@ -407,13 +424,17 @@ export default {
         },
 
         getChartTheme() {
-            const isDark = document.documentElement.classList.contains('app-dark');
+            // Single source of truth: the same tokens the rest of the UI uses,
+            // resolved for the canvas. Reading the class here (as this used to)
+            // meant the values could drift from App.vue's dark overrides.
+            const ink = chartInk();
+            const strong = cssVar('--bb-text-strong', '#1f2937');
             return {
-                textColor: isDark ? '#f8fafc' : '#1f2937',
-                mutedColor: isDark ? '#cbd5e1' : '#6b7280',
-                gridColor: isDark ? 'rgba(203, 213, 225, 0.16)' : 'rgba(107, 114, 128, 0.16)',
-                tooltipBackground: isDark ? '#111827' : '#ffffff',
-                tooltipText: isDark ? '#f8fafc' : '#1f2937'
+                textColor: strong,
+                mutedColor: ink.text,
+                gridColor: ink.grid,
+                tooltipBackground: ink.surface,
+                tooltipText: strong
             };
         },
 
@@ -505,7 +526,6 @@ export default {
                 }
 
                 const date = new Date(year, month, 1);
-                const monthKey = date.toISOString().substring(0, 7); // YYYY-MM format
 
                 let filteredTransactions = this.transactions;
                 if (this.selectedAccount !== 'all') {
@@ -515,8 +535,9 @@ export default {
                 }
 
                 const monthTransactions = filteredTransactions.filter((t: Transaction) => {
-                    const transactionDate = new Date(t.date);
-                    return transactionDate.getFullYear() === year &&
+                    const transactionDate = parseCalendarDate(t.date);
+                    return transactionDate !== null &&
+                        transactionDate.getFullYear() === year &&
                         transactionDate.getMonth() === month;
                 });
 

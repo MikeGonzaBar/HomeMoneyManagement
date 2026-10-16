@@ -1,10 +1,15 @@
 from decimal import Decimal
 
+from django.db import connection
+from django.core.files.base import ContentFile
+from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APITestCase
 
 from account.models import Account
 from users.models import AuthToken, User
 from .models import Transaction
+from .services import _apply_delta
+from bankstatements.models import BankStatement, BankStatementImportBatch, BankStatementTransactionCandidate
 
 
 class TransactionBalanceTests(APITestCase):
@@ -76,6 +81,35 @@ class TransactionBalanceTests(APITestCase):
         self.checking.refresh_from_db()
         self.assertEqual(self.checking.total, Decimal("130.00"))
 
+    def test_external_cash_adjustments_change_one_account_without_becoming_income_or_expense(self) -> None:
+        deposited = self.client.post(
+            "/transactions/create/",
+            {
+                "transaction_type": "External Deposit",
+                "category": "External cash adjustment",
+                "date": "2026-05-20",
+                "title": "External funding",
+                "total": "15.00",
+                "account_id": str(self.checking.id),
+            },
+        )
+        withdrawn = self.client.post(
+            "/transactions/create/",
+            {
+                "transaction_type": "External Withdrawal",
+                "category": "External cash adjustment",
+                "date": "2026-05-21",
+                "title": "External withdrawal",
+                "total": "4.00",
+                "account_id": str(self.checking.id),
+            },
+        )
+
+        self.assertEqual(deposited.status_code, 201)
+        self.assertEqual(withdrawn.status_code, 201)
+        self.checking.refresh_from_db()
+        self.assertEqual(self.checking.total, Decimal("111.00"))
+
     def test_transfer_update_and_delete_reverse_balances(self) -> None:
         created = self.client.post(
             "/transactions/create/",
@@ -135,3 +169,143 @@ class TransactionBalanceTests(APITestCase):
     def test_route_username_mismatch_is_forbidden(self) -> None:
         response = self.client.get("/transactions/retrieve/bob/0/0/0/")
         self.assertEqual(response.status_code, 403)
+
+    def test_reverse_direction_transfer_locks_accounts_in_id_order(self) -> None:
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.post(
+                "/transactions/create/",
+                {
+                    "transaction_type": "Transfer",
+                    "category": "Transfer",
+                    "date": "2026-05-20",
+                    "title": "Reverse move",
+                    "total": "5.00",
+                    "from_account_id": str(self.savings.id),
+                    "to_account_id": str(self.checking.id),
+                },
+                format="json",
+            )
+
+        lock_queries = [
+            query["sql"]
+            for query in queries.captured_queries
+            if 'FROM "account_account"' in query["sql"] and "FOR UPDATE" in query["sql"]
+        ]
+        self.assertEqual(response.status_code, 201)
+        # `select_for_update()` is a no-op on SQLite, so the locking assertion
+        # only means something on a backend that actually locks rows. The
+        # balance assertions below run everywhere.
+        if connection.features.has_select_for_update:
+            self.assertEqual(len(lock_queries), 1)
+            self.assertIn('ORDER BY "account_account"."id" ASC', lock_queries[0])
+        self.checking.refresh_from_db()
+        self.savings.refresh_from_db()
+        self.assertEqual(self.checking.total, Decimal("105.00"))
+        self.assertEqual(self.savings.total, Decimal("20.00"))
+
+    def test_transfer_update_locks_old_and_new_accounts_once(self) -> None:
+        created = self.client.post(
+            "/transactions/create/",
+            {
+                "transaction_type": "Transfer",
+                "category": "Transfer",
+                "date": "2026-05-20",
+                "title": "Original direction",
+                "total": "10.00",
+                "from_account_id": str(self.checking.id),
+                "to_account_id": str(self.savings.id),
+            },
+            format="json",
+        )
+
+        with CaptureQueriesContext(connection) as queries:
+            updated = self.client.patch(
+                f"/transactions/update/{created.data['id']}/",
+                {
+                    "from_account_id": str(self.savings.id),
+                    "to_account_id": str(self.checking.id),
+                },
+                format="json",
+            )
+
+        lock_queries = [
+            query["sql"]
+            for query in queries.captured_queries
+            if 'FROM "account_account"' in query["sql"] and "FOR UPDATE" in query["sql"]
+        ]
+        self.assertEqual(updated.status_code, 200)
+        # See the note in test_reverse_direction_transfer_locks_accounts_in_id_order.
+        if connection.features.has_select_for_update:
+            self.assertEqual(len(lock_queries), 1)
+            self.assertIn('ORDER BY "account_account"."id" ASC', lock_queries[0])
+        self.checking.refresh_from_db()
+        self.savings.refresh_from_db()
+        self.assertEqual(self.checking.total, Decimal("110.00"))
+        self.assertEqual(self.savings.total, Decimal("15.00"))
+
+    def test_apply_delta_uses_database_expression(self) -> None:
+        with CaptureQueriesContext(connection) as queries:
+            _apply_delta(self.checking, Decimal("2.50"))
+
+        update_queries = [
+            query["sql"]
+            for query in queries.captured_queries
+            if 'UPDATE "account_account"' in query["sql"]
+        ]
+        self.assertEqual(len(update_queries), 1)
+        # The point is that the database does the arithmetic rather than Python
+        # reading and rewriting the row. How the value is rendered is
+        # backend-specific (both Postgres and SQLite wrap it in a CAST), so
+        # assert the arithmetic on the column, not the exact expression.
+        self.assertIn('"total" +', update_queries[0])
+        self.assertIn("2.50", update_queries[0])
+        self.assertEqual(self.checking.total, Decimal("102.50"))
+        self.checking.refresh_from_db()
+        self.assertEqual(self.checking.total, Decimal("102.50"))
+
+    def test_transaction_list_is_paginated(self) -> None:
+        for index in range(24):
+            Transaction.objects.create(
+                owner_user=self.alice,
+                account_fk=self.checking,
+                transaction_type="Expense",
+                category="Food",
+                date=f"2026-05-{index + 1:02d}",
+                title=f"Expense {index}",
+                total="1.00",
+            )
+
+        response = self.client.get(
+            "/transactions/retrieve/alice/0/0/0/?page_size=5&page=2"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 24)
+        self.assertEqual(len(response.data["results"]), 5)
+        self.assertIsNotNone(response.data["next"])
+        self.assertTrue(response.data["next"].startswith("/transactions/retrieve/alice/"))
+
+    def test_transaction_list_can_filter_to_an_import_batch(self) -> None:
+        imported = Transaction.objects.create(
+            owner_user=self.alice, account_fk=self.checking, transaction_type="Expense",
+            category="Food", date="2026-05-20", title="Imported lunch", total="10.00",
+        )
+        other = Transaction.objects.create(
+            owner_user=self.alice, account_fk=self.checking, transaction_type="Expense",
+            category="Food", date="2026-05-21", title="Other lunch", total="11.00",
+        )
+        statement = BankStatement.objects.create(
+            owner_user=self.alice, file=ContentFile(b"%PDF-1.4\n", name="source.pdf"),
+            original_filename="source.pdf", file_size=9,
+        )
+        batch = BankStatementImportBatch.objects.create(bank_statement=statement, owner_user=self.alice)
+        BankStatementTransactionCandidate.objects.create(
+            import_batch=batch, owner_user=self.alice, title="Imported lunch", transaction_type="Expense",
+            category="Food", date="2026-05-20", amount="10.00", imported_transaction=imported,
+        )
+
+        response = self.client.get(f"/transactions/retrieve/alice/0/0/0/?statement_batch={batch.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["id"] for item in response.data["results"]], [imported.id])
+        self.assertNotIn(other.id, [item["id"] for item in response.data["results"]])

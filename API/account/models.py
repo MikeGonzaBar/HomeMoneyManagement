@@ -32,6 +32,14 @@ class Account(models.Model):
         blank=True,
         help_text="Credit limit for credit card accounts",
     )
+    # Provider-specific data that does not change the generic account balance
+    # contract.  Retirement imports use this for the latest verified AFORE
+    # statement breakdown.
+    retirement_metadata = models.JSONField(default=dict, blank=True)
+    # Latest verified card-statement facts.  `total` remains available credit;
+    # this metadata makes deferred-payment debt visible without changing that
+    # long-standing accounting contract.
+    credit_card_metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
         indexes = [

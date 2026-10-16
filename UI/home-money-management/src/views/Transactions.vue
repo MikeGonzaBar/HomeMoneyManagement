@@ -1,99 +1,44 @@
 <template>
-  <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
-    <!-- Header - same as MainPage -->
-    <header class="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-0 z-50">
-      <div class="w-full px-4 sm:px-6 lg:px-10">
-        <div class="bb-phone-header-grid grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-6 h-[72px]">
-          <div class="bb-phone-brand flex items-center gap-5 min-w-0">
-            <router-link to="/" class="flex items-center gap-3 shrink-0">
-              <img src="@/assets/logo-192.png" alt="Budget Buddy" class="w-10 h-10 rounded-lg object-contain" />
-              <span class="bb-phone-brand-text text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Budget Buddy</span>
-            </router-link>
-            <label class="hidden md:flex flex-col min-w-40 max-w-64 h-10">
-              <div class="bb-input-shell w-full flex-1 h-full">
+  <div class="bg-gray-50 text-gray-900 font-sans antialiased">
+    <AppHeader :userData="userData" />
+
+    <main class="w-full">
+      <div class="px-4 sm:px-6 py-6">
+        <!-- Page Title and Toolbar -->
+        <div class="flex flex-col gap-1 mb-6">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex-1 min-w-0">
+              <h1 class="text-gray-900 text-3xl font-bold tracking-tight">Transactions</h1>
+              <p class="text-gray-500 text-base">Keep track of your spending and earnings across all connected accounts.</p>
+            </div>
+            <!-- Page toolbar: search and export live here so the shared
+                 header keeps enough room for navigation at every width -->
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="bb-input-shell flex h-10 flex-1 min-w-56 max-w-64">
                 <span class="text-gray-400 flex items-center justify-center pl-4">
                   <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                   </svg>
                 </span>
-                <input v-model="searchQuery" type="text"
+                <input v-model="searchQuery" type="text" aria-label="Search transactions"
                   class="bb-input-control flex w-full min-w-0 flex-1 resize-none overflow-hidden px-4 pl-2"
                   placeholder="Search transactions..." />
-              </div>
-            </label>
-          </div>
-          <nav class="hidden md:flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 p-1 shadow-sm">
-            <router-link to="/" class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Dashboard
-            </router-link>
-            <router-link to="/transactions"
-              class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-brand-primary shadow-sm">
-              Transactions
-            </router-link>
-            <router-link to="/budgets" class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Budgets
-            </router-link>
-            <router-link to="/recurring" class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Recurring
-            </router-link>
-            <router-link to="/reports" class="rounded-full px-4 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700">
-              Reports
-            </router-link>
-          </nav>
-          <div class="bb-phone-actions flex justify-end gap-3 items-center min-w-0">
-            <details class="bb-phone-nav">
-              <summary class="bb-phone-nav-button" aria-label="Open navigation">
+              </label>
+              <button class="bb-button bb-button-primary min-w-[100px]" @click="openCreate">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16M4 17h16"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                 </svg>
-              </summary>
-              <nav class="bb-phone-nav-panel" aria-label="Phone navigation">
-                <router-link to="/" class="bb-phone-nav-link">Dashboard</router-link>
-                <router-link to="/transactions" class="bb-phone-nav-link">Transactions</router-link>
-                <router-link to="/budgets" class="bb-phone-nav-link">Budgets</router-link>
-                <router-link to="/recurring" class="bb-phone-nav-link">Recurring</router-link>
-                <router-link to="/reports" class="bb-phone-nav-link">Reports</router-link>
-                <button type="button" class="bb-phone-nav-link" @click="goToProfile">Profile</button>
-              </nav>
-            </details>
-            <button class="transactions-header-export bb-button bb-button-primary min-w-[100px]"
-              @click="exportTransactions">
-              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-              </svg>
-              <span>Export</span>
-            </button>
-            <AlertCenter />
-            <ThemeToggle />
-            <div class="bb-phone-user-shell flex items-center gap-3 rounded-full border border-gray-100 bg-gray-50 py-1 pl-4 pr-1.5">
-              <div class="text-right hidden sm:block">
-                <p class="text-sm font-semibold text-gray-900 leading-none">{{ userData.user?.first_name }} {{ userData.user?.last_name }}</p>
-                <p class="text-xs text-gray-500 mt-1">Premium Member</p>
-              </div>
-              <div
-                class="h-9 w-9 rounded-full bg-brand-primary flex items-center justify-center text-white font-semibold cursor-pointer shadow-sm"
-                @click="goToProfile">
-                {{ userData.user?.first_name?.charAt(0) }}{{ userData.user?.last_name?.charAt(0) }}
-              </div>
+                <span>New Transaction</span>
+              </button>
+              <button class="bb-button bb-button-primary min-w-[100px]"
+                @click="exportTransactions">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+                <span>Export</span>
+              </button>
             </div>
           </div>
-        </div>
-      </div>
-    </header>
-
-    <main class="w-full">
-      <div class="px-4 sm:px-6 py-6">
-        <!-- Page Title -->
-        <div class="flex flex-col gap-1 mb-6">
-          <h1 class="text-gray-900 text-3xl font-bold tracking-tight">Transactions</h1>
-          <p class="text-gray-500 text-base">Keep track of your spending and earnings across all connected accounts.</p>
-          <button class="transactions-phone-export bb-button bb-button-primary"
-            @click="exportTransactions">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-            </svg>
-            <span>Export</span>
-          </button>
         </div>
 
         <!-- Filter Ribbon -->
@@ -117,6 +62,23 @@
             <v-select v-model="filterPeriod" :items="periodOptions" item-title="title" item-value="value"
               density="compact" variant="outlined" rounded="lg" hide-details class="filter-select"></v-select>
           </div>
+          <div v-if="statementBatch" class="filter-statement-chip" role="group"
+            :aria-label="`Statement scope: ${statementBatchFilename || statementBatch}`">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <span>Statement: {{ statementBatchFilename || `#${statementBatch}` }}</span>
+            <button type="button" class="filter-chip-remove" aria-label="Remove statement filter"
+              @click="clearStatementScope">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+          <button v-if="statementBatch" class="bb-button bb-button-secondary filter-view-all-button"
+            @click="viewAllTransactions">
+            <span>View all transactions</span>
+          </button>
           <button class="bb-button bb-button-secondary filter-reset-button" @click="resetFilters">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -143,6 +105,8 @@
                   <th
                     class="px-6 py-4 text-right text-gray-500 text-xs font-bold uppercase tracking-widest cursor-pointer hover:text-brand-primary"
                     @click="sortBy = sortBy === 'total' ? '-total' : 'total'">Amount</th>
+                  <th class="px-6 py-4 text-right text-gray-500 text-xs font-bold uppercase tracking-widest">Actions
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
@@ -170,9 +134,35 @@
                     :class="t.transaction_type === 'Income' ? 'text-income' : t.transaction_type === 'Expense' ? 'text-expense' : 'text-gray-700'">
                     {{ t.transaction_type === 'Income' ? '+' : t.transaction_type === 'Expense' ? '-' : '' }}${{ Math.abs(t.total).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
                   </td>
+                  <td class="px-6 py-5 text-right whitespace-nowrap">
+                    <button type="button" class="bb-row-action" @click="openEdit(t)" aria-label="Edit transaction"
+                      title="Edit">
+                      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                        </path>
+                      </svg>
+                    </button>
+                    <button type="button" class="bb-row-action bb-row-action-danger" @click="openDelete(t)"
+                      aria-label="Delete transaction" title="Delete">
+                      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                        </path>
+                      </svg>
+                    </button>
+                  </td>
                 </tr>
                 <tr v-if="paginatedTransactions.length === 0">
-                  <td colspan="5" class="px-6 py-12 text-center text-gray-500">No transactions found</td>
+                  <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                    <p class="font-semibold text-gray-700">No transactions found</p>
+                    <p v-if="statementBatch" class="text-sm mt-1">
+                      The statement scope ({{ statementBatchFilename || `#${statementBatch}` }})
+                      and the current filters match nothing. Remove the statement
+                      filter or reset filters to see more.
+                    </p>
+                    <p v-else class="text-sm mt-1">Try adjusting the active filters or search query.</p>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -188,6 +178,7 @@
             <div class="flex items-center gap-2">
               <button
                 class="bb-page-button disabled:opacity-50"
+                aria-label="Previous page"
                 :disabled="currentPage === 1" @click="currentPage = Math.max(1, currentPage - 1)">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
@@ -196,9 +187,11 @@
               <button v-for="p in visiblePages" :key="p"
                 class="bb-page-button"
                 :class="p === currentPage ? 'active' : ''"
+                :aria-label="`Page ${p}`" :aria-current="p === currentPage ? 'page' : undefined"
                 @click="currentPage = p">{{ p }}</button>
               <button
                 class="bb-page-button disabled:opacity-50"
+                aria-label="Next page"
                 :disabled="currentPage >= totalPages" @click="currentPage = Math.min(totalPages, currentPage + 1)">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -208,7 +201,7 @@
           </div>
         </div>
 
-        <!-- Totals Footer -->
+        <!-- Totals Section -->
         <section class="transactions-total-footer" aria-label="Transaction totals">
           <article class="transactions-total-card">
             <div class="transactions-total-card-header">
@@ -220,7 +213,7 @@
               </span>
               <div>
                 <p class="transactions-total-label">Expenses this period</p>
-                <p class="transactions-total-meta">Last {{ filterPeriod }} days</p>
+                <p class="transactions-total-meta">{{ periodLabel }}</p>
               </div>
             </div>
             <p class="transactions-total-value">${{ filteredExpenseTotal.toLocaleString('en-US', {
@@ -238,7 +231,7 @@
               </span>
               <div>
                 <p class="transactions-total-label">Income this period</p>
-                <p class="transactions-total-meta">Last {{ filterPeriod }} days</p>
+                <p class="transactions-total-meta">{{ periodLabel }}</p>
               </div>
             </div>
             <p class="transactions-total-value">${{ filteredIncomeTotal.toLocaleString('en-US', {
@@ -266,6 +259,9 @@
         </section>
       </div>
     </main>
+
+    <TransactionDialog ref="txDialog" :accounts="accounts" :username="userData?.user?.username || ''"
+      @saved="onTxChanged" @deleted="onTxChanged" />
   </div>
 </template>
 
@@ -274,8 +270,8 @@
 <style scoped>
 .transactions-filter-panel {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   display: flex;
@@ -286,7 +282,7 @@
 
 .filter-heading {
   align-items: center;
-  color: #6b7280;
+  color: var(--bb-text-muted, #6b7280);
   display: flex;
   flex: 0 0 auto;
   gap: 0.75rem;
@@ -320,7 +316,7 @@
 }
 
 .filter-reset-button {
-  background: #ffffff;
+  background: var(--bb-surface, #ffffff);
   border: 1px solid rgba(76, 175, 80, 0.35);
   border-radius: 0.75rem;
   color: #2E7D32;
@@ -333,10 +329,65 @@
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
+/* Active statement scope: visible and removable so the
+   restriction is never hidden in the URL alone. */
+.filter-statement-chip {
+  align-items: center;
+  background: #eff6ff;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 9999px;
+  color: #1d4ed8;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+}
+
+.filter-chip-remove {
+  align-items: center;
+  border-radius: 9999px;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  padding: 0.125rem;
+}
+
+.filter-chip-remove:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.filter-view-all-button {
+  flex: 0 0 auto;
+}
+
+.bb-row-action {
+  align-items: center;
+  border-radius: 0.5rem;
+  color: #4b5563;
+  display: inline-flex;
+  height: 2rem;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+  width: 2rem;
+}
+
+.bb-row-action:hover {
+  background: #f0fdf4;
+  color: #2E7D32;
+}
+
+.bb-row-action-danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
 :deep(.filter-select .v-field) {
-  background: #f9fafb;
+  background: var(--bb-surface-soft, #f9fafb);
   border-radius: 0.75rem;
-  color: #374151;
+  color: var(--bb-text-muted, #374151);
   min-height: 2.5rem;
 }
 
@@ -357,8 +408,8 @@
 }
 
 .transactions-total-footer {
-  background: #ffffff;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface, #ffffff);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
   display: grid;
@@ -368,8 +419,8 @@
 }
 
 .transactions-total-card {
-  background: #f9fafb;
-  border: 1px solid #f3f4f6;
+  background: var(--bb-surface-soft, #f9fafb);
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-radius: 0.875rem;
   display: flex;
   flex-direction: column;
@@ -412,7 +463,7 @@
 }
 
 .transactions-total-label {
-  color: #374151;
+  color: var(--bb-text-muted, #374151);
   font-size: 0.875rem;
   font-weight: 700;
   line-height: 1.25rem;
@@ -428,7 +479,7 @@
 }
 
 .transactions-total-value {
-  color: #111827;
+  color: var(--bb-text-strong, #111827);
   font-size: 1.75rem;
   font-weight: 800;
   line-height: 1;

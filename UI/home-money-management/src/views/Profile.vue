@@ -1,35 +1,37 @@
 <template>
-    <v-container fluid class="profile-container">
-        <!-- Header -->
-        <v-row class="mb-6">
-            <v-col cols="12">
-                <v-card class="glass-card shadow-medium" rounded="xl">
-                    <v-card-title class="pa-6 pb-2">
-                        <div class="d-flex align-center justify-space-between w-100">
-                            <div class="d-flex align-center">
-                                <v-avatar size="40" class="me-3 budget-gradient">
-                                    <v-icon color="white">mdi-account-circle</v-icon>
-                                </v-avatar>
-                                <div class="d-flex flex-column justify-center">
-                                    <h4 class="budget-text-gradient font-weight-bold mb-0">User Profile</h4>
-                                    <p class="text-grey-darken-1 mb-0 text-caption">Manage your account settings and
-                                        files
-                                    </p>
+    <div class="bg-gray-50">
+        <AppHeader :userData="userData" />
+        <v-container fluid class="profile-container">
+            <!-- Header -->
+            <v-row class="mb-6">
+                <v-col cols="12">
+                    <v-card class="glass-card shadow-medium" rounded="xl">
+                        <v-card-title class="pa-6 pb-2">
+                            <div class="d-flex align-center justify-space-between w-100">
+                                <div class="d-flex align-center">
+                                    <v-avatar size="40" class="me-3 budget-gradient">
+                                        <v-icon color="white">mdi-account-circle</v-icon>
+                                    </v-avatar>
+                                    <div class="d-flex flex-column justify-center">
+                                        <h4 class="budget-text-gradient font-weight-bold mb-0">User Profile</h4>
+                                        <p class="text-grey-darken-1 mb-0 text-caption">Manage your account settings and
+                                            preferences
+                                        </p>
+                                    </div>
                                 </div>
+                                <v-btn color="primary" variant="outlined" rounded="lg" @click="goToHome"
+                                    :size="$vuetify.display.mobile ? 'default' : 'default'"
+                                    class="smooth-transition hover-lift">
+                                    <v-icon :left="$vuetify.display.smAndUp"
+                                        :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-home</v-icon>
+                                    <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Back to Home</span>
+                                    <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Home</span>
+                                </v-btn>
                             </div>
-                            <v-btn color="primary" variant="outlined" rounded="lg" @click="goToHome"
-                                :size="$vuetify.display.mobile ? 'default' : 'default'"
-                                class="smooth-transition hover-lift">
-                                <v-icon :left="$vuetify.display.smAndUp"
-                                    :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-home</v-icon>
-                                <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Back to Home</span>
-                                <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Home</span>
-                            </v-btn>
-                        </div>
-                    </v-card-title>
-                </v-card>
-            </v-col>
-        </v-row>
+                        </v-card-title>
+                    </v-card>
+                </v-col>
+            </v-row>
 
         <!-- Main Content -->
         <v-row>
@@ -135,124 +137,15 @@
                     </v-card-text>
                 </v-card>
 
-                <!-- My Files Section -->
-                <v-card v-if="activeSection === 'files'" class="glass-card shadow-medium" rounded="xl">
-                    <v-card-title class="pa-6 pb-2">
-                        <div class="d-flex align-center">
-                            <v-avatar size="32" class="me-3" color="primary">
-                                <v-icon color="white">mdi-file-pdf-box</v-icon>
-                            </v-avatar>
-                            <h5 class="font-weight-bold">My Files</h5>
-                        </div>
-                    </v-card-title>
-                    <v-card-text class="pa-6 pt-2">
-                        <!-- Loading State -->
-                        <div v-if="loadingFiles" class="text-center pa-8">
-                            <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-                            <p class="mt-4 text-grey-darken-1">Loading your files...</p>
-                        </div>
-
-                        <!-- No Files State -->
-                        <div v-else-if="userFiles.length === 0" class="text-center pa-8">
-                            <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-file-pdf-box-outline</v-icon>
-                            <h6 class="text-h6 text-grey-darken-1 mb-2">No Files Uploaded</h6>
-                            <p class="text-body-2 text-grey-darken-1 mb-4">
-                                You haven't uploaded any bank statement PDFs yet.
-                            </p>
-                            <v-btn color="primary" variant="outlined" rounded="lg" @click="goToUpload"
-                                :size="$vuetify.display.mobile ? 'default' : 'default'"
-                                class="smooth-transition hover-lift">
-                                <v-icon :left="$vuetify.display.smAndUp"
-                                    :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-upload</v-icon>
-                                <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Upload Bank
-                                    Statement</span>
-                                <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Upload</span>
-                            </v-btn>
-                        </div>
-
-                        <!-- Files List -->
-                        <div v-else>
-                            <div class="d-flex justify-space-between align-center mb-4">
-                                <h6 class="font-weight-bold">Uploaded Bank Statements ({{ userFiles.length }})</h6>
-                                <v-btn color="primary" variant="outlined" size="small" rounded="lg"
-                                    @click="refreshFiles" :loading="loadingFiles">
-                                    <v-icon left>mdi-refresh</v-icon>
-                                    Refresh
-                                </v-btn>
-                            </div>
-
-                            <v-list class="pa-0">
-                                <v-list-item v-for="file in userFiles" :key="file.id" class="file-item mb-2">
-                                    <template v-slot:prepend>
-                                        <v-avatar color="red-lighten-4" size="40">
-                                            <v-icon color="red">mdi-file-pdf-box</v-icon>
-                                        </v-avatar>
-                                    </template>
-
-                                    <v-list-item-title class="font-weight-medium">
-                                        {{ file.original_filename }}
-                                    </v-list-item-title>
-                                    <v-list-item-subtitle>
-                                        {{ file.file_size_display }} • Uploaded {{ file.upload_date_display }}
-                                    </v-list-item-subtitle>
-
-                                    <template v-slot:append>
-                                        <div class="d-flex align-center">
-                                            <!-- Processing Status -->
-                                            <v-chip :color="getStatusColor(file.processing_status)" size="small"
-                                                variant="tonal" class="me-2">
-                                                {{ file.processing_status }}
-                                            </v-chip>
-
-                                            <v-btn v-if="file.review_batch_id && file.review_batch_status === 'review'"
-                                                color="primary" variant="tonal" size="small" rounded="lg"
-                                                class="me-2" @click="continueReview(file)">
-                                                Review
-                                            </v-btn>
-
-                                            <!-- Delete Button -->
-                                            <v-btn icon="mdi-delete" color="red" variant="text" size="small"
-                                                @click="confirmDeleteFile(file)" class="smooth-transition"></v-btn>
-                                        </div>
-                                    </template>
-                                </v-list-item>
-                            </v-list>
-                        </div>
-                    </v-card-text>
-                </v-card>
             </v-col>
         </v-row>
 
-        <!-- Delete Confirmation Dialog -->
-        <v-dialog v-model="deleteDialog" max-width="400">
-            <v-card rounded="xl">
-                <v-card-title class="pa-6 pb-2">
-                    <div class="d-flex align-center">
-                        <v-avatar size="32" class="me-3" color="red">
-                            <v-icon color="white">mdi-delete</v-icon>
-                        </v-avatar>
-                        <h6 class="font-weight-bold">Delete File</h6>
-                    </div>
-                </v-card-title>
-                <v-card-text class="pa-6 pt-2">
-                    <p>Are you sure you want to delete <strong>{{ fileToDelete?.original_filename }}</strong>?</p>
-                    <p class="text-caption text-grey-darken-1">This action cannot be undone.</p>
-                </v-card-text>
-                <v-card-actions class="pa-6 pt-2">
-                    <v-spacer></v-spacer>
-                    <v-btn color="grey" variant="text" @click="deleteDialog = false">
-                        Cancel
-                    </v-btn>
-                    <v-btn color="red" variant="flat" :loading="deletingFile" @click="deleteFile">
-                        Delete
-                    </v-btn>
-                </v-card-actions>
-            </v-card>
-        </v-dialog>
-    </v-container>
+        </v-container>
+    </div>
 </template>
 
 <script lang="ts">
+import AppHeader from '@/components/AppHeader.vue';
 import axios from '@/services/api';
 import { getStoredSession, setStoredSession } from '@/services/session';
 import { applyDocumentTheme, type ThemePreference } from '@/services/theme';
@@ -270,29 +163,17 @@ interface PasswordData {
     confirmPassword: string;
 }
 
-interface UserFile {
-    id: number;
-    original_filename: string;
-    file_size: number;
-    file_size_display: string;
-    upload_date: string;
-    upload_date_display: string;
-    processed: boolean;
-    processing_status: string;
-    error_message: string | null;
-    review_batch_id?: number | null;
-    review_batch_status?: string | null;
-    review_candidate_count?: number;
-}
-
 export default {
     name: 'Profile',
+    components: { AppHeader },
     data() {
+        const session = getStoredSession();
         return {
+            userData: session ? { user: session.user } : { user: {} },
+            session,
             activeSection: 'personal' as string,
             sidebarItems: [
                 { title: 'Personal Info', icon: 'mdi-account-edit', value: 'personal' },
-                { title: 'My Files', icon: 'mdi-file-pdf-box', value: 'files' }
             ],
 
             // Personal Info
@@ -320,15 +201,6 @@ export default {
             passwordFormValid: false,
             changingPassword: false,
 
-            // Files
-            userFiles: [] as UserFile[],
-            loadingFiles: false,
-
-            // Delete Dialog
-            deleteDialog: false,
-            fileToDelete: null as UserFile | null,
-            deletingFile: false,
-
             // Form Rules
             usernameRules: [
                 (v: string) => !!v || 'Username is required',
@@ -355,7 +227,6 @@ export default {
     },
     mounted() {
         this.loadUserInfo();
-        this.loadUserFiles();
     },
     methods: {
         loadUserInfo() {
@@ -460,92 +331,24 @@ export default {
             }
         },
 
-        async loadUserFiles() {
-            (this as any).loadingFiles = true;
-            try {
-                const session = getStoredSession();
-                if (session?.user.username) {
-                    const response = await axios.get(`/bank-statements/user/${session.user.username}/`);
-                    (this as any).userFiles = response.data.statements || [];
-                }
-            } catch (error) {
-                console.error('Error loading user files:', error);
-                (this as any).userFiles = [];
-            } finally {
-                (this as any).loadingFiles = false;
-            }
-        },
-
-        async refreshFiles() {
-            await (this as any).loadUserFiles();
-        },
-
         goToHome() {
             // Navigate back to home page
             (this as any).$router.push('/');
         },
 
-        goToUpload() {
-            // Navigate back to home page where upload component is
-            (this as any).$router.push('/');
-        },
-
-        continueReview(file: UserFile) {
-            if (!file.review_batch_id) return;
-            (this as any).$router.push({ path: '/', query: { reviewBatch: file.review_batch_id.toString() } });
-        },
-
-        getStatusColor(status: string) {
-            switch (status) {
-                case 'completed': return 'green';
-                case 'processing': return 'orange';
-                case 'failed': return 'red';
-                default: return 'grey';
-            }
-        },
-
-        confirmDeleteFile(file: UserFile) {
-            (this as any).fileToDelete = file;
-            (this as any).deleteDialog = true;
-        },
-
-        async deleteFile() {
-            if (!(this as any).fileToDelete) return;
-
-            (this as any).deletingFile = true;
-            try {
-                await axios.delete(`/bank-statements/delete/${(this as any).fileToDelete.id}/`);
-
-                // Remove from local list
-                (this as any).userFiles = (this as any).userFiles.filter(
-                    (file: UserFile) => file.id !== (this as any).fileToDelete.id
-                );
-
-                (this as any).deleteDialog = false;
-                (this as any).fileToDelete = null;
-
-                alert('File deleted successfully!');
-            } catch (error) {
-                console.error('Error deleting file:', error);
-                alert('Failed to delete file. Please try again.');
-            } finally {
-                (this as any).deletingFile = false;
-            }
-        }
     }
 }
 </script>
 
 <style scoped>
 .profile-container {
-    min-height: 100vh;
-    background: #f9fafb;
+    background: var(--bb-surface-soft, #f9fafb);
     padding: 24px;
 }
 
 .glass-card {
-    background: #ffffff;
-    border: 1px solid #f3f4f6;
+    background: var(--bb-surface, #ffffff);
+    border: 1px solid var(--bb-border-soft, #f3f4f6);
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 
@@ -578,18 +381,6 @@ export default {
 .active-sidebar-item {
     background: linear-gradient(135deg, rgba(76, 175, 80, 0.1) 0%, rgba(139, 195, 74, 0.1) 100%);
     border: 1px solid rgba(76, 175, 80, 0.2);
-}
-
-.file-item {
-    border: 1px solid #f3f4f6;
-    border-radius: 12px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.file-item:hover {
-    background: #f9fafb;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-    transform: none;
 }
 
 .smooth-transition {
@@ -666,11 +457,6 @@ export default {
         margin: 2px 0;
     }
 
-    /* File list adjustments */
-    .file-item {
-        margin-bottom: 8px;
-    }
-
     .v-list-item-title {
         font-size: 0.9rem;
     }
@@ -705,10 +491,6 @@ export default {
 
     .v-list {
         padding: 6px !important;
-    }
-
-    .file-item {
-        margin-bottom: 6px;
     }
 
     .v-list-item-title {

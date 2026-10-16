@@ -1,9 +1,10 @@
 import axios from '@/services/api';
 import { defineComponent } from 'vue';
+import { useTheme } from 'vuetify';
 import { getCategoryColor } from '@/constants/categoryStyles';
 import { getStoredSession } from '@/services/session';
-import AlertCenter from '@/components/AlertCenter.vue';
-import ThemeToggle from '@/components/ThemeToggle.vue';
+import { parseCalendarDate } from '@/services/calendarDate';
+import AppHeader from '@/components/AppHeader.vue';
 
 interface AnalyticsData {
   start_date: string;
@@ -36,6 +37,7 @@ const DARK_CATEGORY_COLORS: Record<string, string> = {
   'Balance Transfer': '#a5b4fc',
   'Money Transfer': '#818cf8',
   'Transfer': '#93c5fd',
+  'External cash adjustment': '#cbd5e1',
   'Bills and utilities': '#fdba74',
   'Education': '#5eead4',
   'Entertainment': '#67e8f9',
@@ -46,13 +48,11 @@ const DARK_CATEGORY_COLORS: Record<string, string> = {
   'Shopping': '#d8b4fe',
   'Transportation': '#6ee7b7',
   'Others': '#94a3b8',
+  'Retirement contribution': '#5eead4',
+  'Investment return': '#93c5fd',
+  'Retirement fee': '#fbbf24',
+  'Retirement interest': '#818cf8',
   'Income': '#86efac',
-  'Restaurants': '#fbbf24',
-  'Gas': '#60a5fa',
-  'Rent/Mortgage': '#c4b5fd',
-  'Groceries': '#86efac',
-  'Utilities': '#fcd34d',
-  'Gym': '#f9a8d4',
 };
 const DARK_FALLBACK_COLORS = ['#94a3b8', '#67e8f9', '#a7f3d0', '#fde68a', '#f0abfc', '#bfdbfe', '#fecaca'];
 
@@ -66,7 +66,13 @@ function fallbackDarkCategoryColor(category: string): string {
 
 export default defineComponent({
   name: 'Reports',
-  components: { AlertCenter, ThemeToggle },
+  emits: [],
+  components: { AppHeader },
+  setup() {
+    // Same source of truth ThemeToggle writes to. Reading it inside
+    // getReportCategoryColor is what makes a theme flip repaint the bars.
+    return { vuetifyTheme: useTheme() };
+  },
   data() {
     return {
       userData: { user: {} } as any,
@@ -80,11 +86,17 @@ export default defineComponent({
     };
   },
   computed: {
+    /** Active Vuetify theme name; the signal a theme flip broadcasts. */
+    themeName(): string {
+      return (this as any).vuetifyTheme?.global?.name?.value ?? 'light';
+    },
     dateRangeLabel(): string {
       if (this.analytics?.start_date && this.analytics?.end_date) {
-        const s = new Date(this.analytics.start_date);
-        const e = new Date(this.analytics.end_date);
-        return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        const s = parseCalendarDate(this.analytics.start_date);
+        const e = parseCalendarDate(this.analytics.end_date);
+        if (s && e) {
+          return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        }
       }
       const now = new Date();
       const first = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -242,15 +254,16 @@ export default defineComponent({
       return `${(tc.amount / max) * 100}%`;
     },
     getReportCategoryColor(category: string): string {
+      // Touch the reactive theme first: without this dependency the inline
+      // :style bindings would keep the old colours until something unrelated
+      // forced a re-render, because reading the DOM class is not reactive.
+      void (this as any).themeName;
       const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('app-dark');
       return isDark ? (DARK_CATEGORY_COLORS[category] || fallbackDarkCategoryColor(category)) : getCategoryColor(category);
     },
     applyDateRange() {
       this.showDateMenu = false;
       this.fetchAnalytics();
-    },
-    goToProfile() {
-      this.$router.push('/profile');
     },
     exportReport() {
       const data = this.analytics;

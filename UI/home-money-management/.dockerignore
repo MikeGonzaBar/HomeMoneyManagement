@@ -1,8 +1,11 @@
+# Keep secrets and local artifacts out of the Docker build context.
+# The Brandfetch client ID is passed as a build arg (see docker-compose.yaml),
+# never copied into the image.
 node_modules/
 dist/
 .vite/
 coverage/
-*.log
-local-*.log
-local-*.err.log
-npm-audit-report.txt
+.eslintcache
+*.tsbuildinfo
+.env
+.env.*

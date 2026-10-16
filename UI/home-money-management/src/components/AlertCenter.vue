@@ -137,14 +137,14 @@ export default defineComponent({
 }
 
 .alert-title {
-  color: #111827;
+  color: var(--bb-text-strong, #111827);
   font-weight: 800;
   margin: 0;
 }
 
 .alert-subtitle,
 .alert-item-message {
-  color: #6b7280;
+  color: var(--bb-text-muted, #6b7280);
   font-size: 0.8rem;
   margin: 0;
 }
@@ -156,7 +156,7 @@ export default defineComponent({
 }
 
 .alert-item {
-  border: 1px solid #f3f4f6;
+  border: 1px solid var(--bb-border-soft, #f3f4f6);
   border-left: 4px solid #3b82f6;
   border-radius: 0.75rem;
   display: flex;
@@ -179,7 +179,7 @@ export default defineComponent({
 }
 
 .alert-item-title {
-  color: #111827;
+  color: var(--bb-text-strong, #111827);
   font-size: 0.9rem;
   font-weight: 800;
   margin: 0 0 0.25rem;
@@ -192,7 +192,7 @@ export default defineComponent({
 
 .alert-empty {
   align-items: center;
-  color: #6b7280;
+  color: var(--bb-text-muted, #6b7280);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

@@ -353,3 +353,22 @@ Action items (planned):
 4. Re-run `npm audit` post-migration and document residual items.
 
 Note: The above are deferred because they introduce breaking changes to the build pipeline. Production risk remains low due to static asset serving via Nginx.
+
+## Frontend-exposed configuration (`VITE_*`)
+
+Every `VITE_*` variable is inlined into the JavaScript bundle at build time and is therefore **public**: anyone can read it in the browser. This is by design in Vite and cannot be prevented by how you store the value.
+
+Rules:
+
+- **Never** put a server secret in a `VITE_*` variable: no Django `SECRET_KEY`, database credentials, Gemini/Google API keys, or auth tokens. Those belong to the backend environment only (they stay in the root `.env`, which is gitignored).
+- Values that are intentionally public are fine, but they still stay out of version control.
+
+Current variables (`UI/home-money-management`):
+
+| Variable | Public? | Notes |
+|---|---|---|
+| `VITE_API_BASE_URL` | yes | API origin. Defaults to same-origin `/api` when unset. |
+| `VITE_API_PROXY_TARGET` | yes (dev only) | Dev-server proxy target read by `vite.config.ts`; never shipped in a production bundle. |
+| `VITE_BRANDFETCH_CLIENT_ID` | yes, by design | Brandfetch's docs tell you to embed it in pages. It has a monthly request allowance, so it is env-driven and never hardcoded; rotate it in the Brandfetch dashboard if it is abused. |
+
+Enforcement: `.env*` is gitignored (only `.env.example` with placeholders is tracked) and no key is hardcoded. To verify the full list, grep the UI source for `import.meta.env.VITE_` — it must only ever appear for values documented above.

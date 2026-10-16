@@ -76,7 +76,7 @@ Development defaults are intentionally convenient. Production must be explicit:
 - `DATABASE_URL` or `USE_POSTGRES=true`: enables PostgreSQL. Otherwise local SQLite is used.
 - `API_DOCS_ENABLED`: enables `/schema/` and `/docs/`; defaults to the value of `DEBUG`.
 - `GOOGLE_AI_API_KEY`: enables Gemini-powered statement extraction and report insights. `GOOGLE_API_KEY` and `GEMINI_API_KEY` are accepted as aliases for local compatibility.
-- `GOOGLE_AI_MODEL`: optional Gemini model override; defaults to `gemini-2.5-flash`.
+- `GOOGLE_AI_MODEL`: optional Gemini model override; defaults to `gemini-3.8-flash`.
 - `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, and `SECURE_HSTS_SECONDS`: default to secure production values when `DEBUG=False`; override only if a trusted proxy handles the behavior.
 - `SECURE_HSTS_PRELOAD`: defaults to `False`; set to `True` only when the production domain and subdomains are ready for HSTS preload behavior.
 
@@ -103,7 +103,16 @@ python manage.py migrate
 gunicorn --bind 0.0.0.0:8000 --workers=4 MoneyManagement.wsgi:application
 ```
 
-Docker binds the API to `127.0.0.1:${API_HOST_PORT:-8000}` by default so raw API, Django admin, and Swagger access stay private on a VM. The UI remains public on `${UI_HOST_PORT:-8080}` and proxies `/api/` and `/media/` to the API container over the Docker network. PostgreSQL is internal-only unless you intentionally add a host port.
+Docker binds the API to `127.0.0.1:${API_HOST_PORT:-8000}` by default so raw API, Django admin, and Swagger access stay private on a VM. The UI remains public on `${UI_HOST_PORT:-8080}` and proxies `/api/` and `/media/` to the API container over the Docker network. PostgreSQL is internal-only unless you intentionally add a host port. The API container uses Gunicorn with configurable workers/threads, and `DB_CONN_MAX_AGE` defaults to 60 seconds.
+
+PostgreSQL query metrics are enabled through `pg_stat_statements`. Inspect them with:
+
+```sql
+SELECT calls, total_exec_time, query
+FROM pg_stat_statements
+ORDER BY total_exec_time DESC
+LIMIT 20;
+```
 
 Use an SSH tunnel for remote admin/API/docs access:
 
