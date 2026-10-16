@@ -49,7 +49,12 @@ services:
       GOOGLE_AI_MODEL: "${GOOGLE_AI_MODEL:-gemini-3.8-flash}"
       GOOGLE_AI_FALLBACK_MODELS: "${GOOGLE_AI_FALLBACK_MODELS:-gemini-3.5-flash-lite}"
       GOOGLE_AI_TRANSIENT_RETRIES: "${GOOGLE_AI_TRANSIENT_RETRIES:-0}"
-      GOOGLE_AI_REQUEST_TIMEOUT: "${GOOGLE_AI_REQUEST_TIMEOUT:-45}"
+      GOOGLE_AI_REQUEST_TIMEOUT: "${GOOGLE_AI_REQUEST_TIMEOUT:-120}"
+      BANK_STATEMENT_MAX_AUTO_RETRIES: "${BANK_STATEMENT_MAX_AUTO_RETRIES:-3}"
+      BANK_STATEMENT_RETRY_BASE_SECONDS: "${BANK_STATEMENT_RETRY_BASE_SECONDS:-60}"
+      BANK_STATEMENT_RETRY_MAX_SECONDS: "${BANK_STATEMENT_RETRY_MAX_SECONDS:-3600}"
+      BANK_STATEMENT_DB_RETRY_MAX_SECONDS: "${BANK_STATEMENT_DB_RETRY_MAX_SECONDS:-30}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
     command: bash -c "python /HomeMoneyManagement/manage.py migrate && python /HomeMoneyManagement/create_superuser.py && gunicorn --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-2} --timeout ${GUNICORN_TIMEOUT:-180} --access-logfile - --error-logfile - MoneyManagement.wsgi:application"
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
@@ -73,11 +78,23 @@ services:
         condition: service_healthy
       money-management-api:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python /HomeMoneyManagement/manage.py check --database default >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   money-management-ui:
     hostname: money-management-ui
     container_name: money-management-ui
-    build: ./UI/home-money-management
+    build:
+      context: ./UI/home-money-management
+      args:
+        # Vite bakes VITE_* values into the JS bundle at build time, so
+        # the Brandfetch client ID must be a build arg, not a runtime
+        # env var (the final image is just nginx serving static files).
+        # Substituted from the repo-root .env (gitignored) or the shell.
+        VITE_BRANDFETCH_CLIENT_ID: ${VITE_BRANDFETCH_CLIENT_ID:-}
     ports:
       - "${UI_HOST_PORT:-8080}:80"
     depends_on:

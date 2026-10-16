@@ -346,7 +346,7 @@ HomeMoneyManagement/
 │       │   ├── styles/          # SCSS styles
 │       │   │   └── settings.scss
 │       │   ├── assets/          # Static assets
-│       │   │   ├── logo.png
+│       │   │   ├── logo-192.png
 │       │   │   └── logo.svg
 │       │   ├── App.vue          # Main app component
 │       │   ├── main.ts          # Application entry point
