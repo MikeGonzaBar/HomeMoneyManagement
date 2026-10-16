@@ -6,131 +6,16 @@
             <template v-slot:top>
                 <div class="table-header">
                     <div class="d-flex align-center justify-end pa-4">
-                        <v-dialog v-model="(this as any).dialog" :max-width="$vuetify.display.mobile ? '95%' : '600px'"
-                            persistent>
-                            <template v-slot:activator="{ props }">
-                                <v-btn color="primary" class="smooth-transition hover-lift" v-bind="props"
-                                    :prepend-icon="$vuetify.display.smAndUp ? 'mdi-plus' : undefined"
-                                    :size="$vuetify.display.mobile ? 'default' : 'default'" rounded="lg">
-                                    <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">New
-                                        Transaction</span>
-                                    <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">+
-                                        New</span>
-                                </v-btn>
-                            </template>
-                            <v-card class="modern-dialog" rounded="xl">
-                                <v-card-title class="pa-6 pb-2">
-                                    <div class="d-flex align-center">
-                                        <v-avatar size="40" class="me-3 budget-gradient">
-                                            <v-icon color="white">{{ (this as any).editedIndex === -1 ? 'mdi-plus' :
-                                                'mdi-pencil'
-                                            }}</v-icon>
-                                        </v-avatar>
-                                        <div>
-                                            <h3 class="text-h5 font-weight-bold budget-text-gradient mb-0">{{ (this as
-                                                any).formTitle
-                                            }}</h3>
-                                            <p class="text-caption text-grey-darken-1 mb-0">Enter transaction details
-                                            </p>
-                                        </div>
-                                    </div>
-                                </v-card-title>
-                                <v-card-text class="pa-6 pt-2">
-                                    <v-container class="pa-0">
-                                        <v-row>
-                                            <v-col cols="12" md="6">
-                                                <v-select v-model="(this as any).editedItem.transaction_type"
-                                                    label="Transaction Type" :items="[
-                                                        { title: 'Income', value: 'Income', prependIcon: 'mdi-trending-up' },
-                                                        { title: 'Expense', value: 'Expense', prependIcon: 'mdi-trending-down' },
-                                                        { title: 'Transfer', value: 'Transfer', prependIcon: 'mdi-swap-horizontal' }
-                                                    ]" variant="outlined" rounded="lg"></v-select>
-                                            </v-col>
-                                            <v-col cols="12" md="6">
-                                                <v-text-field v-model="editedItem.date" label="Date" type="date"
-                                                    variant="outlined" rounded="lg"></v-text-field>
-                                            </v-col>
-                                        </v-row>
-                                        <v-row>
-                                            <v-col cols="12" md="8">
-                                                <v-text-field v-model="editedItem.title" label="Transaction Title"
-                                                    variant="outlined" rounded="lg"></v-text-field>
-                                            </v-col>
-                                            <v-col cols="12" md="4">
-                                                <v-text-field v-model="editedItem.total" label="Amount" type="number"
-                                                    step="0.01" variant="outlined" rounded="lg"
-                                                    prepend-inner-icon="mdi-currency-usd"></v-text-field>
-                                            </v-col>
-                                        </v-row>
-                                        <v-row v-if="editedItem.transaction_type === 'Transfer'">
-                                            <v-col cols="12" md="6">
-                                                <v-select v-model="editedItem.from_account_id" label="From Account"
-                                                    :items="internalAccounts" item-title="title" item-value="value"
-                                                    variant="outlined" rounded="lg"
-                                                    prepend-inner-icon="mdi-bank-transfer-out"></v-select>
-                                            </v-col>
-                                            <v-col cols="12" md="6">
-                                                <v-select v-model="editedItem.to_account_id" label="To Account"
-                                                    :items="internalAccounts" item-title="title" item-value="value"
-                                                    variant="outlined" rounded="lg"
-                                                    prepend-inner-icon="mdi-bank-transfer-in"></v-select>
-                                            </v-col>
-                                        </v-row>
-                                        <v-row v-else>
-                                            <v-col cols="12" md="6">
-                                                <v-select v-model="editedItem.account_id" label="Account"
-                                                    :items="internalAccounts" item-title="title" item-value="value"
-                                                    variant="outlined" rounded="lg"
-                                                    prepend-inner-icon="mdi-bank"></v-select>
-                                            </v-col>
-                                            <v-col cols="12" md="6">
-                                                <v-select v-model="editedItem.category" label="Category"
-                                                    :items="categories" variant="outlined" rounded="lg"
-                                                    prepend-inner-icon="mdi-tag"></v-select>
-                                            </v-col>
-                                        </v-row>
-                                    </v-container>
-                                </v-card-text>
-                                <v-card-actions class="pa-6 pt-0">
-                                    <v-spacer></v-spacer>
-                                    <v-btn variant="outlined" @click="close" class="me-2" rounded="lg">
-                                        Cancel
-                                    </v-btn>
-                                    <v-btn color="primary" @click="saveTransaction" :disabled="!isFormValid"
-                                        rounded="lg" class="smooth-transition">
-                                        {{ editedIndex === -1 ? 'Create' : 'Update' }}
-                                    </v-btn>
-                                </v-card-actions>
-                            </v-card>
-                        </v-dialog>
-                        <v-dialog v-model="dialogDelete" max-width="500px" persistent>
-                            <v-card class="modern-dialog" rounded="xl">
-                                <v-card-title class="pa-6 pb-2">
-                                    <div class="d-flex align-center">
-                                        <v-avatar size="40" class="me-3 bg-error">
-                                            <v-icon color="white">mdi-delete</v-icon>
-                                        </v-avatar>
-                                        <div>
-                                            <h3 class="text-h5 font-weight-bold text-error mb-0">Delete Transaction</h3>
-                                            <p class="text-caption text-grey-darken-1 mb-0">This action cannot be undone
-                                            </p>
-                                        </div>
-                                    </div>
-                                </v-card-title>
-                                <v-card-text class="pa-6 pt-2">
-                                    <p class="text-body-1">Are you sure you want to delete this transaction?</p>
-                                </v-card-text>
-                                <v-card-actions class="pa-6 pt-0">
-                                    <v-spacer></v-spacer>
-                                    <v-btn variant="outlined" @click="closeDelete" class="me-2" rounded="lg">
-                                        Cancel
-                                    </v-btn>
-                                    <v-btn color="error" @click="deleteItemConfirm" rounded="lg">
-                                        Delete
-                                    </v-btn>
-                                </v-card-actions>
-                            </v-card>
-                        </v-dialog>
+                        <v-btn color="primary" class="smooth-transition hover-lift" @click="openCreate"
+                            :prepend-icon="$vuetify.display.smAndUp ? 'mdi-plus' : undefined"
+                            :size="$vuetify.display.mobile ? 'default' : 'default'" rounded="lg">
+                            <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">New
+                                Transaction</span>
+                            <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">+
+                                New</span>
+                        </v-btn>
+                        <TransactionDialog ref="txDialog" :accounts="accounts"
+                            :username="userData?.user?.username || ''" @saved="onSaved" @deleted="onDeleted" />
                     </div>
                 </div>
             </template>
@@ -167,10 +52,10 @@
 
             <template v-slot:item.actions="{ item }">
                 <div class="d-flex align-center">
-                    <v-btn icon size="small" variant="text" color="primary" @click="editItem(asTransaction(item))" class="me-1">
+                    <v-btn icon size="small" variant="text" color="primary" @click="openEdit(asTransaction(item))" class="me-1">
                         <v-icon size="18">mdi-pencil</v-icon>
                     </v-btn>
-                    <v-btn icon size="small" variant="text" color="error" @click="deleteItem(asTransaction(item))">
+                    <v-btn icon size="small" variant="text" color="error" @click="openDelete(asTransaction(item))">
                         <v-icon size="18">mdi-delete</v-icon>
                     </v-btn>
                 </div>
@@ -182,7 +67,7 @@
                     <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-receipt</v-icon>
                     <h3 class="text-h6 text-grey-darken-1 mb-2">No transactions found</h3>
                     <p class="text-body-2 text-grey-darken-1 mb-4">Start by adding your first transaction</p>
-                    <v-btn color="primary" @click="dialog = true" rounded="lg">
+                    <v-btn color="primary" @click="openCreate" rounded="lg">
                         <v-icon left>mdi-plus</v-icon>
                         Add Transaction
                     </v-btn>
@@ -193,9 +78,10 @@
 </template>
 
 <script lang="ts">
-import axios from '@/services/api';
 import { getCategoryStyle as getCategoryStyleUtil } from '@/constants/categoryStyles';
 import { toMoneyNumber } from '@/services/money';
+import { formatCalendarDate } from '@/services/calendarDate';
+import TransactionDialog from '@/components/TransactionDialog.vue';
 
 interface Transaction {
     id: number;
@@ -220,6 +106,7 @@ interface Account {
 
 export default {
     name: 'TableData',
+    components: { TransactionDialog },
     props: {
         transactions: {
             type: Array as () => Transaction[],
@@ -237,9 +124,6 @@ export default {
     data() {
         return {
             internalTransactions: [] as Transaction[],
-            internalAccounts: [] as Array<{ title: string; value: string }>,
-            dialog: false,
-            dialogDelete: false,
             headers: [
                 {
                     title: 'Transaction',
@@ -264,72 +148,10 @@ export default {
                 { title: 'Total', key: 'total' },
                 { title: 'Actions', key: 'actions', sortable: false },
             ] as const,
-
-            editedIndex: -1,
-            editedItem: {
-                id: 0,
-                owner_id: 'temp',
-                account_id: '',
-                title: '',
-                category: '',
-                date: '',
-                total: 0,
-                transaction_type: '',
-                from_account_id: '',
-                to_account_id: '',
-            } as Transaction,
-            defaultItem: {
-                id: 0,
-                owner_id: '',
-                account_id: '',
-                title: '',
-                category: '',
-                date: '',
-                total: 0,
-                transaction_type: '',
-                from_account_id: '',
-                to_account_id: '',
-            } as Transaction,
-            categories: [
-                'Account Transfer',
-                'Awards',
-                'Balance Transfer',
-                'Bills and utilities',
-                'Education',
-                'Entertainment',
-                'Food and drinks',
-                'Gifts',
-                'Insurance',
-                'Investments',
-                'Loans',
-                'Medical',
-                'Money Transfer',
-                'Others',
-                'Salary',
-                'Shopping',
-                'Transportation',
-                'Transfer',
-            ],
         }
     },
 
     computed: {
-        formTitle(): string {
-            return (this as any).editedIndex === -1 ? 'New Transaction' : 'Edit Transaction'
-        },
-        isFormValid(): boolean {
-            const item = (this as any).editedItem;
-            item.owner_id = (this as any).userData.user.username;
-            // Transfers do not show a category selector. They always use the
-            // ledger category "Account Transfer", so do not block a complete
-            // transfer form because that hidden field is blank.
-            const hasCategory = item.transaction_type === 'Transfer' || !!item.category;
-            const base = !!item.transaction_type && hasCategory && !!item.date && !!item.title && Number(item.total) > 0;
-            if (item.transaction_type === 'Transfer') {
-                return base && !!item.from_account_id && !!item.to_account_id && item.from_account_id !== item.to_account_id;
-            }
-            return base && !!item.account_id;
-        },
         currentHeaders(): any[] {
             return (this as any).$vuetify.display.mobile ? (this as any).mobileHeaders : (this as any).headers;
         },
@@ -347,41 +169,15 @@ export default {
                 })
             }
         },
-        dialog(val: boolean) {
-            val || (this as any).close()
-        },
-        dialogDelete(val: boolean) {
-            val || (this as any).closeDelete()
-        },
-        accounts: {
-            immediate: true,
-            handler(newVal: Account[]) {
-                (this as any).internalAccounts = []
-                newVal.forEach((account: Account) => {
-                    (this as any).internalAccounts.push({
-                        title: account.account_name,
-                        value: String(account.id)
-                    })
-                })
-            }
-        },
     },
 
-    mounted() {
-        this.categories.sort()
-    },
     emits: ['updateAccounts', 'updateIncomeExpense'],
     methods: {
         asTransaction(item: unknown): Transaction {
             return item as Transaction;
         },
         formatDate(dateString: string): string {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
+            return formatCalendarDate(dateString);
         },
         getCategoryStyle(category: string) {
             return getCategoryStyleUtil(category);
@@ -397,92 +193,34 @@ export default {
             return 'mdi-swap-horizontal';
         },
 
-        editItem(item: Transaction) {
-            if (!Array.isArray((this as any).internalTransactions)) {
-                (this as any).internalTransactions = [];
-            }
-            (this as any).editedIndex = (this as any).internalTransactions.indexOf(item);
-            (this as any).editedItem = Object.assign({}, item);
-            if ((this as any).editedItem.total < 0) {
-                (this as any).editedItem.total *= -1;
-            }
-            (this as any).dialog = true;
+        openCreate() {
+            (this as any).$refs.txDialog.openCreate();
         },
-        deleteItem(item: Transaction) {
-            if (!Array.isArray((this as any).internalTransactions)) {
-                (this as any).internalTransactions = [];
-            }
-            (this as any).editedIndex = (this as any).internalTransactions.indexOf(item);
-            (this as any).editedItem = Object.assign({}, item);
-            (this as any).dialogDelete = true;
+        openEdit(item: Transaction) {
+            (this as any).$refs.txDialog.openEdit(item);
         },
-
-        deleteItemConfirm() {
-            let idToDelete = (this as any).editedItem.id;
-            axios.delete(`/transactions/delete/${idToDelete}/`)
-                .then((response: any) => {
-                    (this as any).internalTransactions.splice((this as any).editedIndex, 1);
-                    (this as any).$emit('updateAccounts');
-                    (this as any).$emit('updateIncomeExpense');
-                    (this as any).closeDelete();
-                })
-                .catch((error: any) => {
-                    console.log(error);
-                });
+        openDelete(item: Transaction) {
+            (this as any).$refs.txDialog.openDelete(item);
         },
-        close() {
-            ; (this as any).dialog = false
-                ; (this as any).$nextTick(() => {
-                    (this as any).editedItem = Object.assign({}, (this as any).defaultItem)
-                        ; (this as any).editedIndex = -1
-                })
-        },
-        closeDelete() {
-            ; (this as any).dialogDelete = false
-                ; (this as any).$nextTick(() => {
-                    (this as any).editedItem = Object.assign({}, (this as any).defaultItem)
-                        ; (this as any).editedIndex = -1
-                })
-        },
-        saveTransaction() {
-            const payload = { ...(this as any).editedItem };
-            if (payload.transaction_type === 'Transfer') {
-                payload.account_id = null;
-                payload.category = 'Account Transfer';
+        onSaved(payload: { transaction: Transaction; isNew: boolean }) {
+            const normalized = {
+                ...payload.transaction,
+                total: Math.abs(toMoneyNumber(payload.transaction.total)),
+            };
+            if (payload.isNew) {
+                (this as any).internalTransactions.push(normalized);
             } else {
-                payload.from_account_id = null;
-                payload.to_account_id = null;
+                const index = (this as any).internalTransactions.findIndex((t: Transaction) => t.id === normalized.id);
+                if (index > -1) (this as any).internalTransactions.splice(index, 1, normalized);
             }
-            if ((this as any).editedIndex > -1) {
-                let oldTransaction = (this as any).internalTransactions[(this as any).editedIndex];
-                if ((this as any).editedItem === oldTransaction) {
-                    (this as any).close();
-                    return;
-                }
-
-                Object.assign((this as any).internalTransactions[(this as any).editedIndex], (this as any).editedItem)
-                axios.patch(`/transactions/update/${(this as any).editedItem.id}/`, payload)
-                    .then((response: any) => {
-                        (this as any).internalTransactions[(this as any).editedIndex] = response.data.updated_transaction;
-                        (this as any).$emit('updateAccounts');
-                        (this as any).$emit('updateIncomeExpense');
-                    })
-                    .catch((error: any) => {
-                        console.log(error);
-                    });
-            } else {
-                (this as any).editedItem.owner_id = (this as any).userData.user.username
-                axios.post('/transactions/create/', payload)
-                    .then((response: any) => {
-                        (this as any).internalTransactions.push(response.data)
-                        (this as any).$emit('updateAccounts');
-                        (this as any).$emit('updateIncomeExpense');
-                    })
-                    .catch((error: any) => {
-                        console.log(error)
-                    })
-            }
-            (this as any).close()
+            (this as any).$emit('updateAccounts');
+            (this as any).$emit('updateIncomeExpense');
+        },
+        onDeleted(payload: { id: number }) {
+            const index = (this as any).internalTransactions.findIndex((t: Transaction) => t.id === payload.id);
+            if (index > -1) (this as any).internalTransactions.splice(index, 1);
+            (this as any).$emit('updateAccounts');
+            (this as any).$emit('updateIncomeExpense');
         },
     }
 }
