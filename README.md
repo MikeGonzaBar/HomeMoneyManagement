@@ -16,7 +16,7 @@ A comprehensive full-stack personal finance management application that helps us
 
 ### 💰 Financial Management
 
-- **Multi-Account Support**: Manage multiple bank accounts with different types (Savings, Checking, Credit Cards, Cash, etc.)
+- **Multi-Account Support**: Manage multiple bank accounts with different types (Checking, Savings, Credit Card, Cash, Investment, Retirement, Loan, Mortgage, and more)
 - **Credit Card Management**: Track credit limits, available credit, and used credit with real-time calculations
 - **Net Worth Calculation**: Automatic calculation of total net worth (assets minus liabilities)
 - **Transaction Tracking**: Record and categorize income and expenses
@@ -36,7 +36,7 @@ A comprehensive full-stack personal finance management application that helps us
 - **Financial Projections**: Smart forecasting based on historical data with seamless solid-to-dotted line transitions
 - **Income vs Expense Analysis**: Visual comparison of financial flows
 - **In-App Alerts**: Alert center for budget thresholds, recurring due/overdue items, forecasted negative balances, and import duplicate-review items
-- **Account Carousel**: Modern card-based account overview
+- **Accounts Overview**: Grouped account summaries with balances and net worth
 
 ### 🎨 Modern User Interface
 
@@ -58,9 +58,10 @@ A comprehensive full-stack personal finance management application that helps us
 
 ### Backend (Django REST API)
 
-- **Framework**: Django 4.2.30 with Django REST Framework 3.15.2
-- **Database**: PostgreSQL in Docker, SQLite for lightweight local development
+- **Framework**: Django 5.2.17 with Django REST Framework 3.17.2
+- **Database**: PostgreSQL 15 in Docker, SQLite for lightweight local development
 - **API Endpoints**: RESTful APIs for users, accounts, transactions, budgets, recurring transactions, bank statements, reports, and alerts
+- **Background Worker**: A dedicated `money-management-worker` container drives the bank-statement processing queue
 - **Admin Interface**: Django admin for data management
 
 ### Database Schema
@@ -76,8 +77,9 @@ erDiagram
         string first_name
         string last_name
         string theme_preference
+        boolean is_admin
     }
-    
+
     AuthToken {
         string key PK
         int user_id FK
@@ -95,8 +97,10 @@ erDiagram
         int owner_user_id FK
         string owner "legacy"
         decimal credit_limit
+        json retirement_metadata
+        json credit_card_metadata
     }
-    
+
     Transaction {
         int id PK
         string transaction_type
@@ -113,7 +117,7 @@ erDiagram
         string to_account_id "legacy"
         string account_id "legacy"
     }
-    
+
     BankStatement {
         int id PK
         int owner_user_id FK
@@ -125,49 +129,167 @@ erDiagram
         boolean processed
         string processing_status
         text error_message
+        int retry_count
+        datetime next_retry_at
+        string failure_class
+    }
+
+    BankStatementImportBatch {
+        int id PK
+        int bank_statement_id FK
+        int owner_user_id FK
+        string detected_account_name
+        string detected_account_type
+        decimal initial_balance
+        date statement_period_start
+        date statement_period_end
+        string statement_kind
+        date balance_period_start
+        date balance_period_end
+        date movements_period_start
+        date movements_period_end
+        json retirement_breakdown
+        json card_summary
+        json deferred_purchases
+        json reconciliation
+        int linked_account_id FK
+        int draft_account_id FK
+        json draft_new_account
+        json scan_summary
+        string status
+        datetime created_at
+        datetime updated_at
+    }
+
+    BankStatementImportProduct {
+        int id PK
+        int import_batch_id FK
+        string source_product_id
+        string name
+        string bank_name
+        string product_type
+        decimal opening_balance
+        decimal closing_balance
+        json reconciliation
+        json positions
+        int linked_account_id FK
+    }
+
+    RetirementStatementSnapshot {
+        int id PK
+        int account_id FK
+        int import_batch_id FK "one-to-one"
+        date statement_date
+        decimal opening_balance
+        decimal closing_balance
+        json breakdown
+        date balance_period_start
+        date balance_period_end
+        date movements_period_start
+        date movements_period_end
+        datetime created_at
+    }
+
+    ProductStatementSnapshot {
+        int id PK
+        int account_id FK
+        int import_product_id FK "one-to-one"
+        decimal closing_balance
+        date statement_date
+        json positions
+        datetime created_at
+    }
+
+    CreditCardStatementSnapshot {
+        int id PK
+        int account_id FK
+        int import_batch_id FK "one-to-one"
+        date statement_date
+        json summary
+        json deferred_purchases
+        datetime created_at
+    }
+
+    DeferredPurchase {
+        int id PK
+        int account_id FK
+        string source_key
+        string merchant
+        decimal original_amount
+        decimal remaining_balance
+        decimal current_installment
+        int installment_number
+        int installment_count
+        json metadata
+        datetime updated_at
+    }
+
+    BankStatementTransactionCandidate {
+        int id PK
+        int import_batch_id FK
+        int owner_user_id FK
+        string title
+        string transaction_type
+        string category
+        date date
+        decimal amount
+        int source_product_id FK
+        int destination_product_id FK
+        int account_fk_id FK
+        int from_account_fk_id FK
+        int to_account_fk_id FK
+        boolean from_uses_batch_draft
+        boolean to_uses_batch_draft
+        json possible_matches
+        int linked_transaction_id FK
+        int imported_transaction_id FK
+        string status
+        text error_message
+        json raw_data
+        datetime created_at
+        datetime updated_at
     }
 
     Budget {
         int id PK
         int owner_user_id FK
-        string month
+        date month
         string scope
         string category
         decimal limit_amount
+        datetime created_at
+        datetime updated_at
     }
 
     RecurringTransaction {
         int id PK
         int owner_user_id FK
+        string title
         string transaction_type
+        string category
+        decimal total
+        int account_fk_id FK
+        int from_account_fk_id FK
+        int to_account_fk_id FK
         string frequency
         int interval
         date start_date
         date next_due_date
         date end_date
         boolean active
+        datetime created_at
+        datetime updated_at
     }
 
     RecurringOccurrence {
         int id PK
         int recurring_transaction_id FK
+        int owner_user_id FK
         date due_date
         string status
         int posted_transaction_id FK
-    }
-
-    BankStatementImportBatch {
-        int id PK
-        int owner_user_id FK
-        int statement_id FK
-        string status
-    }
-
-    BankStatementTransactionCandidate {
-        int id PK
-        int batch_id FK
-        string status
-        int linked_transaction_id FK
+        datetime created_at
+        datetime updated_at
     }
 
     Alert {
@@ -175,36 +297,59 @@ erDiagram
         int owner_user_id FK
         string alert_type
         string severity
-        boolean read
-        boolean dismissed
+        string title
+        text message
+        string object_key
+        datetime read_at
+        datetime dismissed_at
+        datetime created_at
+        datetime updated_at
     }
-    
+
     User ||--o{ AuthToken : "has"
     User ||--o{ Account : "owns"
     User ||--o{ Transaction : "creates"
     User ||--o{ BankStatement : "uploads"
     User ||--o{ Budget : "sets"
     User ||--o{ RecurringTransaction : "defines"
+    User ||--o{ RecurringOccurrence : "owns"
     User ||--o{ BankStatementImportBatch : "reviews"
+    User ||--o{ BankStatementTransactionCandidate : "owns"
     User ||--o{ Alert : "receives"
     Account ||--o{ Transaction : "source"
     Account ||--o{ Transaction : "destination"
     Account ||--o{ Transaction : "single-account"
+    Account ||--o{ RecurringTransaction : "account"
+    Account ||--o{ RecurringTransaction : "transfer endpoints"
+    Account ||--o{ BankStatementImportBatch : "linked or draft"
+    Account ||--o{ BankStatementImportProduct : "linked"
+    Account ||--o{ RetirementStatementSnapshot : "verified snapshots"
+    Account ||--o{ ProductStatementSnapshot : "verified snapshots"
+    Account ||--o{ CreditCardStatementSnapshot : "verified snapshots"
+    Account ||--o{ DeferredPurchase : "open installments"
     RecurringTransaction ||--o{ RecurringOccurrence : "generates"
+    Transaction ||--o{ RecurringOccurrence : "posts as"
+    Transaction ||--o{ BankStatementTransactionCandidate : "linked / imported"
     BankStatement ||--o{ BankStatementImportBatch : "creates"
     BankStatementImportBatch ||--o{ BankStatementTransactionCandidate : "contains"
+    BankStatementImportBatch ||--o{ BankStatementImportProduct : "detects"
+    BankStatementImportBatch ||--|| RetirementStatementSnapshot : "verifies"
+    BankStatementImportBatch ||--|| CreditCardStatementSnapshot : "verifies"
+    BankStatementImportProduct ||--|| ProductStatementSnapshot : "verifies"
+    BankStatementImportProduct ||--o{ BankStatementTransactionCandidate : "source"
+    BankStatementImportProduct ||--o{ BankStatementTransactionCandidate : "destination"
 ```
 
 **Key Relationships:**
 
-- **User → Account**: One-to-Many through `Account.owner_user`
-- **User → Transaction**: One-to-Many through `Transaction.owner_user`
-- **User → BankStatement**: One-to-Many through `BankStatement.owner_user`
-- **User → Budget**: One-to-Many monthly budgets through `Budget.owner_user`
-- **User → RecurringTransaction**: One-to-Many rules through `RecurringTransaction.owner_user`
-- **User → Alert**: One-to-Many in-app alerts through `Alert.owner_user`
+- **User → Account / Transaction / BankStatement / Budget / RecurringTransaction / Alert**: Ownership is enforced through each model's `owner_user` foreign key
+- **User → AuthToken**: One-to-many opaque API tokens with revocable sessions
 - **Account → Transaction**: One-to-Many through `account_fk`, `from_account_fk`, and `to_account_fk`
-- **Transaction Types**: Income, Expense, Transfer (with different account relationships)
+- **Account → RecurringTransaction**: One-to-Many through the single-account and transfer endpoint foreign keys
+- **Account → Statement snapshots**: Verified retirement, product, and credit-card snapshots plus open deferred purchases
+- **BankStatement → BankStatementImportBatch**: One statement can produce review batches, each owning its detected products, candidates, and verified snapshots
+- **RecurringTransaction → RecurringOccurrence**: A rule generates due occurrences that post into `Transaction`
+- **Transaction Types**: Income, Expense, Transfer, External Deposit, and External Withdrawal
 
 **Database Design Notes:**
 
@@ -212,155 +357,188 @@ erDiagram
 - **Compatibility Fields**: Legacy strings (`owner`, `owner_id`, `from_account_id`, `to_account_id`, `account_id`, `user_id`) remain populated during this transition
 - **Decimal Money**: Balances, credit limits, and transaction totals use fixed-precision decimal fields
 - **Token Auth**: `users.AuthToken` provides opaque API tokens and supports logout/revocation
-- **User Preferences**: `theme_preference` stores `system`, `light`, or `dark`
-- **Transaction Flexibility**: Transactions support three types:
-  - **Income/Expense**: Uses `account_id` for single account
-  - **Transfer**: Uses `from_account_id` and `to_account_id` for inter-account transfers
+- **User Preferences**: `theme_preference` stores `system`, `light`, or `dark`, and `is_admin` gates the `/api-admin/` endpoints
+- **Transaction Flexibility**: Transactions support five types:
+  - **Income/Expense**: Uses `account_fk` for a single account
+  - **Transfer**: Uses `from_account_fk` and `to_account_fk` for inter-account transfers
+  - **External Deposit / External Withdrawal**: Cash movements whose other side is outside the tracked account set; intentionally excluded from income/spending analytics
 - **Budgeting**: Monthly `overall` and `category` budgets are owner-scoped and summarized with calculated spend/remaining values
 - **Recurring Rules**: Recurring rules generate due occurrences; no real transaction is created until the user posts an occurrence
-- **Import Review**: Statement upload persists review batches and candidates; commit operations skip already processed candidates
-- **Alerts**: Alerts are in-app only and can be refreshed, marked read, or dismissed
-- **Credit Card Support**: Accounts include `credit_limit` field for credit card management
-- **File Management**: BankStatement model handles PDF uploads with processing status tracking
+- **Import Review**: A statement upload persists a review batch with detected products and transaction candidates; commits are idempotent and skip already-processed candidates
+- **Statement Snapshots**: Verified retirement, product, and credit-card snapshots are immutable records tied to the review batch that produced them
+- **Deferred Payments**: `DeferredPurchase` tracks the latest state of each MSI/installment plan per credit card
+- **Alerts**: Alerts are in-app only and can be refreshed, marked read (`read_at`), or dismissed (`dismissed_at`)
+- **Credit Card Support**: Accounts include `credit_limit` for available-credit tracking and `credit_card_metadata` for the latest verified statement facts
+- **File Management**: `BankStatement` handles PDF uploads with processing status and automatic retry tracking (`retry_count`, `next_retry_at`, `failure_class`)
 - **Data Isolation**: All user data is isolated by authenticated user, not by client-supplied usernames
 
 **Supported Account Types:**
 
-- **Debit** (`Débito`): Checking/Savings accounts with positive balances
-- **Credit** (`Crédito`): Credit card accounts with credit limits and available credit tracking
+- **Checking / Savings**: Standard positive-balance bank accounts
+- **Debit** (`Débito`): Debit and point-of-sale accounts
+- **Credit Card**: Credit accounts with a limit, available credit, and deferred-payment (MSI) tracking
 - **Cash** (`Efectivo`): Physical cash accounts
-- **Investment** (`Inversión`): *Ready to support* - schema is flexible enough, just needs UI implementation
+- **Investment / Retirement**: Investment and AFORE/retirement accounts with verified statement snapshots
+- **Loan / Mortgage**: Liability accounts
+- **Business / Other**: Remaining account types
+
+Account types are declared once in `UI/home-money-management/src/constants/taxonomy.ts` and mirrored by the API's `normalize_account_type` helper, so the two layers cannot drift.
 
 ### Frontend (Vue.js 3)
 
 - **Framework**: Vue.js 3 with TypeScript
-- **UI Library**: Vuetify 3 with Material Design
+- **UI Library**: Vuetify 3 (Material Design) plus Tailwind CSS 4 utility classes
 - **Charts**: Chart.js with vue-chartjs for data visualization
 - **Build Tool**: Vite for fast development and building
 
 ### Deployment
 
 - **Containerization**: Docker and Docker Compose
-- **Multi-container Setup**: Separate containers for API and UI
+- **Multi-container Setup**: Separate API, UI, PostgreSQL, and bank-statement worker containers
 - **Development Ready**: Hot reload and development tools included
 
 ## 📁 Project Structure
 
 ```text
 HomeMoneyManagement/
-├── API/                          # Django Backend
-│   ├── users/                    # User management app
-│   │   ├── models.py            # User model
-│   │   ├── views.py             # User API endpoints
-│   │   ├── serializers.py       # User data serialization
+├── API/                          # Django REST backend
+│   ├── users/                    # Users, tokens, preferences, and API admin
+│   │   ├── models.py            # User and AuthToken models
+│   │   ├── views.py             # Registration, login, profile, preferences
+│   │   ├── urls.py              # User route definitions
+│   │   ├── authentication.py    # Opaque token authentication
+│   │   ├── permissions.py       # Owner and admin permission classes
+│   │   ├── admin_api_views.py   # /api-admin/ endpoints
+│   │   ├── admin_api_urls.py    # /api-admin/ routes
+│   │   ├── serializers.py       # User/token serialization
 │   │   ├── services.py          # User business logic
+│   │   ├── management/commands/set_api_admin.py
 │   │   └── migrations/          # Database migrations
-│   ├── account/                  # Account management app
-│   │   ├── models.py            # Account model
-│   │   ├── views.py             # Account API endpoints
-│   │   ├── serializers.py       # Account data serialization
-│   │   └── migrations/          # Database migrations
-│   ├── transaction/              # Transaction management app
-│   │   ├── models.py            # Transaction model
-│   │   ├── views.py             # Transaction API endpoints
-│   │   ├── serializers.py       # Transaction data serialization
-│   │   └── migrations/          # Database migrations
-│   ├── bankstatements/           # Bank statement processing app
-│   │   ├── models.py            # BankStatement model
-│   │   ├── views.py             # Statement upload/processing endpoints
-│   │   ├── serializers.py       # Statement data serialization
-│   │   └── migrations/          # Database migrations
+│   ├── account/                  # Accounts and balances
+│   │   ├── models.py            # Account model (credit limit, retirement/card metadata)
+│   │   ├── views.py             # Account create/update/delete endpoints
+│   │   ├── urls.py              # Account route definitions
+│   │   ├── serializers.py       # Account serialization
+│   │   └── migrations/
+│   ├── transaction/              # Income, expense, transfer, and external cash movements
+│   │   ├── models.py            # Transaction model and its type choices
+│   │   ├── views.py             # Transaction CRUD endpoints
+│   │   ├── urls.py              # Transaction route definitions
+│   │   ├── services.py          # Atomic balance-effect application
+│   │   ├── serializers.py
+│   │   └── migrations/
+│   ├── bankstatements/           # Statement upload, AI extraction, review, and commit
+│   │   ├── models.py            # Statements, import batches/products, snapshots, candidates
+│   │   ├── views.py             # Upload, retry, review, MSI, and commit endpoints
+│   │   ├── urls.py              # Statement route definitions
+│   │   ├── services.py          # Gemini extraction prompt and response parsing
+│   │   ├── reconciliation.py    # Balance reconciliation helpers
+│   │   ├── tasks.py             # Background processing helpers
+│   │   ├── serializers.py
+│   │   ├── management/commands/ # process_bank_statements, restore_deferred_purchases
+│   │   └── migrations/
 │   ├── budgets/                  # Monthly overall/category budgets
 │   │   ├── models.py            # Budget model
 │   │   ├── views.py             # Budget CRUD and summary endpoints
-│   │   ├── urls.py              # Budget URL routing
-│   │   ├── tests.py             # Budget regression tests
-│   │   └── migrations/          # Database migrations
+│   │   ├── urls.py              # Budget route definitions
+│   │   └── migrations/
 │   ├── recurring/                # Recurring rules and due occurrences
 │   │   ├── models.py            # RecurringTransaction and RecurringOccurrence
 │   │   ├── services.py          # Due generation/posting helpers
 │   │   ├── views.py             # Recurring CRUD, due, post, and skip endpoints
-│   │   ├── urls.py              # Recurring URL routing
-│   │   ├── tests.py             # Recurring regression tests
-│   │   └── migrations/          # Database migrations
+│   │   ├── urls.py              # Recurring route definitions
+│   │   └── migrations/
 │   ├── alerts/                   # In-app alerts
 │   │   ├── models.py            # Alert model
 │   │   ├── services.py          # Alert refresh/generation helpers
 │   │   ├── views.py             # Alert list/read/dismiss endpoints
-│   │   ├── urls.py              # Alert URL routing
-│   │   ├── tests.py             # Alert regression tests
-│   │   └── migrations/          # Database migrations
-│   ├── reports/                  # Analytics and smart insights app
+│   │   ├── urls.py              # Alert route definitions
+│   │   └── migrations/
+│   ├── reports/                  # Analytics, insights, and forecasts
 │   │   ├── views.py             # Reports API endpoints
-│   │   ├── services.py          # AI-assisted insights
-│   │   └── urls.py              # Reports URL routing
-│   ├── MoneyManagement/          # Django project settings
+│   │   ├── urls.py              # Reports route definitions
+│   │   └── services.py          # Analytics and forecast calculations
+│   ├── MoneyManagement/          # Django project configuration
 │   │   ├── settings.py          # Main configuration
-│   │   ├── urls.py              # URL routing
+│   │   ├── urls.py              # Root URL routing
 │   │   ├── wsgi.py              # WSGI configuration
+│   │   ├── asgi.py              # ASGI configuration
+│   │   ├── pagination.py        # Shared pagination classes
+│   │   ├── schema.py            # OpenAPI token-auth extension
 │   │   └── error_handlers.py    # Custom error handling
 │   ├── requirements.txt          # Python dependencies
 │   ├── Dockerfile               # Backend container config
+│   ├── manage.py                # Django management entry point
 │   ├── create_superuser.py      # Admin user creation script
 │   ├── create_superuser_interactive.py  # Interactive admin creation
 │   ├── create_test_user.py      # Test user creation script
-│   ├── db.sqlite3               # Generated SQLite database for local development (ignored)
 │   ├── README.md                # API documentation
 │   └── GOOGLE_AI_SETUP.md       # Google AI Studio setup guide
 ├── UI/                          # Vue.js Frontend
 │   └── home-money-management/
 │       ├── src/
-│       │   ├── components/      # Vue components
+│       │   ├── components/      # Shared components
+│       │   │   ├── AppHeader.vue
+│       │   │   ├── AppFooter.vue
 │       │   │   ├── LoginRegister.vue
 │       │   │   ├── MainPage.vue
-│       │   │   ├── AccountsCarousel.vue
-│       │   │   ├── DatePicker.vue
-│       │   │   ├── IncomeExpense.vue
+│       │   │   ├── AccountSummary.vue
+│       │   │   ├── BankStatementUpload.vue
+│       │   │   ├── TableData.vue
+│       │   │   ├── TransactionDialog.vue
 │       │   │   ├── PieChart.vue
 │       │   │   ├── Projections.vue
-│       │   │   ├── TableData.vue
-│       │   │   ├── BankStatementUpload.vue
-│       │   │   ├── BankStatementReview.vue
 │       │   │   ├── AlertCenter.vue
+│       │   │   ├── BankLogo.vue
 │       │   │   └── ThemeToggle.vue
-│       │   ├── views/           # Page views
+│       │   ├── views/           # Routed pages
 │       │   │   ├── Home.vue
 │       │   │   ├── Profile.vue
-│       │   │   ├── Transactions.vue
+│       │   │   ├── Accounts.vue
+│       │   │   ├── Transactions.vue (+ Transactions.script.ts)
 │       │   │   ├── Budgets.vue
 │       │   │   ├── Recurring.vue
-│       │   │   └── Reports.vue
-│       │   ├── layouts/         # Layout components
-│       │   │   └── default/
-│       │   │       ├── AppBar.vue
-│       │   │       ├── Default.vue
-│       │   │       └── View.vue
+│       │   │   ├── Reports.vue (+ Reports.script.ts)
+│       │   │   ├── Statements.vue
+│       │   │   ├── ImportReview.vue
+│       │   │   ├── StatementScanResult.vue
+│       │   │   ├── HelpCenter.vue
+│       │   │   ├── PrivacyPolicy.vue
+│       │   │   └── TermsOfService.vue
+│       │   ├── constants/       # Canonical taxonomy and category styles
+│       │   │   ├── taxonomy.ts
+│       │   │   └── categoryStyles.ts
+│       │   ├── services/        # API, session, theme, formatting, import tracking
 │       │   ├── router/          # Vue Router configuration
 │       │   │   └── index.ts
 │       │   ├── plugins/         # Vuetify and other plugins
 │       │   │   ├── index.ts
 │       │   │   └── vuetify.ts
-│       │   ├── types/           # TypeScript type definitions
-│       │   │   └── vue-custom-properties.d.ts
-│       │   ├── services/        # API, session, and theme helpers
-│       │   ├── styles/          # SCSS styles
-│       │   │   └── settings.scss
-│       │   ├── assets/          # Static assets
-│       │   │   ├── logo-192.png
-│       │   │   └── logo.svg
+│       │   ├── styles/          # settings.scss (Vuetify) and tailwind.css
+│       │   ├── types/           # TypeScript custom property types
+│       │   ├── assets/          # Static assets (logo-192.png, logo.svg)
 │       │   ├── App.vue          # Main app component
 │       │   ├── main.ts          # Application entry point
-│       │   └── shims-vue.d.ts   # Vue type declarations
-│       ├── public/              # Public assets
-│       │   ├── favicon.ico
-│       │   └── favicon.png
-│       ├── dist/                # Built application (production)
+│       │   ├── shims-vue.d.ts   # Vue type declarations
+│       │   └── vite-env.d.ts    # Vite environment types
+│       ├── public/              # Public assets (favicon.ico, favicon.png)
+│       ├── scripts/             # check-build-budget.mjs, make-favicons.mjs
+│       ├── index.html           # SPA entry document
 │       ├── package.json         # Node.js dependencies
 │       ├── package-lock.json    # Dependency lock file
 │       ├── tsconfig.json        # TypeScript configuration
+│       ├── tsconfig.node.json   # Node-side TypeScript configuration
 │       ├── vite.config.ts       # Vite build configuration
-│       ├── Dockerfile          # Frontend container config
-│       └── README.md           # Frontend documentation
+│       ├── tailwind.config.js   # Tailwind CSS configuration
+│       ├── postcss.config.js    # PostCSS configuration
+│       ├── Dockerfile           # Frontend container config
+│       ├── nginx.conf           # Production web server config
+│       └── README.md            # Frontend documentation
+├── docker/                      # Supporting container build files
+│   └── postgres/Dockerfile      # PostgreSQL image with pg_stat_statements
+├── docs/                        # Project documentation
+│   ├── screenshots/             # README screenshots
+│   └── ui-overhaul-plan.md      # UI overhaul plan
 ├── Utils/                       # Utility scripts and tools
 │   ├── README.md               # Test data generation documentation
 │   └── TestData/               # Test data generation scripts
@@ -372,10 +550,10 @@ HomeMoneyManagement/
 ├── docker-compose.yaml          # Multi-container orchestration
 ├── create_admin_user.sh         # Admin user creation script
 ├── security-check.sh            # Security validation script
-├── ADMIN_SETUP.md              # Django admin setup guide
-├── SECURITY.md                 # Security policies and fixes
-├── POSTGRES_MIGRATION.md       # PostgreSQL migration guide
-└── README.md                   # This file
+├── ADMIN_SETUP.md               # Django admin setup guide
+├── SECURITY.md                  # Security policies and fixes
+├── POSTGRES_MIGRATION.md        # PostgreSQL migration guide
+└── README.md                    # This file
 ```
 
 ## 🚀 Quick Start
@@ -458,18 +636,19 @@ The utility seeders currently focus on accounts and transactions. Use the UI or 
 
 #### Account Management
 
-- Create multiple accounts (Savings, Checking, Credit Cards, Cash, Investment, etc.)
+- Create multiple accounts (Checking, Savings, Credit Card, Cash, Investment, Retirement, Loan, Mortgage, and more)
 - Set initial balances and account details
 - **Credit Card Features**:
   - Set and update credit limits
   - Track available credit and used credit
   - Real-time debt calculation (Credit Limit - Available Credit)
-- View account summaries in an interactive carousel
-- **Net Worth Tracking**: See your total net worth (assets minus liabilities) in the "All Accounts" card
+  - Deferred-payment (MSI) tracking from imported card statements
+- View grouped account summaries with balances and net worth
+- **Net Worth Tracking**: See your total net worth (assets minus liabilities) in the accounts overview
 
 #### Transaction Tracking
 
-- Add income, expense, and transfer transactions manually
+- Add income, expense, transfer, and external cash-adjustment transactions manually
 - Transfers require different source and destination accounts
 - Credit-card payments are represented as transfers from the payment account to the credit-card account
 - **AI-Powered Import**: Upload bank statement PDFs for automatic transaction extraction
@@ -629,8 +808,13 @@ python manage.py set_api_admin <username> --enabled false
 - `POST /bank-statements/upload/` - Upload and process a bank statement PDF for the token user
 - `GET /bank-statements/user/<user_id>/` - Get owned bank statements
 - `GET /bank-statements/details/<statement_id>/` - Get owned bank statement details
+- `POST /bank-statements/retry/<statement_id>/` - Retry a failed statement's AI processing
 - `DELETE /bank-statements/delete/<statement_id>/` - Delete an owned bank statement
 - `GET /bank-statements/import-batches/<id>/` - Retrieve a persisted import review batch
+- `PATCH /bank-statements/import-batches/<id>/assignment/` - Set the batch destination (existing account or a new draft account)
+- `PATCH /bank-statements/import-products/<id>/` - Link or relabel one detected statement product
+- `POST /bank-statements/import-batches/<id>/candidates/` - Add a manual candidate to a review batch
+- `PATCH /bank-statements/import-batches/<id>/msi/` - Update deferred-payment (MSI) details for the batch
 - `PATCH /bank-statements/import-candidates/<id>/` - Mark a candidate for import, skip, or link
 - `POST /bank-statements/import-batches/<id>/commit/` - Idempotently commit pending import decisions
 
@@ -725,16 +909,17 @@ gunicorn --bind 0.0.0.0:8000 --workers=4 MoneyManagement.wsgi:application
 
 ### Backend
 
-- **Django 4.2.30**: Web framework
-- **Django REST Framework 3.15.2**: API framework
-- **PostgreSQL / SQLite**: PostgreSQL for Docker, SQLite for local development
-- **Python 3.x**: Runtime environment
+- **Django 5.2.17**: Web framework
+- **Django REST Framework 3.17.2**: API framework
+- **PostgreSQL 15 / SQLite**: PostgreSQL for Docker, SQLite for local development
+- **Python 3.12**: Runtime environment (per the API Docker image)
 
 ### Frontend
 
 - **Vue.js 3**: Progressive JavaScript framework
 - **TypeScript**: Type-safe JavaScript
 - **Vuetify 3**: Material Design component framework
+- **Tailwind CSS 4**: Utility-first styling
 - **Chart.js**: Data visualization library
 - **Vite**: Build tool and development server
 - **Vue Router**: Client-side routing
@@ -773,7 +958,7 @@ gunicorn --bind 0.0.0.0:8000 --workers=4 MoneyManagement.wsgi:application
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
 
 ## 📚 Documentation
 
@@ -808,7 +993,6 @@ For support and questions:
 
 - Check the [ADMIN_SETUP.md](ADMIN_SETUP.md) for admin interface setup
 - Review the API documentation in [API/README.md](API/README.md)
-- Check [API/DEVELOPMENT.md](API/DEVELOPMENT.md) for common issues and solutions
 - Open an issue on GitHub
 
 ## 📸 Screenshots
