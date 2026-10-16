@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
 from django.db import transaction as db_transaction
-from django.db.models import Q
+from django.db.models import F, Q
 
 from account.models import Account
 from transaction.models import Transaction
@@ -66,6 +66,151 @@ def parse_balance(value: object, field_name: str) -> Decimal:
         raise ValidationError(f"{field_name} must be a valid decimal number") from exc
 
 
+def _draft_account_opening_balance(batch: BankStatementImportBatch, data: dict[str, object]) -> Decimal:
+    """Return the starting balance for a new destination created at commit."""
+    if batch.statement_kind == "credit_card_deferred_payments":
+        # A card account tracks *available credit*.  For a reconciled statement,
+        # the extracted opening available credit is the only safe opening value:
+        # using the closing available credit would apply the statement movements
+        # twice and make the verified closing balance impossible to reach.
+        reconciliation = batch.reconciliation or {}
+        if reconciliation.get("is_reconciled"):
+            value = reconciliation.get("opening_balance")
+            if value is None:
+                raise ValidationError("A reconciled credit-card statement is missing its opening available credit")
+            return parse_balance(value, "opening_available_credit")
+    supplied = data.get("new_account_initial_balance")
+    if supplied not in (None, ""):
+        return parse_balance(supplied, "new_account_initial_balance")
+    if batch.statement_kind == "retirement":
+        value = (batch.reconciliation or {}).get("opening_balance")
+        return parse_balance(value if value is not None else batch.initial_balance or 0, "initial_balance")
+    if batch.statement_kind == "credit_card_deferred_payments":
+        return parse_balance((batch.card_summary or {}).get("available_credit") or 0, "available_credit")
+    return parse_balance(batch.initial_balance if batch.initial_balance is not None else 0, "initial_balance")
+
+
+def _create_batch_draft_account(
+    batch: BankStatementImportBatch,
+    data: dict[str, object],
+) -> Account | None:
+    """Materialize a saved new-account draft only while committing its batch."""
+    if batch.draft_account_id:
+        return batch.draft_account
+    draft = batch.draft_new_account or {}
+    if not draft:
+        return None
+    name = str(draft.get("name") or "").strip()
+    account_type = str(draft.get("account_type") or "").strip()
+    bank = str(draft.get("bank") or "").strip()
+    if not name or not account_type:
+        raise ValidationError("The saved new-account draft is incomplete")
+    if batch.statement_kind == "credit_card_deferred_payments":
+        account_type = "Credit Card"
+    account = Account.objects.create(
+        owner_user=batch.owner_user,
+        account_name=name,
+        account_type=account_type,
+        bank=bank,
+        total=_draft_account_opening_balance(batch, data),
+        credit_limit=(
+            parse_balance((batch.card_summary or {}).get("credit_limit"), "credit_limit")
+            if batch.statement_kind == "credit_card_deferred_payments"
+            and (batch.card_summary or {}).get("credit_limit") not in (None, "")
+            else None
+        ),
+    )
+    # Once a commit has actually begun, preserve the created account as the
+    # batch destination so a partial import can be safely reviewed and retried.
+    batch.draft_account = account
+    batch.draft_new_account = {}
+    batch.save(update_fields=["draft_account", "draft_new_account", "updated_at"])
+    return account
+
+
+def _validate_and_materialize_batch_draft_transfer_refs(
+    batch: BankStatementImportBatch,
+    destination: Account | None,
+) -> None:
+    """Resolve the batch draft reference for pending transfer candidates."""
+    candidates = batch.candidates.select_for_update(of=("self",)).filter(
+        status=BankStatementTransactionCandidate.STATUS_PENDING,
+        transaction_type="Transfer",
+    )
+    pending = list(candidates)
+    for candidate in pending:
+        if candidate.from_uses_batch_draft and candidate.to_uses_batch_draft:
+            raise ValidationError("Transfer source and destination accounts must be different")
+        if (candidate.from_uses_batch_draft or candidate.to_uses_batch_draft) and not destination:
+            raise ValidationError("Select a saved new account before using it in a transfer")
+    for candidate in pending:
+        changed = []
+        if candidate.from_uses_batch_draft:
+            candidate.from_account_fk = destination
+            candidate.from_uses_batch_draft = False
+            changed.extend(["from_account_fk", "from_uses_batch_draft"])
+        if candidate.to_uses_batch_draft:
+            candidate.to_account_fk = destination
+            candidate.to_uses_batch_draft = False
+            changed.extend(["to_account_fk", "to_uses_batch_draft"])
+        if candidate.from_account_fk_id and candidate.from_account_fk_id == candidate.to_account_fk_id:
+            raise ValidationError("Transfer source and destination accounts must be different")
+        if changed:
+            changed.append("updated_at")
+            candidate.save(update_fields=changed)
+
+
+def _multi_product_account_map(
+    user: User,
+    products: list[BankStatementImportProduct],
+    data: dict[str, object],
+) -> dict[int, Account]:
+    """Resolve existing and new product accounts inside the batch transaction.
+
+    The browser only identifies which detected products should become new
+    accounts. Their name, bank, type, and opening balance remain the reviewed
+    product data already persisted on the batch. Calling this from
+    ``commit_batch`` under ``@atomic`` ensures a later failure rolls every new
+    account back as well.
+    """
+    raw_map = data.get("product_account_map") or {}
+    raw_new_ids = data.get("new_product_ids") or []
+    if not isinstance(raw_map, dict):
+        raise ValidationError("product_account_map must be an object")
+    if not isinstance(raw_new_ids, list):
+        raise ValidationError("new_product_ids must be a list")
+
+    product_ids = {product.id for product in products}
+    try:
+        new_ids = {int(value) for value in raw_new_ids}
+    except (TypeError, ValueError) as exc:
+        raise ValidationError("new_product_ids must contain valid product ids") from exc
+    if len(new_ids) != len(raw_new_ids) or not new_ids.issubset(product_ids):
+        raise ValidationError("new_product_ids must reference each detected product at most once")
+
+    account_map: dict[int, Account] = {}
+    for product in products:
+        existing_id = raw_map.get(str(product.id))
+        if product.id in new_ids:
+            if existing_id not in (None, ""):
+                raise ValidationError(f"Choose either an existing account or a new account for {product.name}")
+            if not product.name.strip() or not product.product_type.strip():
+                raise ValidationError(f"{product.name or 'Detected product'} needs an account name and type before importing")
+            account_map[product.id] = Account.objects.create(
+                owner_user=user,
+                account_name=product.name.strip(),
+                account_type=product.product_type.strip(),
+                bank=product.bank_name.strip(),
+                total=product.opening_balance if product.opening_balance is not None else Decimal("0.00"),
+            )
+            continue
+        account = optional_account(user, existing_id, "product_account_map")
+        if not account:
+            raise ValidationError(f"Assign an account to {product.name} before importing")
+        account_map[product.id] = account
+    return account_map
+
+
 def product_movement_totals(batch: BankStatementImportBatch) -> dict[int, Decimal]:
     """Calculate the net reviewed movement assigned to every statement product."""
     totals = {product_id: Decimal("0.00") for product_id in batch.products.values_list("id", flat=True)}
@@ -78,7 +223,7 @@ def product_movement_totals(batch: BankStatementImportBatch) -> dict[int, Decima
             if candidate.destination_product_id in totals:
                 totals[candidate.destination_product_id] += amount
         elif candidate.source_product_id in totals:
-            totals[candidate.source_product_id] += amount if candidate.transaction_type == "Income" else -amount
+            totals[candidate.source_product_id] += amount if candidate.transaction_type in {"Income", "External Deposit"} else -amount
     return totals
 
 
@@ -236,6 +381,8 @@ def candidate_payload(candidate: BankStatementTransactionCandidate) -> dict[str,
         "account_id": str(candidate.account_fk_id) if candidate.account_fk_id else None,
         "from_account_id": str(candidate.from_account_fk_id) if candidate.from_account_fk_id else None,
         "to_account_id": str(candidate.to_account_fk_id) if candidate.to_account_fk_id else None,
+        "from_uses_batch_draft": candidate.from_uses_batch_draft,
+        "to_uses_batch_draft": candidate.to_uses_batch_draft,
         "source_product_id": candidate.source_product.source_product_id if candidate.source_product_id else None,
         "destination_product_id": candidate.destination_product.source_product_id if candidate.destination_product_id else None,
         "requires_resolution": bool(candidate.raw_data.get("unresolved_transfer")),
@@ -272,6 +419,7 @@ def batch_payload(batch: BankStatementImportBatch) -> dict[str, object]:
     return {
         "id": batch.id,
         "bank_statement_id": batch.bank_statement_id,
+        "bank_statement_filename": batch.bank_statement.original_filename,
         "status": batch.status,
         "detected_account_name": batch.detected_account_name,
         "detected_account_type": batch.detected_account_type,
@@ -294,6 +442,22 @@ def batch_payload(batch: BankStatementImportBatch) -> dict[str, object]:
         "deferred_purchases": batch.deferred_purchases,
         "reconciliation": batch.reconciliation,
         "linked_account_id": batch.linked_account_id,
+        "draft_assignment": {
+            "kind": "existing",
+            "account_id": batch.draft_account_id,
+            "account_name": batch.draft_account.account_name,
+            "account_type": batch.draft_account.account_type,
+        } if batch.draft_account_id else ({
+            "kind": "new", **(batch.draft_new_account or {}),
+        } if batch.draft_new_account else None),
+        "scan_summary": batch.scan_summary or {
+            "raw_transaction_count": len(candidates),
+            "importable_candidate_count": len(candidates),
+            "zero_result_reason": (
+                "No importable transactions are available from this scan."
+                if not candidates else ""
+            ),
+        },
         "products": products,
         "candidates": [candidate_payload(item) for item in candidates],
     }
@@ -373,10 +537,29 @@ def create_import_batch(
                 raw_data=raw,
             )
         )
+    raw_transaction_count = len(raw_transactions)
     if not candidates:
+        if raw_transaction_count == 0:
+            reason = "The AI scan did not identify any transaction rows."
+        elif any(item.get("importable") is False for item in raw_transactions):
+            reason = "The scan found statement data, but no transaction rows were importable."
+        else:
+            reason = "The scan found transaction-like rows without the information needed to import them."
+        batch.scan_summary = {
+            "raw_transaction_count": raw_transaction_count,
+            "importable_candidate_count": 0,
+            "zero_result_reason": reason,
+        }
+        batch.save(update_fields=["scan_summary", "updated_at"])
         return batch
 
     BankStatementTransactionCandidate.objects.bulk_create(candidates, batch_size=500)
+    batch.scan_summary = {
+        "raw_transaction_count": raw_transaction_count,
+        "importable_candidate_count": len(candidates),
+        "zero_result_reason": "",
+    }
+    batch.save(update_fields=["scan_summary", "updated_at"])
     matches = find_possible_matches_for_candidates(candidates)
     matched_candidates = [candidate for candidate in candidates if matches[candidate.id]]
     if matched_candidates:
@@ -390,6 +573,58 @@ def create_import_batch(
     return batch
 
 
+@db_transaction.atomic
+def update_batch_assignment(
+    user: User,
+    batch_id: int,
+    data: dict[str, object],
+) -> BankStatementImportBatch:
+    """Persist a safe destination-account draft without creating an account."""
+    try:
+        batch = BankStatementImportBatch.objects.select_for_update().get(
+            owner_user=user, id=batch_id
+        )
+    except BankStatementImportBatch.DoesNotExist as exc:
+        raise BankStatementImportBatch.DoesNotExist("Import batch not found") from exc
+
+    account_id = data.get("account_id")
+    new_account = data.get("new_account")
+    if account_id not in (None, "") and new_account not in (None, {}, ""):
+        raise ValidationError("Choose an existing account or a new-account draft, not both")
+    if account_id not in (None, ""):
+        batch.draft_account = optional_account(user, account_id, "account_id")
+        batch.draft_new_account = {}
+    elif isinstance(new_account, dict) and new_account:
+        name = str(new_account.get("name") or "").strip()
+        account_type = str(new_account.get("account_type") or "").strip()
+        bank = str(new_account.get("bank") or "").strip()
+        if not name or not account_type:
+            raise ValidationError("New-account drafts require name and account_type")
+        batch.draft_account = None
+        batch.draft_new_account = {"name": name[:255], "bank": bank[:120], "account_type": account_type[:60]}
+    elif account_id in (None, "") and new_account in (None, {}, ""):
+        batch.draft_account = None
+        batch.draft_new_account = {}
+    else:
+        raise ValidationError("new_account must be an object")
+
+    update_fields = ["draft_account", "draft_new_account", "updated_at"]
+    # A reviewer may correct the opening available credit the scan got wrong
+    # (for example, a stale value that omitted prior MSI principal). Persist the
+    # reviewed value with provenance so it survives reload and is the canonical
+    # value commit validates, while the source extraction value is preserved.
+    reviewed_opening = data.get("opening_available_credit")
+    if reviewed_opening not in (None, ""):
+        reconciliation = batch.reconciliation or {}
+        reviewed_value = parse_balance(reviewed_opening, "opening_available_credit")
+        reconciliation["reviewed_opening_balance"] = float(reviewed_value)
+        reconciliation["opening_balance_source"] = "reviewed"
+        batch.reconciliation = reconciliation
+        update_fields.append("reconciliation")
+    batch.save(update_fields=update_fields)
+    return batch
+
+
 def update_candidate(
     user: User,
     candidate_id: int,
@@ -399,7 +634,7 @@ def update_candidate(
     try:
         candidate = (
             BankStatementTransactionCandidate.objects
-            .select_related("imported_transaction")
+            .select_related("imported_transaction", "import_batch")
             .get(owner_user=user, id=candidate_id)
         )
     except BankStatementTransactionCandidate.DoesNotExist as exc:
@@ -423,8 +658,21 @@ def update_candidate(
         candidate.account_fk = optional_account(user, data.get("account_id"), "account_id")
     if "from_account_id" in data:
         candidate.from_account_fk = optional_account(user, data.get("from_account_id"), "from_account_id")
+        candidate.from_uses_batch_draft = False
     if "to_account_id" in data:
         candidate.to_account_fk = optional_account(user, data.get("to_account_id"), "to_account_id")
+        candidate.to_uses_batch_draft = False
+    for endpoint in ("from", "to"):
+        uses_key = f"{endpoint}_uses_batch_draft"
+        if uses_key not in data:
+            continue
+        if not isinstance(data[uses_key], bool):
+            raise ValidationError(f"{uses_key} must be a boolean")
+        if data[uses_key]:
+            if not candidate.import_batch.draft_new_account:
+                raise ValidationError("The statement destination is not a saved new-account draft")
+            setattr(candidate, f"{endpoint}_account_fk", None)
+        setattr(candidate, uses_key, data[uses_key])
     if "source_product_id" in data:
         source_id = data.get("source_product_id")
         candidate.source_product = (
@@ -456,6 +704,8 @@ def update_candidate(
         candidate.destination_product = None
     elif candidate.source_product_id and candidate.source_product_id == candidate.destination_product_id:
         raise ValidationError("Transfer source and destination products must be different")
+    elif candidate.from_uses_batch_draft and candidate.to_uses_batch_draft:
+        raise ValidationError("Transfer source and destination accounts must be different")
     elif candidate.from_account_fk_id and candidate.from_account_fk_id == candidate.to_account_fk_id:
         raise ValidationError("Transfer source and destination accounts must be different")
     candidate.possible_matches = find_possible_matches(candidate)
@@ -540,13 +790,18 @@ def update_import_product(user: User, product_id: int, data: dict[str, object]) 
 
 
 def update_deferred_purchases(user: User, batch_id: int, plans: object) -> BankStatementImportBatch:
-    """Persist user-reviewed MSI schedule fields before a batch is committed."""
+    """Persist user-reviewed MSI schedule fields before or after import."""
     try:
         batch = BankStatementImportBatch.objects.get(owner_user=user, id=batch_id)
     except BankStatementImportBatch.DoesNotExist as exc:
         raise BankStatementImportBatch.DoesNotExist("Import batch not found") from exc
-    if batch.status != BankStatementImportBatch.STATUS_REVIEW:
-        raise ValidationError("MSI details can only be edited while the statement is in review")
+    if batch.status not in (
+        BankStatementImportBatch.STATUS_REVIEW,
+        BankStatementImportBatch.STATUS_COMMITTED,
+    ):
+        raise ValidationError(
+            "MSI details can only be edited while the statement is in review or after import"
+        )
     if not isinstance(plans, list):
         raise ValidationError("deferred_purchases must be a list")
 
@@ -558,11 +813,22 @@ def update_deferred_purchases(user: User, batch_id: int, plans: object) -> BankS
     for submitted in plans:
         source_key = str(submitted.get("source_key"))
         plan = existing[source_key]
+        # Accept the extraction contract's field name as well as the canonical
+        # one, so a value sent under either spelling is preserved.
         current_installment = submitted.get("current_installment")
+        if current_installment in (None, ""):
+            current_installment = submitted.get("current_installment_amount")
         plan["current_installment"] = (
             None if current_installment in (None, "")
             else str(parse_decimal(current_installment, "current_installment"))
         )
+        # Preserve an explicit financing type through the MSI editor. Interest-
+        # free MSI, interest-bearing financing, and unknown terms are distinct.
+        financing_type = str(submitted.get("financing_type") or plan.get("financing_type") or "").strip().lower()
+        if financing_type in ("interest_free", "interest_bearing", "unknown"):
+            plan["financing_type"] = financing_type
+        elif "financing_type" not in plan:
+            plan["financing_type"] = "unknown"
         remaining_balance = submitted.get("remaining_balance")
         if remaining_balance in (None, ""):
             plan["remaining_balance"] = None
@@ -592,7 +858,79 @@ def update_deferred_purchases(user: User, batch_id: int, plans: object) -> BankS
         updated.append(plan)
     batch.deferred_purchases = updated
     batch.save(update_fields=["deferred_purchases", "updated_at"])
+    # A committed batch already promoted its plans to the account's
+    # statement snapshot; a correction must follow there so the
+    # dashboard and the account's plan rows never show stale
+    # metadata. Balances are never touched: plan metadata only
+    # describes debt the account totals already include.
+    if (
+        batch.status == BankStatementImportBatch.STATUS_COMMITTED
+        and batch.statement_kind == "credit_card_deferred_payments"
+        and batch.linked_account_id
+    ):
+        statement_date = batch.statement_period_end or batch.movements_period_end
+        if statement_date is not None:
+            persist_card_deferred_purchases(
+                batch.linked_account, batch, statement_date, batch.card_summary or {}
+            )
+            CreditCardStatementSnapshot.objects.filter(import_batch=batch).update(
+                deferred_purchases=updated
+            )
     return batch
+
+
+def persist_card_deferred_purchases(
+    account: Account,
+    batch: BankStatementImportBatch,
+    statement_date: date,
+    summary: dict,
+) -> None:
+    """Persist a card statement's MSI plan schedule as informational metadata.
+
+    Creates the immutable :class:`CreditCardStatementSnapshot` and per-plan
+    :class:`DeferredPurchase` records that the accounts API and dashboard read,
+    then records a pointer on ``account.credit_card_metadata``.
+
+    This is deliberately separate from cash movements and recognized
+    credit-card liability: it never creates a transaction and never changes the
+    account balance.  It is idempotent - the snapshot is keyed by import batch
+    and each plan by ``(account, source_key)`` - so re-running the import or a
+    repair can never duplicate a plan or a transaction.
+    """
+    CreditCardStatementSnapshot.objects.get_or_create(
+        import_batch=batch,
+        defaults={
+            "account": account,
+            "statement_date": statement_date,
+            "summary": summary,
+            "deferred_purchases": batch.deferred_purchases or [],
+        },
+    )
+    for plan in batch.deferred_purchases or []:
+        remaining = plan.get("remaining_balance")
+        if remaining in (None, ""):
+            continue
+        DeferredPurchase.objects.update_or_create(
+            account=account,
+            source_key=str(plan.get("source_key"))[:180],
+            defaults={
+                "merchant": str(plan.get("merchant") or "Deferred purchase")[:255],
+                "original_amount": plan.get("original_amount") or None,
+                "remaining_balance": remaining,
+                "current_installment": plan.get("current_installment") or None,
+                "installment_number": plan.get("installment_number") or None,
+                "installment_count": plan.get("installment_count") or plan.get("total_installments") or None,
+                "metadata": plan,
+            },
+        )
+    account.credit_card_metadata = {
+        "statement_date": statement_date.isoformat(),
+        "summary": summary,
+        "deferred_purchase_count": len(batch.deferred_purchases or []),
+        "source_statement_id": batch.bank_statement_id,
+        "import_batch_id": batch.id,
+    }
+    account.save(update_fields=["credit_card_metadata"])
 
 
 @db_transaction.atomic
@@ -602,9 +940,11 @@ def commit_batch(user: User, batch_id: int, data: dict[str, object]) -> dict[str
         batch = BankStatementImportBatch.objects.select_for_update().get(owner_user=user, id=batch_id)
     except BankStatementImportBatch.DoesNotExist as exc:
         raise BankStatementImportBatch.DoesNotExist("Import batch not found") from exc
-    default_account = optional_account(user, data.get("account_id"), "account_id") if data.get("account_id") else None
+    default_account = optional_account(user, data.get("account_id"), "account_id") if data.get("account_id") else batch.draft_account
+    if not default_account and batch.draft_new_account:
+        default_account = _create_batch_draft_account(batch, data)
+    _validate_and_materialize_batch_draft_transfer_refs(batch, default_account)
     if batch.statement_kind == "multi_product":
-        raw_map = data.get("product_account_map") or {}
         products = list(batch.products.select_for_update())
         if not products:
             raise ValidationError("Multi-product statement has no detected products")
@@ -613,12 +953,17 @@ def commit_batch(user: User, batch_id: int, data: dict[str, object]) -> dict[str
                 raise ValidationError(f"{product.name} does not reconcile and must remain in review")
             if product.closing_balance is None:
                 raise ValidationError(f"{product.name} is missing a closing balance")
-            account = optional_account(user, raw_map.get(str(product.id)), "product_account_map")
-            if not account:
-                raise ValidationError(f"Assign an account to {product.name} before importing")
-            product.linked_account = account
+        product_account_map = _multi_product_account_map(user, products, data)
+        for product in products:
+            product.linked_account = product_account_map[product.id]
         BankStatementImportProduct.objects.bulk_update(products, ["linked_account"])
-        unresolved = batch.candidates.filter(raw_data__unresolved_transfer=True).exists()
+        # Unresolved diagnostic rows remain in the batch for traceability, but a
+        # reviewer can explicitly skip them.  Only unresolved rows that are
+        # still pending must prevent the commit.
+        unresolved = batch.candidates.filter(
+            raw_data__unresolved_transfer=True,
+            status=BankStatementTransactionCandidate.STATUS_PENDING,
+        ).exists()
         if unresolved:
             raise ValidationError("Resolve the unmatched credit-card payment before committing this multi-product statement")
         product_lookup = {item.id: item.linked_account for item in products}
@@ -626,12 +971,18 @@ def commit_batch(user: User, batch_id: int, data: dict[str, object]) -> dict[str
             if candidate.raw_data.get("unresolved_transfer"):
                 raise ValidationError(f"Resolve or skip the unmatched transfer: {candidate.title}")
             if candidate.transaction_type == "Transfer":
-                candidate.from_account_fk = product_lookup.get(candidate.source_product_id)
-                candidate.to_account_fk = product_lookup.get(candidate.destination_product_id)
+                candidate.from_account_fk = candidate.from_account_fk or product_lookup.get(candidate.source_product_id)
+                candidate.to_account_fk = candidate.to_account_fk or product_lookup.get(candidate.destination_product_id)
                 if not candidate.from_account_fk_id or not candidate.to_account_fk_id:
-                    raise ValidationError(f"Resolve both products for transfer: {candidate.title}")
+                    raise ValidationError(f"Resolve both accounts for transfer: {candidate.title}")
+                if candidate.from_account_fk_id == candidate.to_account_fk_id:
+                    raise ValidationError(f"Transfer source and destination must be different: {candidate.title}")
             else:
-                candidate.account_fk = product_lookup.get(candidate.source_product_id)
+                # External deposits are recorded against the account receiving
+                # the cash.  The model can therefore correctly omit a source
+                # product when the funding account is outside this statement.
+                product_id = candidate.source_product_id or candidate.destination_product_id
+                candidate.account_fk = product_lookup.get(product_id)
                 if not candidate.account_fk_id:
                     raise ValidationError(f"Resolve product for transaction: {candidate.title}")
             candidate.save(update_fields=["account_fk", "from_account_fk", "to_account_fk", "updated_at"])
@@ -678,6 +1029,39 @@ def commit_batch(user: User, batch_id: int, data: dict[str, object]) -> dict[str
             reconciliation = {**reconciliation, "import_transactions_only": True}
         if not default_account or not default_account.is_credit_card:
             raise ValidationError("Credit-card deferred-payment imports require a Credit Card account")
+        if not import_transactions_only:
+            # The extracted opening available credit can be stale: the initial
+            # scan proposed 15000 - 9645.36 = 5354.64, omitting the prior
+            # deferred/MSI principal of 5151.00. The verified total prior debt is
+            # 14796.36, so the correct opening available credit is 203.64.
+            # The reviewer's corrected value is canonical. Prefer an explicit
+            # reviewed value from the commit payload, then a previously
+            # persisted reviewed override, and only then the source extraction.
+            # Preserve the source value separately with provenance; never
+            # overwrite the correct account to satisfy a stale extraction.
+            reviewed_opening = data.get("opening_available_credit")
+            if reviewed_opening in (None, ""):
+                reviewed_opening = reconciliation.get("reviewed_opening_balance")
+            if reviewed_opening in (None, ""):
+                opening_available = reconciliation.get("opening_balance")
+                if opening_available is None:
+                    raise ValidationError("Credit-card statement is missing its opening available credit")
+                expected_opening_available = parse_balance(opening_available, "opening_available_credit")
+                opening_source = "extraction"
+            else:
+                expected_opening_available = parse_balance(reviewed_opening, "opening_available_credit")
+                opening_source = "reviewed"
+            reconciliation["reviewed_opening_balance"] = float(expected_opening_available)
+            reconciliation["opening_balance_source"] = opening_source
+            batch.reconciliation = reconciliation
+            batch.save(update_fields=["reconciliation", "updated_at"])
+            if default_account.total != expected_opening_available:
+                raise ValidationError(
+                    "The selected Credit Card account must start at the verified opening available credit "
+                    f"for this statement. The account shows {default_account.total}, but this statement's "
+                    f"verified opening available credit is {expected_opening_available}. Correct the account "
+                    "balance or the reviewed opening available credit before importing."
+                )
         statement_date = batch.statement_period_end or batch.movements_period_end
         if not statement_date:
             raise ValidationError("Credit-card statement is missing a statement date")
@@ -733,12 +1117,28 @@ def commit_batch(user: User, batch_id: int, data: dict[str, object]) -> dict[str
             candidate.save(update_fields=["account_fk", "from_account_fk", "to_account_fk", "imported_transaction", "status", "error_message", "updated_at"])
             imported.append(candidate_payload(candidate))
         except Exception as exc:
+            # Multi-product imports are all-or-nothing. In particular, newly
+            # requested accounts must not survive a failed commit.
+            if batch.statement_kind == "multi_product":
+                raise ValidationError(f"Could not import {candidate.title}: {exc}") from exc
             candidate.error_message = str(exc)
             candidate.save(update_fields=["error_message", "updated_at"])
             failed.append(candidate_payload(candidate))
     if not batch.candidates.filter(status=BankStatementTransactionCandidate.STATUS_PENDING).exists():
         if batch.statement_kind == "multi_product":
             for product in products:
+                # A product statement's closing market value includes verified
+                # unrealized appreciation or depreciation.  It is not a cash
+                # movement and must not be invented as an ordinary income or
+                # expense transaction, but the account's tracked value still
+                # needs to reach the statement closing balance.
+                valuation_change = Decimal(
+                    str((product.reconciliation or {}).get("valuation_change") or 0)
+                ).quantize(Decimal("0.01"))
+                if valuation_change:
+                    Account.objects.select_for_update().filter(pk=product.linked_account_id).update(
+                        total=F("total") + valuation_change
+                    )
                 product.linked_account.refresh_from_db()
                 if product.linked_account.total != product.closing_balance:
                     raise ValidationError(
@@ -746,6 +1146,8 @@ def commit_batch(user: User, batch_id: int, data: dict[str, object]) -> dict[str
                         f"not the expected ending balance {product.closing_balance}"
                     )
         batch.status = BankStatementImportBatch.STATUS_COMMITTED
+        if default_account:
+            batch.linked_account = default_account
         if batch.statement_kind == "retirement":
             breakdown = batch.retirement_breakdown or {}
             reconciliation = batch.reconciliation or {}
@@ -795,41 +1197,20 @@ def commit_batch(user: User, batch_id: int, data: dict[str, object]) -> dict[str
                     defaults={"account": product.linked_account, "closing_balance": product.closing_balance,
                               "statement_date": statement_date, "positions": product.positions},
                 )
-        if batch.statement_kind == "credit_card_deferred_payments" and not bool(data.get("import_transactions_only")):
+        if batch.statement_kind == "credit_card_deferred_payments":
             summary = batch.card_summary or {}
             statement_date = batch.statement_period_end or batch.movements_period_end
-            closing_available = Decimal(str(summary.get("available_credit"))).quantize(Decimal("0.01"))
-            default_account.refresh_from_db()
-            if default_account.total != closing_available:
-                raise ValidationError("Imported card movements do not reach the verified available-credit balance")
-            CreditCardStatementSnapshot.objects.get_or_create(
-                import_batch=batch,
-                defaults={"account": default_account, "statement_date": statement_date,
-                          "summary": summary, "deferred_purchases": batch.deferred_purchases or []},
-            )
-            for plan in batch.deferred_purchases or []:
-                remaining = plan.get("remaining_balance")
-                if remaining in (None, ""):
-                    continue
-                DeferredPurchase.objects.update_or_create(
-                    account=default_account,
-                    source_key=str(plan.get("source_key"))[:180],
-                    defaults={
-                        "merchant": str(plan.get("merchant") or "Deferred purchase")[:255],
-                        "original_amount": plan.get("original_amount") or None,
-                        "remaining_balance": remaining,
-                        "current_installment": plan.get("current_installment") or None,
-                        "installment_number": plan.get("installment_number") or None,
-                        "installment_count": plan.get("installment_count") or plan.get("total_installments") or None,
-                        "metadata": plan,
-                    },
-                )
-            default_account.credit_card_metadata = {
-                "statement_date": statement_date.isoformat(), "summary": summary,
-                "deferred_purchase_count": len(batch.deferred_purchases or []),
-                "source_statement_id": batch.bank_statement_id, "import_batch_id": batch.id,
-            }
-            default_account.save(update_fields=["credit_card_metadata"])
+            if not bool(data.get("import_transactions_only")):
+                closing_available = Decimal(str(summary.get("available_credit"))).quantize(Decimal("0.01"))
+                default_account.refresh_from_db()
+                if default_account.total != closing_available:
+                    raise ValidationError("Imported card movements do not reach the verified available-credit balance")
+            # The MSI plan schedule is informational metadata, independent of
+            # whether the reviewer trusted the card balance. Persist it in both
+            # modes so an "import transactions only" review still records the
+            # deferred-purchase plans; only the balance assertion above is gated
+            # on the reconciled path.
+            persist_card_deferred_purchases(default_account, batch, statement_date, summary)
             batch.linked_account = default_account
         batch.save(update_fields=["status", "linked_account", "updated_at"])
     return {

@@ -10,7 +10,12 @@ from users.models import User
 from .models import Transaction
 
 
-VALID_TRANSACTION_TYPES = {"Income", "Expense", "Transfer"}
+VALID_TRANSACTION_TYPES = {
+    "Income", "Expense", "Transfer", "External Deposit", "External Withdrawal",
+}
+SINGLE_ACCOUNT_TRANSACTION_TYPES = {
+    "Income", "Expense", "External Deposit", "External Withdrawal",
+}
 
 
 def decimal_value(value: object, field_name: str = "total") -> Decimal:
@@ -129,7 +134,7 @@ def _lock_existing_accounts(
     for field_name, account_id in account_ids.items():
         if account_id not in accounts:
             raise ValidationError(f"Invalid {field_name}")
-    if item.transaction_type in {"Income", "Expense"}:
+    if item.transaction_type in SINGLE_ACCOUNT_TRANSACTION_TYPES:
         item.account_fk = accounts[item.account_fk_id]
     elif item.transaction_type == "Transfer":
         item.from_account_fk = accounts[item.from_account_fk_id]
@@ -148,7 +153,9 @@ def _attrs_from_data(
         existing.transaction_type if existing else None,
     )
     if transaction_type not in VALID_TRANSACTION_TYPES:
-        raise ValidationError("transaction_type must be Income, Expense, or Transfer")
+        raise ValidationError(
+            "transaction_type must be Income, Expense, Transfer, External Deposit, or External Withdrawal"
+        )
 
     total = decimal_value(data.get("total", existing.total if existing else None))
     attrs = {
@@ -195,6 +202,10 @@ def _apply_effect(item: Transaction, reverse: bool = False) -> None:
     if item.transaction_type == "Income":
         _apply_delta(item.account_fk, amount)
     elif item.transaction_type == "Expense":
+        _apply_delta(item.account_fk, -amount)
+    elif item.transaction_type == "External Deposit":
+        _apply_delta(item.account_fk, amount)
+    elif item.transaction_type == "External Withdrawal":
         _apply_delta(item.account_fk, -amount)
     elif item.transaction_type == "Transfer":
         _apply_delta(item.from_account_fk, -amount)

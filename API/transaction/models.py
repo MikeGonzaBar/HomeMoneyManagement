@@ -13,6 +13,11 @@ class Transaction(models.Model):
         ('Income', 'Income'),
         ('Expense', 'Expense'),
         ('Transfer', 'Transfer'),
+        # A documented cash movement whose other account is outside the
+        # tracked account set. These affect one account but are intentionally
+        # excluded from income/spending analytics.
+        ('External Deposit', 'External cash adjustment - in'),
+        ('External Withdrawal', 'External cash adjustment - out'),
     ]
     
     id = models.AutoField(primary_key=True)

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.db import connection
+from django.core.files.base import ContentFile
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APITestCase
 
@@ -8,6 +9,7 @@ from account.models import Account
 from users.models import AuthToken, User
 from .models import Transaction
 from .services import _apply_delta
+from bankstatements.models import BankStatement, BankStatementImportBatch, BankStatementTransactionCandidate
 
 
 class TransactionBalanceTests(APITestCase):
@@ -78,6 +80,35 @@ class TransactionBalanceTests(APITestCase):
         self.assertEqual(expense.status_code, 201)
         self.checking.refresh_from_db()
         self.assertEqual(self.checking.total, Decimal("130.00"))
+
+    def test_external_cash_adjustments_change_one_account_without_becoming_income_or_expense(self) -> None:
+        deposited = self.client.post(
+            "/transactions/create/",
+            {
+                "transaction_type": "External Deposit",
+                "category": "External cash adjustment",
+                "date": "2026-05-20",
+                "title": "External funding",
+                "total": "15.00",
+                "account_id": str(self.checking.id),
+            },
+        )
+        withdrawn = self.client.post(
+            "/transactions/create/",
+            {
+                "transaction_type": "External Withdrawal",
+                "category": "External cash adjustment",
+                "date": "2026-05-21",
+                "title": "External withdrawal",
+                "total": "4.00",
+                "account_id": str(self.checking.id),
+            },
+        )
+
+        self.assertEqual(deposited.status_code, 201)
+        self.assertEqual(withdrawn.status_code, 201)
+        self.checking.refresh_from_db()
+        self.assertEqual(self.checking.total, Decimal("111.00"))
 
     def test_transfer_update_and_delete_reverse_balances(self) -> None:
         created = self.client.post(
@@ -253,3 +284,28 @@ class TransactionBalanceTests(APITestCase):
         self.assertEqual(len(response.data["results"]), 5)
         self.assertIsNotNone(response.data["next"])
         self.assertTrue(response.data["next"].startswith("/transactions/retrieve/alice/"))
+
+    def test_transaction_list_can_filter_to_an_import_batch(self) -> None:
+        imported = Transaction.objects.create(
+            owner_user=self.alice, account_fk=self.checking, transaction_type="Expense",
+            category="Food", date="2026-05-20", title="Imported lunch", total="10.00",
+        )
+        other = Transaction.objects.create(
+            owner_user=self.alice, account_fk=self.checking, transaction_type="Expense",
+            category="Food", date="2026-05-21", title="Other lunch", total="11.00",
+        )
+        statement = BankStatement.objects.create(
+            owner_user=self.alice, file=ContentFile(b"%PDF-1.4\n", name="source.pdf"),
+            original_filename="source.pdf", file_size=9,
+        )
+        batch = BankStatementImportBatch.objects.create(bank_statement=statement, owner_user=self.alice)
+        BankStatementTransactionCandidate.objects.create(
+            import_batch=batch, owner_user=self.alice, title="Imported lunch", transaction_type="Expense",
+            category="Food", date="2026-05-20", amount="10.00", imported_transaction=imported,
+        )
+
+        response = self.client.get(f"/transactions/retrieve/alice/0/0/0/?statement_batch={batch.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([item["id"] for item in response.data["results"]], [imported.id])
+        self.assertNotIn(other.id, [item["id"] for item in response.data["results"]])

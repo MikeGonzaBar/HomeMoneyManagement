@@ -34,6 +34,12 @@ def with_review_data(queryset):
         review_period_start=Subquery(latest_batch.values("statement_period_start")[:1]),
         review_period_end=Subquery(latest_batch.values("statement_period_end")[:1]),
         review_account_name=Subquery(latest_batch.values("detected_account_name")[:1]),
+        review_account_type=Subquery(latest_batch.values("detected_account_type")[:1]),
+        review_draft_account_id=Subquery(latest_batch.values("draft_account_id")[:1]),
+        review_draft_account_name=Subquery(latest_batch.values("draft_account__account_name")[:1]),
+        review_draft_account_type=Subquery(latest_batch.values("draft_account__account_type")[:1]),
+        review_draft_new_account=Subquery(latest_batch.values("draft_new_account")[:1]),
+        review_scan_summary=Subquery(latest_batch.values("scan_summary")[:1]),
     )
 
 
@@ -89,6 +95,9 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
     review_period_start = serializers.SerializerMethodField()
     review_period_end = serializers.SerializerMethodField()
     review_account_name = serializers.SerializerMethodField()
+    review_account_type = serializers.SerializerMethodField()
+    review_draft_assignment = serializers.SerializerMethodField()
+    review_scan_summary = serializers.SerializerMethodField()
     
     class Meta:
         model = BankStatement
@@ -102,6 +111,9 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
             'processed',
             'processing_status',
             'error_message',
+            'retry_count',
+            'next_retry_at',
+            'failure_class',
             'review_batch_id',
             'review_batch_status',
             'review_candidate_count',
@@ -109,6 +121,9 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
             'review_period_start',
             'review_period_end',
             'review_account_name',
+            'review_account_type',
+            'review_draft_assignment',
+            'review_scan_summary',
         ]
         read_only_fields = fields
     
@@ -186,3 +201,48 @@ class BankStatementResponseSerializer(serializers.ModelSerializer):
             return obj.review_account_name
         batch = self.get_review_batch(obj)
         return batch.detected_account_name if batch else None
+
+    def get_review_account_type(self, obj: BankStatement) -> str | None:
+        if hasattr(obj, "review_account_type"):
+            return obj.review_account_type
+        batch = self.get_review_batch(obj)
+        return batch.detected_account_type if batch else None
+
+    def get_review_draft_assignment(self, obj: BankStatement) -> dict | None:
+        if hasattr(obj, "review_draft_account_id"):
+            if obj.review_draft_account_id:
+                return {
+                    "kind": "existing", "account_id": obj.review_draft_account_id,
+                    "account_name": obj.review_draft_account_name,
+                    "account_type": obj.review_draft_account_type,
+                }
+            if obj.review_draft_new_account:
+                return {"kind": "new", **obj.review_draft_new_account}
+            return None
+        batch = self.get_review_batch(obj)
+        if not batch:
+            return None
+        if batch.draft_account_id:
+            return {"kind": "existing", "account_id": batch.draft_account_id,
+                    "account_name": batch.draft_account.account_name, "account_type": batch.draft_account.account_type}
+        return {"kind": "new", **batch.draft_new_account} if batch.draft_new_account else None
+
+    def get_review_scan_summary(self, obj: BankStatement) -> dict:
+        if hasattr(obj, "review_scan_summary"):
+            if obj.review_scan_summary is not None:
+                return obj.review_scan_summary
+            candidate_count = self.get_review_candidate_count(obj)
+            return {
+                "raw_transaction_count": candidate_count,
+                "importable_candidate_count": candidate_count,
+                "zero_result_reason": "No importable transactions are available from this scan." if not candidate_count else "",
+            }
+        batch = self.get_review_batch(obj)
+        if batch and batch.scan_summary:
+            return batch.scan_summary
+        candidate_count = self.get_review_candidate_count(obj)
+        return {
+            "raw_transaction_count": candidate_count,
+            "importable_candidate_count": candidate_count,
+            "zero_result_reason": "No importable transactions are available from this scan." if not candidate_count else "",
+        }

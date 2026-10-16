@@ -15,6 +15,7 @@ from .reconciliation import (
     candidate_payload,
     commit_batch,
     create_candidate,
+    update_batch_assignment,
     update_deferred_purchases,
     update_candidate,
     update_import_product,
@@ -27,6 +28,22 @@ from .serializers import (
 from .services import is_pdf_password_protected, decrypt_pdf_file
 
 logger = logging.getLogger(__name__)
+
+
+def _import_error_message(exc: Exception) -> str:
+    """Return a clean, user-facing message for an import endpoint failure.
+
+    Django's ``ValidationError`` stringifies to a raw list such as
+    ``['...']``, which is poor UX. Flatten it to a single readable sentence.
+    """
+    from django.core.exceptions import ValidationError as DjangoValidationError
+
+    if isinstance(exc, DjangoValidationError):
+        messages = exc.messages
+        if messages:
+            return " ".join(str(message) for message in messages)
+    return str(exc)
+
 
 
 @extend_schema(
@@ -260,7 +277,13 @@ def retry_bank_statement(request: Request, statement_id: int) -> Response:
         bank_statement.processing_status = 'pending'
         bank_statement.processed = False
         bank_statement.error_message = None
-        bank_statement.save(update_fields=['processing_status', 'processed', 'error_message'])
+        bank_statement.retry_count = 0
+        bank_statement.next_retry_at = None
+        bank_statement.failure_class = ''
+        bank_statement.save(update_fields=[
+            'processing_status', 'processed', 'error_message', 'retry_count',
+            'next_retry_at', 'failure_class',
+        ])
         return Response({
             'message': 'Bank statement queued for retry',
             'statement': BankStatementResponseSerializer(bank_statement).data,
@@ -310,13 +333,23 @@ def delete_bank_statement(request: Request, statement_id: int) -> Response:
 def get_import_batch(request: Request, batch_id: int) -> Response:
     """Return one import review batch owned by the authenticated user."""
     try:
-        batch = request.user.bank_statement_import_batches.get(id=batch_id)
+        batch = request.user.bank_statement_import_batches.select_related("draft_account", "bank_statement").get(id=batch_id)
         return Response(batch_payload(batch), status=status.HTTP_200_OK)
     except Exception as e:
         return Response({
             'error': 'Import batch not found',
             'message': str(e)
         }, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['PATCH'])
+def update_import_batch_assignment(request: Request, batch_id: int) -> Response:
+    """Save, replace, or clear the destination-account draft for a review batch."""
+    try:
+        batch = update_batch_assignment(request.user, batch_id, request.data)
+        return Response({'import_batch': batch_payload(batch)}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': 'Failed to update account assignment', 'message': _import_error_message(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(
@@ -331,6 +364,8 @@ def get_import_batch(request: Request, batch_id: int) -> Response:
             "account_id": serializers.CharField(required=False, allow_blank=True),
             "from_account_id": serializers.CharField(required=False, allow_blank=True),
             "to_account_id": serializers.CharField(required=False, allow_blank=True),
+            "from_uses_batch_draft": serializers.BooleanField(required=False),
+            "to_uses_batch_draft": serializers.BooleanField(required=False),
             "source_product_id": serializers.CharField(required=False, allow_blank=True),
             "destination_product_id": serializers.CharField(required=False, allow_blank=True),
             "status": serializers.CharField(required=False),
@@ -348,7 +383,7 @@ def update_import_candidate(request: Request, candidate_id: int) -> Response:
     except Exception as e:
         return Response({
             'error': 'Failed to update import candidate',
-            'message': str(e)
+            'message': _import_error_message(e)
         }, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -359,7 +394,7 @@ def create_import_candidate(request: Request, batch_id: int) -> Response:
         candidate = create_candidate(request.user, batch_id, request.data)
         return Response({'candidate': candidate_payload(candidate)}, status=status.HTTP_201_CREATED)
     except Exception as e:
-        return Response({'error': 'Failed to add import candidate', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Failed to add import candidate', 'message': _import_error_message(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(
@@ -382,7 +417,7 @@ def update_import_batch_product(request: Request, product_id: int) -> Response:
         product = update_import_product(request.user, product_id, request.data)
         return Response({'import_batch': batch_payload(product.import_batch)}, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({'error': 'Failed to update detected account', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Failed to update detected account', 'message': _import_error_message(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PATCH'])
@@ -392,13 +427,17 @@ def update_import_batch_msi(request: Request, batch_id: int) -> Response:
         batch = update_deferred_purchases(request.user, batch_id, request.data.get('deferred_purchases'))
         return Response({'deferred_purchases': batch.deferred_purchases}, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({'error': 'Failed to update MSI details', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Failed to update MSI details', 'message': _import_error_message(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(
     request=inline_serializer(
         name="ImportBatchCommitRequest",
-        fields={"account_id": serializers.CharField(required=False, allow_blank=True)},
+        fields={
+            "account_id": serializers.CharField(required=False, allow_blank=True),
+            "new_account_initial_balance": serializers.DecimalField(max_digits=14, decimal_places=2, required=False),
+            "opening_available_credit": serializers.DecimalField(max_digits=14, decimal_places=2, required=False),
+        },
     ),
     responses={200: OpenApiResponse(description="Import batch committed")},
 )
@@ -411,5 +450,5 @@ def commit_import_batch(request: Request, batch_id: int) -> Response:
     except Exception as e:
         return Response({
             'error': 'Failed to commit import batch',
-            'message': str(e)
+            'message': _import_error_message(e)
         }, status=status.HTTP_400_BAD_REQUEST)

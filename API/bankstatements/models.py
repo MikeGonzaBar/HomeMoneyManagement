@@ -48,6 +48,22 @@ class BankStatement(models.Model):
         help_text="Current processing status"
     )
     error_message = models.TextField(blank=True, null=True, help_text="Error message if processing failed")
+    retry_count = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Number of automatic provider retries already scheduled.",
+    )
+    next_retry_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Earliest time a pending statement may be claimed again.",
+    )
+    failure_class = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="Safe, user-facing classification of the most recent processing failure.",
+    )
     
     class Meta:
         ordering = ['-upload_date']
@@ -123,6 +139,14 @@ class BankStatementImportBatch(models.Model):
         "account.Account", related_name="retirement_import_batches", null=True,
         blank=True, on_delete=models.PROTECT,
     )
+    # A review choice is deliberately separate from linked_account.  The latter
+    # records the account actually used by a committed import.
+    draft_account = models.ForeignKey(
+        "account.Account", related_name="draft_bank_statement_import_batches", null=True,
+        blank=True, on_delete=models.SET_NULL,
+    )
+    draft_new_account = models.JSONField(default=dict, blank=True)
+    scan_summary = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_REVIEW)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -275,6 +299,12 @@ class BankStatementTransactionCandidate(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
+    # A standard review batch can defer creating its destination account until
+    # commit.  Transfers may use that same future account at exactly one end.
+    # Keep the reference explicit rather than overloading an account id with a
+    # magic value that could be mistaken for a real owned account.
+    from_uses_batch_draft = models.BooleanField(default=False)
+    to_uses_batch_draft = models.BooleanField(default=False)
     possible_matches = models.JSONField(default=list, blank=True)
     linked_transaction = models.ForeignKey(
         "transaction.Transaction",

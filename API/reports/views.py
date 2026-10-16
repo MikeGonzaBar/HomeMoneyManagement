@@ -69,7 +69,7 @@ def _period_summary(
     )
     rows = (
         Transaction.objects.filter(owner_user=user, date__gte=start, date__lte=end)
-        .exclude(transaction_type="Transfer")
+        .exclude(transaction_type__in=["Transfer", "External Deposit", "External Withdrawal"])
         .values("category")
         .annotate(
             income=Coalesce(Sum(income), Value(Decimal("0.00")), output_field=MONEY_FIELD),
@@ -100,7 +100,7 @@ def _monthly_summary(user: User, start: date, end: date) -> dict[str, dict[str, 
     )
     rows = (
         Transaction.objects.filter(owner_user=user, date__gte=start, date__lte=end)
-        .exclude(transaction_type="Transfer")
+        .exclude(transaction_type__in=["Transfer", "External Deposit", "External Withdrawal"])
         .annotate(month=TruncMonth("date"))
         .values("month")
         .annotate(

@@ -8,6 +8,7 @@ urlpatterns = [
     path('retry/<int:statement_id>/', views.retry_bank_statement, name='retry_bank_statement'),
     path('delete/<int:statement_id>/', views.delete_bank_statement, name='delete_bank_statement'),
     path('import-batches/<int:batch_id>/', views.get_import_batch, name='get_import_batch'),
+    path('import-batches/<int:batch_id>/assignment/', views.update_import_batch_assignment, name='update_import_batch_assignment'),
     path('import-candidates/<int:candidate_id>/', views.update_import_candidate, name='update_import_candidate'),
     path('import-products/<int:product_id>/', views.update_import_batch_product, name='update_import_batch_product'),
     path('import-batches/<int:batch_id>/candidates/', views.create_import_candidate, name='create_import_candidate'),
