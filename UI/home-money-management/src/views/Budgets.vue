@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+  <div class="bg-gray-50 text-gray-900 font-sans antialiased">
     <AppHeader :userData="userData" />
 
     <main class="w-full px-4 sm:px-6 py-6">
@@ -100,7 +100,9 @@
 import { defineComponent } from 'vue'
 import axios from '@/services/api'
 import { getStoredSession } from '@/services/session'
+import { monthLocalKey } from '@/services/calendarDate'
 import AppHeader from '@/components/AppHeader.vue'
+import { BUDGET_CATEGORIES } from '@/constants/taxonomy'
 
 interface Budget {
   id: number
@@ -120,7 +122,7 @@ export default defineComponent({
   data() {
     return {
       userData: { user: {} } as any,
-      selectedMonth: new Date().toISOString().slice(0, 7),
+      selectedMonth: monthLocalKey(),
       budgets: [] as Budget[],
       dialog: false,
       editingId: null as number | null,
@@ -133,19 +135,7 @@ export default defineComponent({
         { title: 'Category', value: 'category' },
         { title: 'Overall', value: 'overall' },
       ],
-      categories: [
-        'Bills and utilities',
-        'Education',
-        'Entertainment',
-        'Food and drinks',
-        'Insurance',
-        'Investments',
-        'Loans',
-        'Medical',
-        'Others',
-        'Shopping',
-        'Transportation',
-      ],
+      categories: [...BUDGET_CATEGORIES],
     }
   },
   computed: {

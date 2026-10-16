@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+  <div class="bg-gray-50 text-gray-900 font-sans antialiased">
     <AppHeader :userData="userData" />
 
     <main class="w-full px-4 sm:px-6 py-6">
@@ -125,7 +125,9 @@
 import { defineComponent } from 'vue'
 import axios from '@/services/api'
 import { getStoredSession } from '@/services/session'
+import { todayLocalISO } from '@/services/calendarDate'
 import AppHeader from '@/components/AppHeader.vue'
+import { RECURRING_CATEGORIES, RECURRING_TRANSACTION_TYPES } from '@/constants/taxonomy'
 
 interface Account {
   id: number
@@ -164,7 +166,7 @@ const blankForm = () => ({
   to_account_id: '',
   frequency: 'monthly',
   interval: 1,
-  start_date: new Date().toISOString().slice(0, 10),
+  start_date: todayLocalISO(),
   active: true,
 })
 
@@ -179,26 +181,14 @@ export default defineComponent({
       accounts: [] as Account[],
       rules: [] as RecurringRule[],
       dueItems: [] as DueItem[],
-      throughDate: through.toISOString().slice(0, 10),
+      throughDate: todayLocalISO(through),
       loadingDue: false,
       dialog: false,
       editingId: null as number | null,
       form: blankForm(),
-      transactionTypes: ['Income', 'Expense', 'Transfer'],
+      transactionTypes: [...RECURRING_TRANSACTION_TYPES],
       frequencies: ['daily', 'weekly', 'monthly', 'yearly'],
-      categories: [
-        'Bills and utilities',
-        'Entertainment',
-        'Food and drinks',
-        'Insurance',
-        'Investments',
-        'Loans',
-        'Money Transfer',
-        'Others',
-        'Salary',
-        'Transportation',
-        'Transfer',
-      ],
+      categories: [...RECURRING_CATEGORIES],
     }
   },
   computed: {

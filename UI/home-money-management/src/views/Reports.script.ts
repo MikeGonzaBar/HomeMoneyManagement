@@ -3,6 +3,7 @@ import { defineComponent } from 'vue';
 import { useTheme } from 'vuetify';
 import { getCategoryColor } from '@/constants/categoryStyles';
 import { getStoredSession } from '@/services/session';
+import { parseCalendarDate } from '@/services/calendarDate';
 import AppHeader from '@/components/AppHeader.vue';
 
 interface AnalyticsData {
@@ -36,6 +37,7 @@ const DARK_CATEGORY_COLORS: Record<string, string> = {
   'Balance Transfer': '#a5b4fc',
   'Money Transfer': '#818cf8',
   'Transfer': '#93c5fd',
+  'External cash adjustment': '#cbd5e1',
   'Bills and utilities': '#fdba74',
   'Education': '#5eead4',
   'Entertainment': '#67e8f9',
@@ -46,13 +48,11 @@ const DARK_CATEGORY_COLORS: Record<string, string> = {
   'Shopping': '#d8b4fe',
   'Transportation': '#6ee7b7',
   'Others': '#94a3b8',
+  'Retirement contribution': '#5eead4',
+  'Investment return': '#93c5fd',
+  'Retirement fee': '#fbbf24',
+  'Retirement interest': '#818cf8',
   'Income': '#86efac',
-  'Restaurants': '#fbbf24',
-  'Gas': '#60a5fa',
-  'Rent/Mortgage': '#c4b5fd',
-  'Groceries': '#86efac',
-  'Utilities': '#fcd34d',
-  'Gym': '#f9a8d4',
 };
 const DARK_FALLBACK_COLORS = ['#94a3b8', '#67e8f9', '#a7f3d0', '#fde68a', '#f0abfc', '#bfdbfe', '#fecaca'];
 
@@ -66,6 +66,7 @@ function fallbackDarkCategoryColor(category: string): string {
 
 export default defineComponent({
   name: 'Reports',
+  emits: [],
   components: { AppHeader },
   setup() {
     // Same source of truth ThemeToggle writes to. Reading it inside
@@ -91,9 +92,11 @@ export default defineComponent({
     },
     dateRangeLabel(): string {
       if (this.analytics?.start_date && this.analytics?.end_date) {
-        const s = new Date(this.analytics.start_date);
-        const e = new Date(this.analytics.end_date);
-        return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        const s = parseCalendarDate(this.analytics.start_date);
+        const e = parseCalendarDate(this.analytics.end_date);
+        if (s && e) {
+          return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        }
       }
       const now = new Date();
       const first = new Date(now.getFullYear(), now.getMonth(), 1);

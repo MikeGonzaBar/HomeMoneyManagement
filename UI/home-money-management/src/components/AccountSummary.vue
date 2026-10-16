@@ -78,7 +78,7 @@
                             <span class="account-summary__account-meta">
                                 {{ acc.bank || 'Unknown institution' }} · {{ getAccountTypeChip(acc.account_type)?.text }}
                                 <template v-if="acc.credit_card_statement_snapshot?.summary?.deferred_balance">
-                                    · MSI ${{ formatMoney(Number(acc.credit_card_statement_snapshot.summary.deferred_balance)) }}
+                                    · Financing {{ formatMoney(Number(acc.credit_card_statement_snapshot.summary.deferred_balance)) }}
                                 </template>
                             </span>
                         </button>
@@ -128,7 +128,10 @@
                                     class="text-xs text-gray-600">
                                     {{ plan.merchant }} · {{ formatMoney(Number(plan.remaining_balance || 0)) }} remaining
                                     <span class="text-gray-400">
-                                        ({{ plan.installment_number || '?' }} of {{ plan.installment_count || '?' }})
+                                        <template v-if="plan.installment_number && plan.installment_count">
+                                            ({{ plan.installment_number }} of {{ plan.installment_count }})
+                                        </template>
+                                        <template v-else>(installment details unavailable)</template>
                                     </span>
                                 </p>
                             </div>
@@ -167,11 +170,11 @@
                     <v-row>
                         <v-col cols="12">
                             <v-text-field v-model="newBankName" label="Bank Name"
-                                :disabled="newAccountType === 'Efectivo'" variant="outlined" rounded="lg"
+                                :disabled="isNewAccountCash" variant="outlined" rounded="lg"
                                 prepend-inner-icon="mdi-bank"></v-text-field>
                         </v-col>
                     </v-row>
-                    <v-row v-if="newAccountType === 'Crédito' || newAccountType === 'Credit Card'">
+                    <v-row v-if="isNewAccountCredit">
                         <v-col cols="12">
                             <v-alert type="warning" variant="tonal" class="mb-0">
                                 <small>Card purchases are recorded as <strong>expenses</strong>. Card payments are
@@ -181,9 +184,10 @@
                     </v-row>
                     <v-row>
                         <v-col cols="12">
-                            <v-text-field v-model="newTotal" label="Initial Balance" type="number" step="0.01"
-                                :disabled="newAccountType === 'Crédito'" variant="outlined" rounded="lg"
-                                prepend-inner-icon="mdi-currency-usd"></v-text-field>
+                            <v-text-field v-model.number="newTotal" label="Initial Balance" type="number" step="0.01"
+                                :disabled="isNewAccountCredit" variant="outlined" rounded="lg"
+                                hint="Optional — leave at $0.00 when the account has no opening balance."
+                                persistent-hint prepend-inner-icon="mdi-currency-usd"></v-text-field>
                         </v-col>
                     </v-row>
                     <v-row>
@@ -195,12 +199,15 @@
                 </v-container>
             </v-card-text>
             <v-card-actions class="pa-6 pt-0">
+                <span v-if="!newAccountIsValid" class="text-caption text-grey-darken-1 me-auto">
+                    Choose an account type and enter an account name{{ isNewAccountCash ? '.' : ' and bank name.' }}
+                </span>
                 <v-spacer></v-spacer>
                 <v-btn variant="outlined" @click="closeNewAccountModal" class="me-2" rounded="lg">
                     Cancel
                 </v-btn>
                 <v-btn color="primary" @click="createNewAccount"
-                    :disabled="!newAccountType || !newNickname || (newAccountType !== 'Efectivo' && !newBankName) || (newAccountType !== 'Crédito' && !newTotal)"
+                    :disabled="!newAccountIsValid"
                     rounded="lg">
                     Create Account
                 </v-btn>
@@ -298,6 +305,7 @@
 import axios from '@/services/api';
 import { GROUP_ICONS, groupAccounts, netWorthContribution } from '@/services/accountGroups';
 import BankLogo from '@/components/BankLogo.vue';
+import { ACCOUNT_TYPES } from '@/constants/taxonomy';
 import type { GroupKey, SnapshotAccount } from '@/services/accountGroups';
 // import Vue from 'vue';
 type Account = SnapshotAccount;
@@ -336,12 +344,16 @@ interface ComponentInstance extends Data {
     getUsedCredit(account: Account): number;
     isCreditCard(account: Account): boolean;
     hasStatementDetail(account: Account): boolean;
+    isNewAccountCash: boolean;
+    isNewAccountCredit: boolean;
+    newAccountIsValid: boolean;
     deleteAccount(): void;
     accountTotalUpdated(): void;
     sendUpdateAccount(): void;
     editAccount(acc: any, index: number): void;
     closeEditAccountModal(): void;
     closeNewAccountModal(): void;
+    resetNewAccountForm(): void;
     createNewAccount(): void;
     selectAccount(account: Account): void;
     toggleGroup(key: GroupKey): void;
@@ -595,16 +607,25 @@ export default {
             this.editCreditLimit = null;
         },
         openNewAccountModal(this: ComponentInstance) {
+            this.resetNewAccountForm();
             this.newAccountModalVisible = true;
         },
         closeNewAccountModal(this: ComponentInstance) {
             this.newAccountModalVisible = false;
+            this.resetNewAccountForm();
+        },
+        resetNewAccountForm(this: ComponentInstance) {
+            this.newAccountType = '';
+            this.newBankName = '';
+            this.newTotal = 0.0;
+            this.newNickname = '';
         },
         createNewAccount(this: ComponentInstance) {
-            if (this.newAccountType === 'Efectivo' || this.newAccountType === 'Cash') {
+            if (!this.newAccountIsValid) return;
+            if (this.isNewAccountCash) {
                 this.newBankName = 'Efectivo';
             }
-            if (this.newAccountType === 'Crédito' || this.newAccountType === 'Credit Card') {
+            if (this.isNewAccountCredit) {
                 this.newTotal = 0.0;
             }
             axios.post(`/accounts/`, {
@@ -614,10 +635,7 @@ export default {
                 account_name: this.newNickname
             }).then(() => {
                 this.newAccountModalVisible = false;
-                this.newAccountType = ''
-                this.newBankName = ''
-                this.newTotal = 0.0
-                this.newNickname = '';
+                this.resetNewAccountForm();
                 (this as any).loadAccounts();
             }).catch((error: any) => {
                 this.loadError = error?.response?.data?.error || 'Could not create that account.';
@@ -625,6 +643,21 @@ export default {
         }
     },
     computed: {
+        /** Keep create-account requirements aligned with the account semantics.
+         * A zero opening balance is valid; only the identifying fields are required. */
+        isNewAccountCash(this: ComponentInstance): boolean {
+            return ['Efectivo', 'Cash'].includes(this.newAccountType);
+        },
+        isNewAccountCredit(this: ComponentInstance): boolean {
+            return ['Crédito', 'Credit Card', 'Credit'].includes(this.newAccountType);
+        },
+        newAccountIsValid(this: ComponentInstance): boolean {
+            return Boolean(
+                this.newAccountType
+                && this.newNickname.trim()
+                && (this.isNewAccountCash || this.newBankName.trim())
+            );
+        },
         /** Exposed so the template can pick a group's icon without importing. */
         GROUP_ICONS(this: ComponentInstance) {
             return GROUP_ICONS;
@@ -657,23 +690,10 @@ export default {
             return items;
         },
         accountTypeOptions(this: ComponentInstance): Array<{ title: string; value: string }> {
-            // Comprehensive list that includes both Spanish (for backward compatibility) 
-            // and English types (for AI agent compatibility)
-            // Note: "Savings Account" and "Checking Account" are normalized to "Savings" and "Checking" in backend
-            return [
-                { title: 'Checking', value: 'Checking' },
-                { title: 'Savings', value: 'Savings' },
-                { title: 'Credit Card', value: 'Credit Card' },
-                { title: 'Debit', value: 'Débito' },
-                { title: 'Credit', value: 'Crédito' },
-                { title: 'Cash', value: 'Efectivo' },
-                { title: 'Investment', value: 'Investment' },
-                { title: 'Retirement', value: 'Retirement' },
-                { title: 'Loan', value: 'Loan' },
-                { title: 'Mortgage', value: 'Mortgage' },
-                { title: 'Business', value: 'Business' },
-                { title: 'Other', value: 'Other' }
-            ];
+            // Shared canonical list; see @/constants/taxonomy. Credit-card
+            // synonyms ("Crédito"/"Credit") are handled by the API normalizer,
+            // so they are not listed as separate selectable types here.
+            return ACCOUNT_TYPES;
         }
     },
     emits: ['accountSelected', 'allAccountSelected', 'accountsModified'],

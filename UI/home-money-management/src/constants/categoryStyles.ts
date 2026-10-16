@@ -21,6 +21,11 @@ export const CATEGORY_STYLES: Record<string, { icon: string; color: string }> = 
   'Shopping': { icon: 'mdi-shopping', color: '#7B1FA2' },
   'Transportation': { icon: 'mdi-car', color: '#00796B' },
   'Others': { icon: 'mdi-dots-horizontal', color: '#757575' },
+  'External cash adjustment': { icon: 'mdi-cash-sync', color: '#546E7A' },
+  'Retirement contribution': { icon: 'mdi-piggy-bank', color: '#00897B' },
+  'Investment return': { icon: 'mdi-chart-line', color: '#1E88E5' },
+  'Retirement fee': { icon: 'mdi-cash-remove', color: '#6D4C41' },
+  'Retirement interest': { icon: 'mdi-percent', color: '#3949AB' },
   'Income': { icon: 'mdi-cash', color: '#10B981' },
 };
 
