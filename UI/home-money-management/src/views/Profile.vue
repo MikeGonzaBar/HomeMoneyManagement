@@ -1,35 +1,37 @@
 <template>
-    <v-container fluid class="profile-container">
-        <!-- Header -->
-        <v-row class="mb-6">
-            <v-col cols="12">
-                <v-card class="glass-card shadow-medium" rounded="xl">
-                    <v-card-title class="pa-6 pb-2">
-                        <div class="d-flex align-center justify-space-between w-100">
-                            <div class="d-flex align-center">
-                                <v-avatar size="40" class="me-3 budget-gradient">
-                                    <v-icon color="white">mdi-account-circle</v-icon>
-                                </v-avatar>
-                                <div class="d-flex flex-column justify-center">
-                                    <h4 class="budget-text-gradient font-weight-bold mb-0">User Profile</h4>
-                                    <p class="text-grey-darken-1 mb-0 text-caption">Manage your account settings and
-                                        preferences
-                                    </p>
+    <div class="bg-gray-50">
+        <AppHeader :userData="userData" />
+        <v-container fluid class="profile-container">
+            <!-- Header -->
+            <v-row class="mb-6">
+                <v-col cols="12">
+                    <v-card class="glass-card shadow-medium" rounded="xl">
+                        <v-card-title class="pa-6 pb-2">
+                            <div class="d-flex align-center justify-space-between w-100">
+                                <div class="d-flex align-center">
+                                    <v-avatar size="40" class="me-3 budget-gradient">
+                                        <v-icon color="white">mdi-account-circle</v-icon>
+                                    </v-avatar>
+                                    <div class="d-flex flex-column justify-center">
+                                        <h4 class="budget-text-gradient font-weight-bold mb-0">User Profile</h4>
+                                        <p class="text-grey-darken-1 mb-0 text-caption">Manage your account settings and
+                                            preferences
+                                        </p>
+                                    </div>
                                 </div>
+                                <v-btn color="primary" variant="outlined" rounded="lg" @click="goToHome"
+                                    :size="$vuetify.display.mobile ? 'default' : 'default'"
+                                    class="smooth-transition hover-lift">
+                                    <v-icon :left="$vuetify.display.smAndUp"
+                                        :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-home</v-icon>
+                                    <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Back to Home</span>
+                                    <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Home</span>
+                                </v-btn>
                             </div>
-                            <v-btn color="primary" variant="outlined" rounded="lg" @click="goToHome"
-                                :size="$vuetify.display.mobile ? 'default' : 'default'"
-                                class="smooth-transition hover-lift">
-                                <v-icon :left="$vuetify.display.smAndUp"
-                                    :class="$vuetify.display.mobile ? '' : 'me-2'">mdi-home</v-icon>
-                                <span :class="$vuetify.display.mobile ? 'd-none d-sm-inline' : ''">Back to Home</span>
-                                <span :class="$vuetify.display.mobile ? 'd-inline d-sm-none' : 'd-none'">Home</span>
-                            </v-btn>
-                        </div>
-                    </v-card-title>
-                </v-card>
-            </v-col>
-        </v-row>
+                        </v-card-title>
+                    </v-card>
+                </v-col>
+            </v-row>
 
         <!-- Main Content -->
         <v-row>
@@ -138,10 +140,12 @@
             </v-col>
         </v-row>
 
-    </v-container>
+        </v-container>
+    </div>
 </template>
 
 <script lang="ts">
+import AppHeader from '@/components/AppHeader.vue';
 import axios from '@/services/api';
 import { getStoredSession, setStoredSession } from '@/services/session';
 import { applyDocumentTheme, type ThemePreference } from '@/services/theme';
@@ -161,8 +165,12 @@ interface PasswordData {
 
 export default {
     name: 'Profile',
+    components: { AppHeader },
     data() {
+        const session = getStoredSession();
         return {
+            userData: session ? { user: session.user } : { user: {} },
+            session,
             activeSection: 'personal' as string,
             sidebarItems: [
                 { title: 'Personal Info', icon: 'mdi-account-edit', value: 'personal' },
@@ -334,7 +342,6 @@ export default {
 
 <style scoped>
 .profile-container {
-    min-height: 100vh;
     background: var(--bb-surface-soft, #f9fafb);
     padding: 24px;
 }

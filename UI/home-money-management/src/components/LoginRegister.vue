@@ -274,10 +274,14 @@ export default {
 
 <style scoped>
 /* Modern Login/Register Container */
+/* The --auth-field-* values are theme-driven: the --bb-* tokens flip with
+   .app-dark on <html>, so the fields follow the theme on their own. (The old
+   :global(.app-dark) override in this file never survived scoped-style
+   compilation, which left input text/icons dark-on-dark in dark mode.) */
 .login-register-container {
-    --auth-field-background: var(--bb-surface, #ffffff);
-    --auth-field-border: #94a3b8;
-    --auth-field-text: #1f2937;
+    --auth-field-background: var(--bb-field-bg, #ffffff);
+    --auth-field-border: var(--bb-border-strong, #94a3b8);
+    --auth-field-text: var(--bb-text-strong, #1f2937);
     position: relative;
     min-height: 100vh;
     padding: 20px;
@@ -286,12 +290,6 @@ export default {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-:global(.app-dark) .login-register-container {
-    --auth-field-background: #1f2937;
-    --auth-field-border: #64748b;
-    --auth-field-text: #f8fafc;
 }
 
 /* Main Content Wrapper */

@@ -241,6 +241,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement
 import { Line } from 'vue-chartjs'
 import { useTheme } from 'vuetify'
 import { chartInk, cssVar } from '@/services/chartTheme'
+import { parseCalendarDate } from '@/services/calendarDate'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -525,7 +526,6 @@ export default {
                 }
 
                 const date = new Date(year, month, 1);
-                const monthKey = date.toISOString().substring(0, 7); // YYYY-MM format
 
                 let filteredTransactions = this.transactions;
                 if (this.selectedAccount !== 'all') {
@@ -535,8 +535,9 @@ export default {
                 }
 
                 const monthTransactions = filteredTransactions.filter((t: Transaction) => {
-                    const transactionDate = new Date(t.date);
-                    return transactionDate.getFullYear() === year &&
+                    const transactionDate = parseCalendarDate(t.date);
+                    return transactionDate !== null &&
+                        transactionDate.getFullYear() === year &&
                         transactionDate.getMonth() === month;
                 });
 

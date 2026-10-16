@@ -1,19 +1,18 @@
 <template>
   <header class="bg-white/95 backdrop-blur border-b border-gray-200 sticky top-0 z-50">
     <div class="w-full px-4 sm:px-6 lg:px-10">
-      <div class="bb-phone-header-grid grid grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)] items-center gap-6 h-[72px]">
+      <div class="bb-phone-header-grid flex items-center gap-4 sm:gap-6 h-[72px]">
         <!-- Logo and Brand -->
-        <div class="bb-phone-brand flex items-center gap-3 min-w-0">
+        <div class="bb-phone-brand flex items-center gap-3 min-w-0 shrink-0">
           <router-link to="/" class="flex items-center gap-3 shrink-0">
             <img src="@/assets/logo-192.png" alt="Budget Buddy" class="w-10 h-10 rounded-lg object-contain" />
             <span class="bb-phone-brand-text text-xl font-bold text-gray-900 tracking-tight whitespace-nowrap">Budget Buddy</span>
           </router-link>
-          <!-- Page-specific brand content (e.g. Transactions search) -->
-          <slot name="brand-extra" />
         </div>
 
-        <!-- Desktop Navigation -->
-        <nav class="bb-app-nav hidden md:flex items-center gap-1 rounded-full border border-gray-100 bg-gray-50 p-1 shadow-sm">
+        <!-- Desktop Navigation: fills the spare width and scrolls its
+             pills instead of pushing into the actions column -->
+        <nav aria-label="Primary" class="bb-app-nav hidden md:flex md:flex-1 md:min-w-0 md:overflow-x-auto items-center gap-1 rounded-full border border-gray-100 bg-gray-50 p-1 shadow-sm">
           <router-link v-for="item in navItems" :key="item.to" :to="item.to"
             :class="isActive(item.to) ? navActiveClass : navInactiveClass">
             {{ item.label }}
@@ -21,7 +20,7 @@
         </nav>
 
         <!-- User Profile -->
-        <div class="bb-phone-actions flex items-center justify-end gap-3 min-w-0">
+        <div class="bb-phone-actions flex items-center justify-end gap-3 min-w-0 shrink-0">
           <details class="bb-phone-nav">
             <summary class="bb-phone-nav-button" aria-label="Open navigation">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -33,8 +32,6 @@
               <button type="button" class="bb-phone-nav-link" @click="goToProfile">Profile</button>
             </nav>
           </details>
-          <!-- Page-specific header actions (e.g. Transactions export) -->
-          <slot name="actions" />
           <AlertCenter />
           <ThemeToggle />
           <div class="bb-phone-user-shell flex items-center gap-3 rounded-full border border-gray-100 bg-gray-50 py-1 pl-4 pr-1.5">

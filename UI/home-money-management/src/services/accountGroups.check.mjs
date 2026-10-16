@@ -2,6 +2,7 @@
 //   node src/services/accountGroups.check.mjs
 // Fails loudly if the grouping, subtotal or badge rules that drive the page break.
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import {
   ACCOUNT_GROUPS,
   availableCash,
@@ -193,6 +194,36 @@ assert.deepEqual(
   { income: 10, expense: 4, net: 6 },
 );
 assert.deepEqual(monthFlow([], at), { income: 0, expense: 0, net: 0 });
+
+// Regression: a month with no activity is a verified zero, never
+// all-time activity presented under the current-month label (the
+// audited snapshot showed every transaction's totals as "October").
+const earlierMonthsOnly = [
+  { transaction_type: 'Income', total: 31498.56, date: '2026-08-15' },
+  { transaction_type: 'Expense', total: -35140.46, date: '2026-09-20' },
+  { transaction_type: 'Transfer', total: 3000, date: '2026-09-17' },
+];
+assert.deepEqual(
+  monthFlow(earlierMonthsOnly, at),
+  { income: 0, expense: 0, net: 0 },
+  'an empty month must not fall back to all-time activity',
+);
+
+// Month attribution uses calendar semantics: boundary days stay in
+// their own month even where midnight UTC lands on the previous day
+// for viewers west of UTC. Pinned to America/Mexico_City (UTC-6).
+const boundaryProbe = "import {monthFlow} from './accountGroups.ts';"
+  + "const rows = ["
+  + "  {transaction_type:'Income',total:5,date:'2026-10-01'},"
+  + "  {transaction_type:'Income',total:7,date:'2026-09-30'},"
+  + "];"
+  + "process.stdout.write(String(monthFlow(rows, new Date(2026, 9, 15)).income));";
+const boundaryOut = execFileSync(process.execPath, ['-e', boundaryProbe], {
+  cwd: import.meta.dirname,
+  env: { ...process.env, TZ: 'America/Mexico_City' },
+  encoding: 'utf8',
+});
+assert.equal(boundaryOut, '5', 'a month-boundary day was attributed to the wrong month');
 
 // Snapshot = net worth (100 + 50 - 700 - 0), not the sum of raw balances.
 const snapshot = dashboardSnapshot(accounts, [], at);

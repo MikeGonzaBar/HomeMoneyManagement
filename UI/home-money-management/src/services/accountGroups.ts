@@ -8,6 +8,7 @@
  * `total` is the balance for assets, *available* credit for credit cards and
  * the *amount owed* for loans/mortgages.
  */
+import { parseCalendarDate } from './calendarDate.ts'
 import { toMoneyNumber } from './money.ts'
 
 export interface AccountLike {
@@ -204,19 +205,25 @@ export interface MonthFlow {
 }
 
 const monthKey = (date: string | Date): string => {
-  const parsed = typeof date === 'string' ? new Date(date) : date
-  if (isNaN(parsed.getTime())) return ''
+  // Posting dates are calendar dates, not UTC instants: `new Date`
+  // would parse "2026-10-01" as midnight UTC and attribute it to
+  // September for viewers west of UTC.
+  const parsed = typeof date === 'string' ? parseCalendarDate(date) : date
+  if (!parsed || isNaN(parsed.getTime())) return ''
   return `${parsed.getFullYear()}-${parsed.getMonth()}`
 }
 
 /**
  * Income / expense for the calendar month containing `at`, with transfers
- * excluded from both (they are neither). Falls back to the whole list when no
- * transaction carries a parseable date, so a bad date never blanks the cards.
+ * excluded from both (they are neither). A month with no activity is a
+ * verified zero: only when no row carries a parseable date at all (a
+ * broken feed) does the whole list act as the fallback, so a bad date
+ * never blanks the cards.
  */
 export function monthFlow(transactions: FlowTransaction[], at: Date = new Date()): MonthFlow {
   const scoped = transactions.filter((transaction) => monthKey(transaction.date) === monthKey(at))
-  const source = scoped.length > 0 ? scoped : transactions
+  const anyParseableDate = transactions.some((transaction) => monthKey(transaction.date) !== '')
+  const source = anyParseableDate ? scoped : transactions
   let income = 0
   let expense = 0
   for (const transaction of source) {

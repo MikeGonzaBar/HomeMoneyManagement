@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+  <div class="bg-gray-50 text-gray-900 font-sans antialiased">
     <AppHeader :userData="userData" />
 
     <main class="w-full">
@@ -264,6 +264,7 @@ import BankStatementUpload from '@/components/BankStatementUpload.vue'
 import AppHeader from '@/components/AppHeader.vue'
 import axios, { getAllPages } from '@/services/api'
 import { trackBankStatement } from '@/services/bankStatementTracking'
+import { monthLocalKey, todayLocalISO } from '@/services/calendarDate'
 import { dashboardSnapshot } from '@/services/accountGroups'
 import type { DashboardSnapshot, FlowTransaction, SnapshotAccount } from '@/services/accountGroups'
 
@@ -429,8 +430,7 @@ export default {
       (this as any).$router.push({ path: `/statements/${reviewBatch}/review` });
     },
     getBudgetSummary() {
-      const month = new Date().toISOString().slice(0, 7);
-      axios.get('/budgets/summary/', { params: { month } })
+      axios.get('/budgets/summary/', { params: { month: monthLocalKey() } })
         .then((response) => {
           (this as any).budgetSummary = response.data;
         })
@@ -439,7 +439,7 @@ export default {
     getDueSoon() {
       const through = new Date();
       through.setDate(through.getDate() + 3);
-      axios.get('/recurring-transactions/due/', { params: { through: through.toISOString().slice(0, 10) } })
+      axios.get('/recurring-transactions/due/', { params: { through: todayLocalISO(through) } })
         .then((response) => {
           (this as any).dueSoon = (response.data || []).filter((item: any) => item.status === 'due');
         })

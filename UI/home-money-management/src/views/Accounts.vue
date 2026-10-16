@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+  <div class="bg-gray-50 text-gray-900 font-sans antialiased">
     <AppHeader :userData="userData" />
 
     <main class="w-full px-4 sm:px-6 py-6">

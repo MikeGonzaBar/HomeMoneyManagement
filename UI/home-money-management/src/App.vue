@@ -1,6 +1,7 @@
 <template>
   <v-app>
     <router-view />
+    <AppFooter />
     <v-snackbar v-for="notification in notifications" :key="notification.id" :model-value="true"
       :color="notification.status === 'failed' ? 'error' : notification.status === 'completed' ? 'success' : 'info'"
       location="bottom right" timeout="-1" multi-line>
@@ -17,6 +18,7 @@
 
 <script lang="ts" setup>
 import { onMounted } from 'vue'
+import AppFooter from '@/components/AppFooter.vue'
 import { getStoredSession } from '@/services/session'
 import { applyDocumentTheme } from '@/services/theme'
 import router from '@/router'
@@ -52,6 +54,8 @@ function openNotification(notificationId: number, reviewBatchId?: number | null)
   --bb-surface: #ffffff;
   --bb-surface-soft: #f9fafb;
   --bb-border-soft: #f3f4f6;
+  --bb-border-strong: #94a3b8;
+  --bb-field-bg: #ffffff;
   --bb-row-hover: #f9fafb;
   --bb-metric-limit: #111827;
   --bb-metric-spent: #be123c;
@@ -66,6 +70,8 @@ function openNotification(notificationId: number, reviewBatchId?: number | null)
   --bb-surface: #111827;
   --bb-surface-soft: #172033;
   --bb-border-soft: #1f2937;
+  --bb-border-strong: #334155;
+  --bb-field-bg: #1f2937;
   --bb-row-hover: #1f2937;
   --bb-metric-limit: #f8fafc;
   --bb-metric-spent: #fda4af;
@@ -466,8 +472,7 @@ function openNotification(notificationId: number, reviewBatchId?: number | null)
   color: #111827;
 }
 
-.bb-phone-nav,
-.transactions-phone-export {
+.bb-phone-nav {
   display: none;
 }
 
@@ -661,6 +666,14 @@ function openNotification(notificationId: number, reviewBatchId?: number | null)
   color: #374151;
 }
 
+/* Auth-card toggle button ("Register"/"Sign In"): .text-primary is
+   !important and keeps the light-theme green (#2e7d32), which fails
+   contrast on the dark card. Scoped to the login/register card only so
+   text buttons on colored snackbars are unaffected. */
+.app-dark .login-register-container .v-btn--variant-text {
+  color: #86efac !important;
+}
+
 .v-application .v-field {
   background: #ffffff;
   border-radius: 0.75rem !important;
@@ -676,13 +689,6 @@ function openNotification(notificationId: number, reviewBatchId?: number | null)
 .v-application .v-field--focused {
   box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.12) !important;
   transform: none !important;
-}
-
-.v-application .v-field__outline,
-.v-application .v-field__outline__start,
-.v-application .v-field__outline__notch,
-.v-application .v-field__outline__end {
-  border-radius: 0.75rem !important;
 }
 
 .v-application .v-field__outline {
@@ -712,14 +718,13 @@ function openNotification(notificationId: number, reviewBatchId?: number | null)
   color: #2E7D32 !important;
 }
 
-.v-application .v-field--variant-outlined .v-field-label--floating {
-  background: #ffffff;
-  padding: 0 0.375rem;
-  z-index: 2;
+/* Dark theme: labels must contrast against dark field/card surfaces. */
+.app-dark .v-application .v-label.v-field-label {
+  color: #cbd5e1 !important;
 }
 
-.v-application .v-field--variant-outlined .v-field__outline__notch::before {
-  border-top: 0 !important;
+.app-dark .v-application .v-field--focused .v-label.v-field-label {
+  color: #86efac !important;
 }
 
 .v-overlay-container .v-list {
@@ -768,16 +773,6 @@ function openNotification(notificationId: number, reviewBatchId?: number | null)
 
   .bb-phone-nav {
     display: block;
-  }
-
-  .transactions-header-export {
-    display: none !important;
-  }
-
-  .transactions-phone-export {
-    display: inline-flex;
-    margin-top: 0.75rem;
-    width: 100%;
   }
 
   .bb-phone-table-scroll {
