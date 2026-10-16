@@ -11,6 +11,7 @@ export interface ReviewRow {
   from_account_id?: string | null;
   to_account_id?: string | null;
   source_product_id?: string | null;
+  destination_product_id?: string | null;
   linked_transaction_id?: number | null;
   possible_matches?: unknown[];
 }
@@ -19,9 +20,20 @@ export type RowStatus = 'needs_review' | 'ready' | 'imported' | 'skipped' | 'lin
 
 /** A transfer is unresolved until it has two different ends. */
 export function rowNeedsReview(row: ReviewRow): boolean {
-  return row.transaction_type === 'Transfer'
-    && (!row.from_account_id || !row.to_account_id || row.from_account_id === row.to_account_id)
-    && !row.source_product_id;
+  // A saved review decision is authoritative. Historical or explicitly
+  // skipped rows must not remain a blocker simply because their old transfer
+  // mapping is incomplete.
+  if (row.status === 'imported' || row.status === 'skipped' || row.status === 'linked' || row.linked_transaction_id) {
+    return false;
+  }
+  if (row.transaction_type !== 'Transfer') return false;
+  const from = row.source_product_id
+    ? `product:${row.source_product_id}`
+    : row.from_account_id ? `account:${row.from_account_id}` : '';
+  const to = row.destination_product_id
+    ? `product:${row.destination_product_id}`
+    : row.to_account_id ? `account:${row.to_account_id}` : '';
+  return !from || !to || from === to;
 }
 
 export function rowStatus(row: ReviewRow): RowStatus {

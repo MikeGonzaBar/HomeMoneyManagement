@@ -40,6 +40,33 @@ function notify(item: Omit<StatementNotification, 'id'>): void {
   notifications.push({ ...item, id: Date.now() + Math.floor(Math.random() * 1000) });
 }
 
+/** How many tracked statements sit ahead of this one in the worker's FIFO queue. */
+function queuedAheadCount(statementId: number): number {
+  return trackedStatements.filter((item) => item.id < statementId).length;
+}
+
+/**
+ * Reflect the real queue position on the existing "queued" snackbar. The worker
+ * processes statements one at a time, so a backlog should read as "queued behind
+ * N" rather than the ambiguous initial "being processed" message. Only updates a
+ * snackbar that already exists (the fresh-upload announce); resumed statements
+ * intentionally stay silent to avoid stacking toasts on load.
+ */
+function updateQueuedNotification(item: TrackedStatement, processingStatus: string): void {
+  const existing = notifications.find((n) => n.statementId === item.id && n.status === 'queued');
+  if (!existing) return;
+  let message: string;
+  if (processingStatus === 'processing') {
+    message = `${item.filename} is being processed. You can keep using the app.`;
+  } else {
+    const ahead = queuedAheadCount(item.id);
+    message = ahead > 0
+      ? `${item.filename} is queued behind ${ahead} other statement${ahead === 1 ? '' : 's'}. Statements are processed one at a time — you can keep using the app.`
+      : `${item.filename} is queued and will start shortly. You can keep using the app.`;
+  }
+  if (existing.message !== message) existing.message = message;
+}
+
 function removeTracked(statementId: number): void {
   const index = trackedStatements.findIndex((item) => item.id === statementId);
   if (index >= 0) trackedStatements.splice(index, 1);
@@ -88,7 +115,17 @@ async function poll(): Promise<void> {
       }
       item.polls += 1;
       item.nextPollAt = Date.now() + (item.polls < 10 ? 3000 : 10000);
-    } catch {
+      // Still queued/in-progress: keep the live snackbar honest about its
+      // position in the one-at-a-time worker queue.
+      updateQueuedNotification(item, statement.processing_status);
+    } catch (error) {
+      // A 404 means the statement no longer exists for this user (deleted, DB
+      // reset, or a stale id left in localStorage). Stop tracking it instead of
+      // polling it forever; only genuine transient failures (network, 5xx) back off.
+      if ((error as { response?: { status?: number } }).response?.status === 404) {
+        removeTracked(item.id);
+        return;
+      }
       // Keep the job tracked across short API/container restarts, backing off
       // rather than treating an unavailable status endpoint as a failure.
       item.polls += 1;
